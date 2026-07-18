@@ -8,7 +8,7 @@ on:
 
 jobs:
   call-reusable:
-    uses: nhnacademy-aiot3-insighton/InsightOn-infra/.github/workflows/rule-engine-ci-cd.yml@feature/ci-cd-deploy
+    uses: nhnacademy-aiot3-insighton/InsightOn-infra/.github/workflows/rule-engine-ci-cd.yml@main
     permissions:
       contents: read
       packages: write
