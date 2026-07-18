@@ -1,0 +1,15 @@
+name: rule-engine CI/CD
+
+on:
+  push:
+    branches: [main, dev-deploy, dev]
+  pull_request:
+    branches: [main, dev-deploy, dev]
+
+jobs:
+  call-reusable:
+    uses: nhnacademy-aiot3-insighton/InsightOn-infra/.github/workflows/rule-engine-ci-cd.yml@feature/ci-cd-deploy
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
