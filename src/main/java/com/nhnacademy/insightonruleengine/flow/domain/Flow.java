@@ -1,6 +1,5 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.Getter;
@@ -19,6 +19,12 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "flows",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_flows_group_location_name",
+                        columnNames = {"group_id", "location_id", "name"}
+                )
+        },
         indexes = {
                 @Index(name = "idx_flows_group_id", columnList = "group_id, status"),
                 @Index(
@@ -75,12 +81,12 @@ public class Flow {
     }
 
     private static String normalizeName(String name) {
-        String normalizedName = name.trim().toLowerCase();
+        String normalizedName = Objects.requireNonNull(name, "이름은 빈 값이 될 수 없습니다.").strip();
         if (normalizedName.isEmpty()) {
-            throw new IllegalArgumentException("Name cannot be empty");
+            throw new IllegalArgumentException("이름은 공백일 수 없습니다.");
         }
         if (normalizedName.length() > MAX_NAME_LENGTH) {
-            throw new IllegalArgumentException("Name cannot be longer than " + MAX_NAME_LENGTH + " characters");
+            throw new IllegalArgumentException("이름은 " + MAX_NAME_LENGTH + "자를 초과할 수 없습니다.");
         }
         return normalizedName;
     }

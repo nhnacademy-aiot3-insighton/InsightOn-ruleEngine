@@ -12,9 +12,5 @@ public interface FlowRepository extends JpaRepository<Flow, Long> {
 
     List<Flow> findAllByGroupIdAndLocationIdAndStatus(Long groupId, Long locationId, FlowStatus status);
 
-    // 플로우는 같은 이름일 수 없지만 아카이브에 들어가 있는 플로우는 같은 이름이 될 수 있음
-    boolean existsByGroupIdAndLocationIdAndNameAndStatusNot(
-            Long groupId, Long locationId, String name, FlowStatus status
-    );
-
+    boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
 }
