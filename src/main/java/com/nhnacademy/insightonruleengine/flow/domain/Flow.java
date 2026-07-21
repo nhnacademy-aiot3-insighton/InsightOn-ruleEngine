@@ -64,7 +64,7 @@ public class Flow {
     private Instant createdDate;
 
     public Flow(Long groupId, Long locationId, String name, String description, FlowStatus status) {
-        this.groupId = Objects.requireNonNull(groupId, "그룹 아이디는 꼭 있어햐 합니다.");
+        this.groupId = Objects.requireNonNull(groupId, "그룹 아이디는 꼭 있어야 합니다.");
         this.locationId = Objects.requireNonNull(locationId, "장소는 꼭 있어야 합니다.");
         this.name = normalizeName(name);
         this.description = description;
