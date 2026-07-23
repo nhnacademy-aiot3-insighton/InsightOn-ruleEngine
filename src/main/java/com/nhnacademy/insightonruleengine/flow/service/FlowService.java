@@ -69,6 +69,7 @@ public class FlowService {
                 .orElseThrow(() -> new FlowNotFoundException(groupId, flowId));
     }
 
+    //이건 사용자가 토글 방식으로 archive상태로는 가지 못하면서 active <-> inactive 상태를 변경할수있게 해주는 로직
     @Transactional
     public FlowResponse changeActivationStatus(Long groupId, Long flowId, FlowStatusChangeRequest request) {
         Objects.requireNonNull(request, "입력값은 null이면 안됩니다.");
@@ -86,12 +87,13 @@ public class FlowService {
         flowRepository.delete(flow);
     }
 
+    //사용자가 휴지통 버튼을 누를때 기존 존재하던 플로우 상태를 Archive로 변경 후 새 플로우를 InActive 상태로 만들어 주는 로직
     @Transactional
     public FlowResponse update(Long groupId, Long flowId, FlowCreateRequest request) {
         Objects.requireNonNull(request, "입력값은 null이면 안됩니다.");
         Flow currentFlow = oneFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
-            throw new InvalidFlowStatusTransitionException(currentFlow.getStatus(), currentFlow.getStatus());
+            throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
         Flow updateFlow = new Flow(
                 groupId,
@@ -105,6 +107,7 @@ public class FlowService {
         return FlowResponse.from(flowRepository.save(updateFlow));
     }
 
+    //휴지통에 있는 Archive 상태의 플로우를 복구 시키는 로직
     @Transactional
     public FlowResponse restore(Long groupId, Long currentFlowId, Long archivedFlowId) {
         Flow currentFlow = oneFlow(groupId, currentFlowId);
@@ -131,9 +134,9 @@ public class FlowService {
     }
 
     private void validate(Flow flow) {
-        boolean nameExit = flowRepository.existsByGroupIdAndLocationIdAndName(flow.getGroupId(), flow.getLocationId(),
+        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndName(flow.getGroupId(), flow.getLocationId(),
                 flow.getName());
-        if (nameExit) {
+        if (nameExist) {
             throw new DuplicateFlowNameException(flow.getGroupId(), flow.getLocationId(), flow.getName());
         }
     }
