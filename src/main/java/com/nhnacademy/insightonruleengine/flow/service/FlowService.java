@@ -1,0 +1,157 @@
+package com.nhnacademy.insightonruleengine.flow.service;
+
+import com.nhnacademy.insightonruleengine.flow.domain.Flow;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
+import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
+import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
+import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowRestoreException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class FlowService {
+
+    private final FlowRepository flowRepository;
+
+    @Transactional
+    public FlowResponse create(Long groupId, FlowCreateRequest request) {
+        validateFlowRequest(request);
+        Flow flow = new Flow(
+                groupId,
+                request.locationId(),
+                request.name(),
+                request.description(),
+                FlowStatus.INACTIVE
+        );
+        validate(flow);
+        return FlowResponse.from(flowRepository.save(flow));
+    }
+
+    public List<FlowResponse> findAll(Long groupId) {
+        return flowRepository.findAllByGroupId(groupId)
+                .stream()
+                .map(FlowResponse::from)
+                .toList();
+    }
+
+    public List<FlowResponse> findAll(Long groupId, Long locationId) {
+        return flowRepository.findAllByGroupIdAndLocationIdAndStatus(groupId, locationId, FlowStatus.ACTIVE)
+                .stream()
+                .map(FlowResponse::from)
+                .toList();
+    }
+
+    public List<FlowResponse> findAll(Long groupId, Long locationId, FlowStatus status) {
+        return flowRepository.findAllByGroupIdAndLocationIdAndStatus(groupId, locationId, status)
+                .stream()
+                .map(FlowResponse::from)
+                .toList();
+    }
+
+    public FlowResponse findById(Long groupId, Long flowId) {
+        return FlowResponse.from(oneFlow(groupId, flowId));
+    }
+
+    private Flow oneFlow(Long groupId, Long flowId) {
+        return flowRepository.findById(flowId)
+                .filter(flow -> flow.getGroupId().equals(groupId))
+                .orElseThrow(() -> new FlowNotFoundException(groupId, flowId));
+    }
+
+    //이건 사용자가 토글 방식으로 archive상태로는 가지 못하면서 active <-> inactive 상태를 변경할수있게 해주는 로직
+    @Transactional
+    public FlowResponse changeActivationStatus(Long groupId, Long flowId, FlowStatusChangeRequest request) {
+        validatedFlowStatusChangeRequest(request);
+        Flow flow = oneFlow(groupId, flowId);
+        flow.changeActivationStatus(request.status());
+        return FlowResponse.from(flow);
+    }
+
+    @Transactional
+    public void delete(Long groupId, Long flowId) {
+        Flow flow = oneFlow(groupId, flowId);
+        if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
+            throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
+        }
+        flowRepository.delete(flow);
+    }
+
+    //사용자가 휴지통 버튼을 누를때 기존 존재하던 플로우 상태를 Archive로 변경 후 새 플로우를 InActive 상태로 만들어 주는 로직
+    @Transactional
+    public FlowResponse update(Long groupId, Long flowId, FlowCreateRequest request) {
+        validateFlowRequest(request);
+        Flow currentFlow = oneFlow(groupId, flowId);
+        if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
+            throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
+        }
+        Flow updateFlow = new Flow(
+                groupId,
+                request.locationId(),
+                request.name(),
+                request.description(),
+                FlowStatus.INACTIVE
+        );
+        validate(updateFlow);
+        currentFlow.archive();
+        return FlowResponse.from(flowRepository.save(updateFlow));
+    }
+
+    //휴지통에 있는 Archive 상태의 플로우를 복구 시키는 로직
+    @Transactional
+    public FlowResponse restore(Long groupId, Long currentFlowId, Long archivedFlowId) {
+        Flow currentFlow = oneFlow(groupId, currentFlowId);
+        Flow archivedFlow = oneFlow(groupId, archivedFlowId);
+
+        boolean sameFlow = currentFlow == archivedFlow
+                || (currentFlow.getId() != null && currentFlow.getId().equals(archivedFlow.getId()));
+        if (sameFlow) {
+            throw new InvalidFlowRestoreException("Current and archived Flow must be different");
+        }
+        if (!currentFlow.getLocationId().equals(archivedFlow.getLocationId())) {
+            throw new InvalidFlowRestoreException("Flows must belong to the same location");
+        }
+        if (currentFlow.getStatus() == FlowStatus.ARCHIVED) {
+            throw new InvalidFlowStatusTransitionException(currentFlow.getStatus(), FlowStatus.ARCHIVED);
+        }
+        if (archivedFlow.getStatus() != FlowStatus.ARCHIVED) {
+            throw new InvalidFlowStatusTransitionException(archivedFlow.getStatus(), FlowStatus.INACTIVE);
+        }
+
+        currentFlow.archive();
+        archivedFlow.restore();
+        return FlowResponse.from(archivedFlow);
+    }
+
+    private void validate(Flow flow) {
+        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndName(
+                flow.getGroupId(),
+                flow.getLocationId(),
+                flow.getName());
+        if (nameExist) {
+            throw new DuplicateFlowNameException(flow.getGroupId(), flow.getLocationId(), flow.getName());
+        }
+    }
+
+    private void validateFlowRequest(FlowCreateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
+        }
+    }
+
+    private void validatedFlowStatusChangeRequest(FlowStatusChangeRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
+        }
+    }
+
+}

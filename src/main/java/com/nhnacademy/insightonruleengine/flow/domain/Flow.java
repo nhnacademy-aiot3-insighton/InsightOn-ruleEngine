@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,8 +12,9 @@ import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.Instant;
-import java.util.Objects;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -34,7 +36,7 @@ import lombok.NoArgsConstructor;
         }
 )
 @Getter
-@NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Flow {
 
     private static final int MAX_NAME_LENGTH = 100;
@@ -61,33 +63,60 @@ public class Flow {
     private FlowStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdDate;
+    private OffsetDateTime createdDate;
 
     public Flow(Long groupId, Long locationId, String name, String description, FlowStatus status) {
-        this.groupId = Objects.requireNonNull(groupId, "그룹 아이디는 꼭 있어야 합니다.");
-        this.locationId = Objects.requireNonNull(locationId, "장소는 꼭 있어야 합니다.");
-        this.name = normalizeName(name);
+        if (groupId == null) {
+            throw new IllegalArgumentException("그룹아이디는 필수입니다.");
+        }
+        this.groupId = groupId;
+        if (locationId == null) {
+            throw new IllegalArgumentException("장소아이디는 필수입니다.");
+        }
+        this.locationId = locationId;
+        this.name = validationName(name);
         this.description = description;
-        this.status = Objects.requireNonNull(status, "상태는 빈 값이 될 수 없습니다.");
+        if (status == null) {
+            throw new IllegalArgumentException("상태값은 필수입니다.");
+        }
+        this.status = status;
+    }
+
+    public void changeActivationStatus(FlowStatus flowStatus) {
+        if (flowStatus == null) {
+            throw new IllegalArgumentException("상태값은 null이 될 수 없습니다.");
+        }
+        boolean canChange = status.equals(FlowStatus.ACTIVE) && flowStatus.equals(FlowStatus.INACTIVE)
+                || status.equals(FlowStatus.INACTIVE) && flowStatus.equals(FlowStatus.ACTIVE);
+        if (!canChange) {
+            throw new InvalidFlowStatusTransitionException(status, flowStatus);
+        }
+        status = flowStatus;
     }
 
     public void archive() {
         status = FlowStatus.ARCHIVED;
     }
 
-    @PrePersist
-    private void onCreate() {
-        createdDate = Instant.now();
+    public void restore() {
+        if (!status.equals(FlowStatus.ARCHIVED)) {
+            throw new InvalidFlowStatusTransitionException(status, FlowStatus.INACTIVE);
+        }
+        status = FlowStatus.INACTIVE;
     }
 
-    private static String normalizeName(String name) {
-        String normalizedName = Objects.requireNonNull(name, "이름은 빈 값이 될 수 없습니다.").strip();
-        if (normalizedName.isEmpty()) {
+    @PrePersist
+    private void onCreate() {
+        createdDate = OffsetDateTime.now(ZoneId.systemDefault());
+    }
+
+    private String validationName(String name) {
+        if (name.isBlank()) {
             throw new IllegalArgumentException("이름은 공백일 수 없습니다.");
         }
-        if (normalizedName.length() > MAX_NAME_LENGTH) {
+        if (name.length() > MAX_NAME_LENGTH) {
             throw new IllegalArgumentException("이름은 " + MAX_NAME_LENGTH + "자를 초과할 수 없습니다.");
         }
-        return normalizedName;
+        return name;
     }
 }
