@@ -13,7 +13,7 @@ public record FlowResponse(
         FlowStatus status,
         Instant createdDate
 ) {
-    public static FlowResponse create(Flow flow) {
+    public static FlowResponse from(Flow flow) {
         return new FlowResponse(
                 flow.getId(),
                 flow.getGroupId(),

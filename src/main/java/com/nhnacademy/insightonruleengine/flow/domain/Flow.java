@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -71,8 +72,25 @@ public class Flow {
         this.status = Objects.requireNonNull(status, "상태는 빈 값이 될 수 없습니다.");
     }
 
+    public void changeActivationStatus(FlowStatus flowStatus) {
+        FlowStatus targetStatus = Objects.requireNonNull(flowStatus, "상태값은 null이 될 수 없습니다.");
+        boolean canChange = status.equals(FlowStatus.ACTIVE) && targetStatus.equals(FlowStatus.INACTIVE)
+                || status.equals(FlowStatus.INACTIVE) && targetStatus.equals(FlowStatus.ACTIVE);
+        if (!canChange) {
+            throw new InvalidFlowStatusTransitionException(status, targetStatus);
+        }
+        status = targetStatus;
+    }
+
     public void archive() {
         status = FlowStatus.ARCHIVED;
+    }
+
+    public void restore() {
+        if (!status.equals(FlowStatus.ARCHIVED)) {
+            throw new InvalidFlowStatusTransitionException(status, FlowStatus.INACTIVE);
+        }
+        status = FlowStatus.INACTIVE;
     }
 
     @PrePersist

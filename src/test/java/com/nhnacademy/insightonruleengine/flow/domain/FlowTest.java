@@ -49,4 +49,14 @@ class FlowTest {
         Assertions.assertEquals("테스트", testFlow.getDescription());
     }
 
+    @Test
+    @DisplayName("보관된 Flow를 INACTIVE 상태로 복구한다")
+    void restoreFlowAsInactive() {
+        Flow flow = new Flow(1L, 1L, "테스트", "테스트", FlowStatus.ARCHIVED);
+
+        flow.restore();
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, flow.getStatus());
+    }
+
 }
