@@ -12,7 +12,6 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowRestoreExcep
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import java.util.List;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +25,7 @@ public class FlowService {
 
     @Transactional
     public FlowResponse create(Long groupId, FlowCreateRequest request) {
-        Objects.requireNonNull(request, "입력값은 null이면 안됩니다");
+        validateFlowRequest(request);
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -72,7 +71,7 @@ public class FlowService {
     //이건 사용자가 토글 방식으로 archive상태로는 가지 못하면서 active <-> inactive 상태를 변경할수있게 해주는 로직
     @Transactional
     public FlowResponse changeActivationStatus(Long groupId, Long flowId, FlowStatusChangeRequest request) {
-        Objects.requireNonNull(request, "입력값은 null이면 안됩니다.");
+        validatedFlowStatusChangeRequest(request);
         Flow flow = oneFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
         return FlowResponse.from(flow);
@@ -90,7 +89,7 @@ public class FlowService {
     //사용자가 휴지통 버튼을 누를때 기존 존재하던 플로우 상태를 Archive로 변경 후 새 플로우를 InActive 상태로 만들어 주는 로직
     @Transactional
     public FlowResponse update(Long groupId, Long flowId, FlowCreateRequest request) {
-        Objects.requireNonNull(request, "입력값은 null이면 안됩니다.");
+        validateFlowRequest(request);
         Flow currentFlow = oneFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
@@ -134,10 +133,24 @@ public class FlowService {
     }
 
     private void validate(Flow flow) {
-        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndName(flow.getGroupId(), flow.getLocationId(),
+        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndName(
+                flow.getGroupId(),
+                flow.getLocationId(),
                 flow.getName());
         if (nameExist) {
             throw new DuplicateFlowNameException(flow.getGroupId(), flow.getLocationId(), flow.getName());
+        }
+    }
+
+    private void validateFlowRequest(FlowCreateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
+        }
+    }
+
+    private void validatedFlowStatusChangeRequest(FlowStatusChangeRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
         }
     }
 
