@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FlowRepository extends JpaRepository<Flow, Long> {
-    List<Flow> findAllByGroupId(Long groupId);
+    List<Flow> findAllByGroupIdAndStatusNot(Long groupId, FlowStatus status);
 
     List<Flow> findAllByGroupIdAndStatus(Long groupId, FlowStatus status);
 
