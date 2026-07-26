@@ -37,7 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(FlowController.class)
 class FlowControllerTest {
 
-    private static final String BASE_PATH = "/api/v1/rule/groups/{groupId}/flows";
+    private static final String BASE_PATH = "/api/v1/engine/groups/{groupId}/flows";
 
     @Autowired
     private MockMvc mockMvc;
