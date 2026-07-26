@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/rule/groups/{groupId}/flows")
+@RequestMapping("/api/v1/engine/groups/{groupId}/flows")
 public class FlowController {
 
     private final FlowService flowService;
