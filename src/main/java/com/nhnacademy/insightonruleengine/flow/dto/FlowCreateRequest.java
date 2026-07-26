@@ -11,5 +11,7 @@ public record FlowCreateRequest(
         @Size(max = 100)
         String name,
         String description
+        //List<NodeRequest> nodes,
+        //List<LinkRequest> links
 ) {
 }

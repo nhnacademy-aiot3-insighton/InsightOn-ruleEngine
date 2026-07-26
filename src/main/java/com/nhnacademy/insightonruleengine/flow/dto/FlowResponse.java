@@ -14,7 +14,7 @@ public record FlowResponse(
         OffsetDateTime createdAt
 ) {
 
-    // JPA Entity를 API 밖에 직접 노출하지 않도록 응답 계약으로 변환한다.
+    // 저장된 Flow를 API 응답값으로 바꿉니다.
     public static FlowResponse from(Flow flow) {
         return new FlowResponse(
                 flow.getId(),

@@ -25,12 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/groups/{groupId}/flows")
+@RequestMapping("/api/v1/rule/groups/{groupId}/flows")
 public class FlowController {
 
     private final FlowService flowService;
 
-    // 생성 성공을 201로 구분해 클라이언트가 새 Flow 저장을 확인할 수 있게 한다.
+    // Flow를 만들고 생성 성공 상태인 201을 반환합니다.
     @PostMapping
     public ResponseEntity<FlowResponse> createFlow(
             @PathVariable Long groupId,
@@ -39,7 +39,7 @@ public class FlowController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // 허용된 Query 조합만 Service 조회 메서드에 연결해 목록 계약을 고정한다.
+    // 입력한 조회 조건에 맞는 Flow 목록을 반환합니다.
     @GetMapping
     public List<FlowResponse> findAll(
             @PathVariable Long groupId,
@@ -57,7 +57,7 @@ public class FlowController {
         return flowService.findAll(groupId, locationId, status);
     }
 
-    // 보관된 Flow도 이력 화면에서 같은 응답으로 읽을 수 있게 한다.
+    // 휴지통에 있는 Flow를 포함해 상세 정보를 조회합니다.
     @GetMapping("/{flowId}")
     public FlowResponse findById(
             @PathVariable Long groupId,
@@ -65,7 +65,7 @@ public class FlowController {
         return flowService.findById(groupId, flowId);
     }
 
-    // 일부 상태만 바꾸는 요청이므로 PATCH로 활성화와 비활성화를 제공한다.
+    // Flow를 ACTIVE 또는 INACTIVE 상태로 변경합니다.
     @PatchMapping("/{flowId}/status")
     public FlowResponse changeStatus(
             @PathVariable Long groupId,
@@ -74,7 +74,7 @@ public class FlowController {
         return flowService.changeActivationStatus(groupId, flowId, request);
     }
 
-    // 수정된 전체 Flow를 새 행으로 저장하므로 수정 전용 DTO를 PUT 요청으로 전달한다.
+    // 기존 Flow를 보관하고 수정한 내용을 새 Flow로 저장합니다.
     @PutMapping("/{flowId}")
     public FlowResponse update(
             @PathVariable Long groupId,
@@ -83,7 +83,7 @@ public class FlowController {
         return flowService.update(groupId, flowId, request);
     }
 
-    // 요청 Body 없이 경로로 선택한 보관 Flow 하나만 다시 꺼낸다.
+    // 휴지통에서 선택한 Flow를 INACTIVE 상태로 복구합니다.
     @PostMapping("/{archivedFlowId}/restore")
     public FlowResponse restore(
             @PathVariable Long groupId,
@@ -91,7 +91,7 @@ public class FlowController {
         return flowService.restore(groupId, archivedFlowId);
     }
 
-    // 보관 Flow의 영구 삭제 성공은 응답 본문 없이 204로 알린다.
+    // 휴지통의 Flow를 삭제하고 본문 없이 204를 반환합니다.
     @DeleteMapping("/{flowId}")
     public ResponseEntity<Void> delete(
             @PathVariable Long groupId,
