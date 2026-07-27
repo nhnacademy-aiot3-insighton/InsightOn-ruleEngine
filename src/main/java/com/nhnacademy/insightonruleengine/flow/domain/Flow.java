@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
@@ -80,6 +79,7 @@ public class Flow {
             throw new IllegalArgumentException("상태값은 필수입니다.");
         }
         this.status = status;
+        this.createdDate = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     public void changeActivationStatus(FlowStatus flowStatus) {
@@ -103,11 +103,6 @@ public class Flow {
             throw new InvalidFlowStatusTransitionException(status, FlowStatus.INACTIVE);
         }
         status = FlowStatus.INACTIVE;
-    }
-
-    @PrePersist
-    private void onCreate() {
-        createdDate = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     private String validationName(String name) {
