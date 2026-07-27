@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -66,7 +65,7 @@ public class FlowController {
     }
 
     // Flow를 ACTIVE 또는 INACTIVE 상태로 변경합니다.
-    @PatchMapping("/{flowId}/status")
+    @PutMapping("/{flowId}/status")
     public FlowResponse changeStatus(
             @PathVariable Long groupId,
             @PathVariable Long flowId,
