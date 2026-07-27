@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(FlowController.class)
 class FlowControllerTest {
 
-    private static final String BASE_PATH = "/api/v1/engine/groups/{groupId}/flows";
+    private static final String BASE_PATH = "/api/v1/flows";
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,7 +50,8 @@ class FlowControllerTest {
         FlowCreateRequest request = new FlowCreateRequest(10L, "온도 경고", "30도 이상 경고");
         when(flowService.create(1L, request)).thenReturn(response(101L, FlowStatus.INACTIVE));
 
-        mockMvc.perform(post(BASE_PATH, 1L)
+        mockMvc.perform(post(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -68,11 +69,23 @@ class FlowControllerTest {
     }
 
     @Test
-    @DisplayName("Query가 없으면 ARCHIVED를 제외하는 기본 목록을 호출한다")
+    @DisplayName("필수 groupId Query가 없으면 Service 호출 전에 400으로 거부한다")
+    void rejectMissingGroupId() throws Exception {
+        mockMvc.perform(get(BASE_PATH))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
+
+        verifyNoInteractions(flowService);
+    }
+
+    @Test
+    @DisplayName("선택 조회 조건이 없으면 ARCHIVED를 제외하는 기본 목록을 호출한다")
     void findDefaultList() throws Exception {
         when(flowService.findAll(1L)).thenReturn(List.of(response(101L, FlowStatus.ACTIVE)));
 
-        mockMvc.perform(get(BASE_PATH, 1L))
+        mockMvc.perform(get(BASE_PATH)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].flowId").value(101L));
 
@@ -85,7 +98,8 @@ class FlowControllerTest {
         when(flowService.findAll(1L, FlowStatus.ARCHIVED))
                 .thenReturn(List.of(response(101L, FlowStatus.ARCHIVED)));
 
-        mockMvc.perform(get(BASE_PATH, 1L)
+        mockMvc.perform(get(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .queryParam("status", "ARCHIVED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("ARCHIVED"));
@@ -99,7 +113,8 @@ class FlowControllerTest {
         when(flowService.findAll(1L, 10L, FlowStatus.ACTIVE))
                 .thenReturn(List.of(response(101L, FlowStatus.ACTIVE)));
 
-        mockMvc.perform(get(BASE_PATH, 1L)
+        mockMvc.perform(get(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .queryParam("locationId", "10")
                         .queryParam("status", "ACTIVE"))
                 .andExpect(status().isOk());
@@ -110,7 +125,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("locationId만 지정한 목록 요청은 400으로 거부한다")
     void rejectLocationOnlyQuery() throws Exception {
-        mockMvc.perform(get(BASE_PATH, 1L)
+        mockMvc.perform(get(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .queryParam("locationId", "10"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
@@ -127,7 +143,8 @@ class FlowControllerTest {
     void findArchivedFlow() throws Exception {
         when(flowService.findById(1L, 101L)).thenReturn(response(101L, FlowStatus.ARCHIVED));
 
-        mockMvc.perform(get(BASE_PATH + "/{flowId}", 1L, 101L))
+        mockMvc.perform(get(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.flowId").value(101L))
                 .andExpect(jsonPath("$.status").value("ARCHIVED"));
@@ -142,7 +159,8 @@ class FlowControllerTest {
         when(flowService.changeActivationStatus(1L, 101L, request))
                 .thenReturn(response(101L, FlowStatus.ACTIVE));
 
-        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "ACTIVE"}
@@ -159,7 +177,8 @@ class FlowControllerTest {
         FlowUpdateRequest request = new FlowUpdateRequest("온도 경고 v2", "수정 설명");
         when(flowService.update(1L, 101L, request)).thenReturn(response(102L, FlowStatus.INACTIVE));
 
-        mockMvc.perform(put(BASE_PATH + "/{flowId}", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -179,7 +198,8 @@ class FlowControllerTest {
     void restoreFlow() throws Exception {
         when(flowService.restore(1L, 101L)).thenReturn(response(101L, FlowStatus.INACTIVE));
 
-        mockMvc.perform(post(BASE_PATH + "/{archivedFlowId}/restore", 1L, 101L))
+        mockMvc.perform(post(BASE_PATH + "/{archivedFlowId}/restore", 101L)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.flowId").value(101L))
                 .andExpect(jsonPath("$.status").value("INACTIVE"));
@@ -190,7 +210,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("보관 Flow 삭제 성공은 본문 없는 204를 반환한다")
     void deleteFlow() throws Exception {
-        mockMvc.perform(delete(BASE_PATH + "/{flowId}", 1L, 101L))
+        mockMvc.perform(delete(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -200,7 +221,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("필수 생성값이 없으면 Service 호출 전에 400으로 거부한다")
     void rejectInvalidCreateRequest() throws Exception {
-        mockMvc.perform(post(BASE_PATH, 1L)
+        mockMvc.perform(post(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": " "}
@@ -217,7 +239,8 @@ class FlowControllerTest {
     void rejectLongCreateName() throws Exception {
         String longName = "가".repeat(101);
 
-        mockMvc.perform(post(BASE_PATH, 1L)
+        mockMvc.perform(post(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -234,7 +257,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("공백인 수정 이름은 Service 호출 전에 400으로 거부한다")
     void rejectBlankUpdateName() throws Exception {
-        mockMvc.perform(put(BASE_PATH + "/{flowId}", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name": " "}
@@ -248,7 +272,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("상태가 누락된 변경 요청은 Service 호출 전에 400으로 거부한다")
     void rejectMissingStatus() throws Exception {
-        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -260,7 +285,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("읽을 수 없는 JSON은 내부 메시지 없이 공통 400을 반환한다")
     void rejectMalformedJson() throws Exception {
-        mockMvc.perform(post(BASE_PATH, 1L)
+        mockMvc.perform(post(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"locationId": "1L"}
@@ -275,7 +301,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("잘못된 enum은 내부 변환 메시지 없이 공통 400을 반환한다")
     void rejectInvalidStatusEnum() throws Exception {
-        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "RUNNING"}
@@ -293,7 +320,8 @@ class FlowControllerTest {
         FlowNotFoundException exception = new FlowNotFoundException(1L, 101L);
         when(flowService.findById(1L, 101L)).thenThrow(exception);
 
-        mockMvc.perform(get(BASE_PATH + "/{flowId}", 1L, 101L))
+        mockMvc.perform(get(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value(exception.getMessage()));
@@ -306,7 +334,8 @@ class FlowControllerTest {
         DuplicateFlowNameException exception = new DuplicateFlowNameException(1L, 10L, "온도 경고");
         when(flowService.create(1L, request)).thenThrow(exception);
 
-        mockMvc.perform(post(BASE_PATH, 1L)
+        mockMvc.perform(post(BASE_PATH)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -327,7 +356,8 @@ class FlowControllerTest {
                 new InvalidFlowStatusTransitionException(FlowStatus.ACTIVE, FlowStatus.ARCHIVED);
         when(flowService.changeActivationStatus(1L, 101L, request)).thenThrow(exception);
 
-        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 101L)
+                        .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "ARCHIVED"}
@@ -344,7 +374,8 @@ class FlowControllerTest {
                 new FlowDeletionNotAllowedException(101L, FlowStatus.ACTIVE);
         doThrow(exception).when(flowService).delete(1L, 101L);
 
-        mockMvc.perform(delete(BASE_PATH + "/{flowId}", 1L, 101L))
+        mockMvc.perform(delete(BASE_PATH + "/{flowId}", 101L)
+                        .queryParam("groupId", "1"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.message").value(exception.getMessage()));
