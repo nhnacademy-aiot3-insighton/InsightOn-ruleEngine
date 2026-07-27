@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -137,13 +136,13 @@ class FlowControllerTest {
     }
 
     @Test
-    @DisplayName("상태 변경 요청은 PATCH의 경로와 상태를 Service에 전달한다")
+    @DisplayName("상태 변경 요청은 PUT의 경로와 상태를 Service에 전달한다")
     void changeFlowStatus() throws Exception {
         FlowStatusChangeRequest request = new FlowStatusChangeRequest(FlowStatus.ACTIVE);
         when(flowService.changeActivationStatus(1L, 101L, request))
                 .thenReturn(response(101L, FlowStatus.ACTIVE));
 
-        mockMvc.perform(patch(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "ACTIVE"}
@@ -155,7 +154,7 @@ class FlowControllerTest {
     }
 
     @Test
-    @DisplayName("Flow 수정 요청은 PUT으로 수정 전용 값을 전달한다")
+    @DisplayName("Flow 수정 요청")
     void updateFlow() throws Exception {
         FlowUpdateRequest request = new FlowUpdateRequest("온도 경고 v2", "수정 설명");
         when(flowService.update(1L, 101L, request)).thenReturn(response(102L, FlowStatus.INACTIVE));
@@ -249,7 +248,7 @@ class FlowControllerTest {
     @Test
     @DisplayName("상태가 누락된 변경 요청은 Service 호출 전에 400으로 거부한다")
     void rejectMissingStatus() throws Exception {
-        mockMvc.perform(patch(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -276,7 +275,7 @@ class FlowControllerTest {
     @Test
     @DisplayName("잘못된 enum은 내부 변환 메시지 없이 공통 400을 반환한다")
     void rejectInvalidStatusEnum() throws Exception {
-        mockMvc.perform(patch(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "RUNNING"}
@@ -328,7 +327,7 @@ class FlowControllerTest {
                 new InvalidFlowStatusTransitionException(FlowStatus.ACTIVE, FlowStatus.ARCHIVED);
         when(flowService.changeActivationStatus(1L, 101L, request)).thenThrow(exception);
 
-        mockMvc.perform(patch(BASE_PATH + "/{flowId}/status", 1L, 101L)
+        mockMvc.perform(put(BASE_PATH + "/{flowId}/status", 1L, 101L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status": "ARCHIVED"}
