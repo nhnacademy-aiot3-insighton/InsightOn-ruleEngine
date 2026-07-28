@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.common.exception;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowQueryException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import org.springframework.http.HttpStatus;
@@ -60,5 +61,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "요청값이 올바르지 않습니다."));
+    }
+
+    //권한 실패를 안정적인 공통 403 응답
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        HttpStatus.FORBIDDEN.value(),
+                        exception.getMessage()
+                ));
     }
 }
