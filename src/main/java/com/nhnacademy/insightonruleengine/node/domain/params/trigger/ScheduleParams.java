@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain.params.filter;
+package com.nhnacademy.insightonruleengine.node.domain.params.trigger;
 
 import com.nhnacademy.insightonruleengine.node.domain.params.NodeParams;
 import jakarta.validation.constraints.NotBlank;
