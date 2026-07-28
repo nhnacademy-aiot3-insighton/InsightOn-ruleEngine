@@ -5,11 +5,11 @@ import com.nhnacademy.insightonruleengine.node.domain.params.action.AiSuggestion
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ControlParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.ScheduleParams;
+import com.nhnacademy.insightonruleengine.node.domain.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.trigger.SensorParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.trigger.TimerParams;
+import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimerParams;
 
 /**
  *
