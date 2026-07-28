@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.node.domain;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -56,9 +57,9 @@ public class Node {
     @NotBlank
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "configuration", columnDefinition = "jsonb", nullable = false)
-    private String configuration;
+    private JsonNode configuration;
 
-    public Node(Long flowId, NodeType nodeType, String name, String configuration) {
+    public Node(Long flowId, NodeType nodeType, String name, JsonNode configuration) {
         this.flowId = flowId;
         this.nodeType = nodeType;
         this.name = name;
@@ -74,9 +75,19 @@ public class Node {
         this.name = newName;
     }
 
-    public void updateConfiguration(String newConfiguration) {
+    public void updateConfiguration(JsonNode newConfiguration) {
         this.configuration = newConfiguration;
     }
-    
-    
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Node other)) return false;
+        return id != null && id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
