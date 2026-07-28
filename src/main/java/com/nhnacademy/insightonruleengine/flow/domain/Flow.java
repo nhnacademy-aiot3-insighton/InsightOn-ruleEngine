@@ -9,11 +9,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -80,6 +79,7 @@ public class Flow {
             throw new IllegalArgumentException("상태값은 필수입니다.");
         }
         this.status = status;
+        this.createdDate = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     public void changeActivationStatus(FlowStatus flowStatus) {
@@ -105,18 +105,17 @@ public class Flow {
         status = FlowStatus.INACTIVE;
     }
 
-    @PrePersist
-    private void onCreate() {
-        createdDate = OffsetDateTime.now(ZoneId.systemDefault());
-    }
-
     private String validationName(String name) {
-        if (name.isBlank()) {
+        if (name == null) {
+            throw new IllegalArgumentException("이름은 필수입니다.");
+        }
+        String normalizedName = name.strip();
+        if (normalizedName.isBlank()) {
             throw new IllegalArgumentException("이름은 공백일 수 없습니다.");
         }
-        if (name.length() > MAX_NAME_LENGTH) {
+        if (normalizedName.length() > MAX_NAME_LENGTH) {
             throw new IllegalArgumentException("이름은 " + MAX_NAME_LENGTH + "자를 초과할 수 없습니다.");
         }
-        return name;
+        return normalizedName;
     }
 }
