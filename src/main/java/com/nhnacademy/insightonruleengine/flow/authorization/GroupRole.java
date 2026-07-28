@@ -16,6 +16,6 @@ public enum GroupRole {
         if (minimum == null) {
             throw new IllegalArgumentException("그룹 역할은 null이면 안됩니다.");
         }
-        return this.ordinal <= minimum.ordinal();
+        return this.ordinal >= minimum.ordinal();
     }
 }
