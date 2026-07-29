@@ -15,9 +15,15 @@ public class GroupAuthorizationService {
         try {
             GroupMemberResponse member = coreGroupClient.getGroupMemberByUserId(groupId, userId);
 
+            if (member == null) {
+                throw new ForbiddenException("Core에서 그룹 멤버 정보를 확인할 수 없습니다.");
+            }
             if (!groupId.equals(member.groupId())) {
                 throw new ForbiddenException(
                         "Core 응답의 groupId가 요청과 다릅니다. requested:" + groupId + ", returned:" + member.groupId());
+            }
+            if (member.groupRole() == null) {
+                throw new ForbiddenException("Core 응답에서 그룹 역할을 확인할 수 없습니다.");
             }
 
             return member.groupRole();
