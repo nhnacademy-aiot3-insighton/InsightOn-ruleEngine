@@ -10,6 +10,8 @@ import jakarta.validation.constraints.NotBlank;
  *
  */
 public record ExternalNotificationParams(
-        @NotBlank String channel   // "TELEGRAM" | "EMAIL"
+        @NotBlank 
+        @Pattern(regexp = "TELEGRAM|EMAIL")
+        String channel   // "TELEGRAM" | "EMAIL"
 ) implements NodeParams {
 }

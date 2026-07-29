@@ -57,7 +57,7 @@ public class Node {
      * 실제 타입 있는 객체로의 변환은 이 클래스가 아니라
      * {@code node.parser.NodeParamsParser}가 담당
      */
-    @NotBlank
+    @NotNull
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "configuration", columnDefinition = "jsonb", nullable = false)
     private JsonNode configuration;
