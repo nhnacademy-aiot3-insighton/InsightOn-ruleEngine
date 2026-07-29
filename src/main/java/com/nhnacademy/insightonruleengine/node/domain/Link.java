@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,13 @@ import lombok.NoArgsConstructor;
 /**
  */
 @Entity
-@Table(name = "links")
+@Table(
+        name = "links",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_links_flow_source_port",
+                columnNames = {"flow_id", "source_node_id", "source_port"}
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Link {
@@ -32,10 +39,10 @@ public class Link {
     @Column(name = "target_node_id", nullable = false)
     private Long targetNodeId;
 
-    @Column(name = "source_port", nullable = false, length = 20)
+    @Column(name = "source_port", nullable = false, length = 50)
     private String sourcePort;
 
-    @Column(name = "target_port", nullable = false, length = 20)
+    @Column(name = "target_port", nullable = false, length = 50)
     private String targetPort;
 
     public Link(Long flowId, Long sourceNodeId, String sourcePort, Long targetNodeId, String targetPort) {
