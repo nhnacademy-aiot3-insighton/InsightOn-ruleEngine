@@ -1,7 +1,11 @@
 package com.nhnacademy.insightonruleengine.flow.exception;
 
-public class ForbiddenException extends RuntimeException {
+import com.nhnacademy.insightonruleengine.common.exception.EngineException;
+import com.nhnacademy.insightonruleengine.common.exception.ErrorCode;
+
+public class ForbiddenException extends EngineException {
+
     public ForbiddenException(String message) {
-        super(message);
+        super(ErrorCode.FLOW_FORBIDDEN, message);
     }
 }
