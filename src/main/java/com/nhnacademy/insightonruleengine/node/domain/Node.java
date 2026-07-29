@@ -46,6 +46,9 @@ public class Node {
     @Column(name = "node_type", nullable = false, length = 50)
     private NodeType nodeType;
 
+    /**
+     * ERD 설계 당시 name은 과거 흔적. 사용자에게 캔버스를 제공해주는 것을 상정했을 때의 흔적임. 아마 삭제가 될 것 같음
+     */
     @Column(name = "name")
     private String name;
 
