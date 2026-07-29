@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -28,6 +30,9 @@ class FlowServiceIntegrationTest {
 
     @Autowired
     private FlowRepository flowRepository;
+
+    @MockitoBean
+    private GroupAuthorizationService groupAuthorizationService;
 
     @Autowired
     private EntityManager entityManager;
@@ -42,6 +47,7 @@ class FlowServiceIntegrationTest {
 
         FlowResponse response = flowService.update(
                 1L,
+                100L,
                 currentFlowId,
                 new FlowUpdateRequest(" 온도 경고 v2 ", "수정 설명")
         );
@@ -67,7 +73,7 @@ class FlowServiceIntegrationTest {
         Long archivedFlowId = archivedFlow.getId();
         long beforeCount = flowRepository.count();
 
-        FlowResponse response = flowService.restore(1L, archivedFlowId);
+        FlowResponse response = flowService.restore(1L, 100L, archivedFlowId);
         entityManager.flush();
         entityManager.clear();
 
@@ -93,6 +99,7 @@ class FlowServiceIntegrationTest {
                 DuplicateFlowNameException.class,
                 () -> flowService.update(
                         1L,
+                        100L,
                         currentFlowId,
                         new FlowUpdateRequest("온도 경고 v2", null)
                 )

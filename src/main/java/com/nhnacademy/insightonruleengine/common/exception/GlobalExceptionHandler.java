@@ -1,9 +1,12 @@
 package com.nhnacademy.insightonruleengine.common.exception;
 
+import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
+import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -27,6 +30,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             BindException.class,
             HttpMessageNotReadableException.class,
+            MissingRequestHeaderException.class,
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class,
             IllegalArgumentException.class
@@ -34,5 +38,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "요청값이 올바르지 않습니다."));
+    }
+
+    //권한 실패를 안정적인 공통 403 응답
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        HttpStatus.FORBIDDEN.value(),
+                        exception.getMessage()
+                ));
+    }
+
+    // Core의 잘못된 응답을 사용자 권한 부족과 구분해 외부 의존성 오류로 반환합니다.
+    @ExceptionHandler(CoreDependencyException.class)
+    public ResponseEntity<ErrorResponse> handleCoreDependency(CoreDependencyException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), exception.getMessage()));
     }
 }

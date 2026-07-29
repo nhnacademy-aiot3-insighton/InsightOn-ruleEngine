@@ -1,5 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.service;
 
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
@@ -22,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class FlowService {
 
     private final FlowRepository flowRepository;
+    private final GroupAuthorizationService groupAuthorizationService;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
-    public FlowResponse create(Long groupId, FlowCreateRequest request) {
+    public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
         Flow flow = new Flow(
                 groupId,
@@ -38,7 +42,8 @@ public class FlowService {
     }
 
     // 일반 목록에서는 휴지통의 Flow를 제외합니다.
-    public List<FlowResponse> findAll(Long groupId) {
+    public List<FlowResponse> findAll(Long groupId, Long userId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndStatusNot(groupId, FlowStatus.ARCHIVED)
                 .stream()
                 .map(FlowResponse::from)
@@ -46,7 +51,8 @@ public class FlowService {
     }
 
     // 선택한 상태의 Flow만 조회합니다.
-    public List<FlowResponse> findAll(Long groupId, FlowStatus status) {
+    public List<FlowResponse> findAll(Long groupId, Long userId, FlowStatus status) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndStatus(groupId, status)
                 .stream()
                 .map(FlowResponse::from)
@@ -54,7 +60,8 @@ public class FlowService {
     }
 
     // 선택한 그룹, 장소, 상태에 맞는 Flow만 조회합니다.
-    public List<FlowResponse> findAll(Long groupId, Long locationId, FlowStatus status) {
+    public List<FlowResponse> findAll(Long groupId, Long userId, Long locationId, FlowStatus status) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndLocationIdAndStatus(groupId, locationId, status)
                 .stream()
                 .map(FlowResponse::from)
@@ -62,7 +69,8 @@ public class FlowService {
     }
 
     // 요청한 그룹에 속한 Flow의 상세 정보를 반환합니다.
-    public FlowResponse findById(Long groupId, Long flowId) {
+    public FlowResponse findById(Long groupId, Long userId, Long flowId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return FlowResponse.from(oneFlow(groupId, flowId));
     }
 
@@ -75,7 +83,12 @@ public class FlowService {
 
     // Flow 상태는 ACTIVE와 INACTIVE 사이에서만 변경합니다.
     @Transactional
-    public FlowResponse changeActivationStatus(Long groupId, Long flowId, FlowStatusChangeRequest request) {
+    public FlowResponse changeActivationStatus(
+            Long groupId,
+            Long userId,
+            Long flowId,
+            FlowStatusChangeRequest request) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
         Flow flow = oneFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
@@ -84,7 +97,8 @@ public class FlowService {
 
     // 휴지통에 있는 Flow만 삭제합니다.
     @Transactional
-    public void delete(Long groupId, Long flowId) {
+    public void delete(Long groupId, Long userId, Long flowId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow flow = oneFlow(groupId, flowId);
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
@@ -94,7 +108,8 @@ public class FlowService {
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
     @Transactional
-    public FlowResponse update(Long groupId, Long flowId, FlowUpdateRequest request) {
+    public FlowResponse update(Long groupId, Long userId, Long flowId, FlowUpdateRequest request) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
         Flow currentFlow = oneFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
@@ -113,7 +128,8 @@ public class FlowService {
 
     // 휴지통의 Flow를 새로 만들지 않고 기존 ID 그대로 복구합니다.
     @Transactional
-    public FlowResponse restore(Long groupId, Long archivedFlowId) {
+    public FlowResponse restore(Long groupId, Long userId, Long archivedFlowId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = oneFlow(groupId, archivedFlowId);
         archivedFlow.restore();
         return FlowResponse.from(archivedFlow);
