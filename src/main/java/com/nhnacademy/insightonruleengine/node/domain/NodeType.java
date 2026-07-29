@@ -3,7 +3,7 @@ package com.nhnacademy.insightonruleengine.node.domain;
 import com.nhnacademy.insightonruleengine.node.domain.params.*;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AiSuggestionParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.action.ControlParams;
+import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.ThresholdParams;
@@ -23,7 +23,7 @@ public enum NodeType {
     TIME_WINDOW(Category.FILTER, TimeWindowParams.class, PortSchema.fixed("true", "false")),
     TIMER(Category.FILTER, TimerParams.class, PortSchema.fixed("true", "false")),
 
-    DEVICE_CONTROL(Category.ACTION, ControlParams.class, PortSchema.terminal()),
+    ACTUATOR_CONTROL(Category.ACTION, ActuatorControlParams.class, PortSchema.terminal()),
     ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal()),
     AI_SUGGESTION(Category.ACTION, AiSuggestionParams.class, PortSchema.terminal()),
     EXTERNAL_NOTIFICATION(Category.ACTION, ExternalNotificationParams.class, PortSchema.terminal());
