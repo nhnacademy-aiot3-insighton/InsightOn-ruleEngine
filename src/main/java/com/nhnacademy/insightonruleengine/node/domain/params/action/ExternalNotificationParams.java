@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.node.domain.params.action;
 
 import com.nhnacademy.insightonruleengine.node.domain.params.NodeParams;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * node_type = EXTERNAL_NOTIFICATION.

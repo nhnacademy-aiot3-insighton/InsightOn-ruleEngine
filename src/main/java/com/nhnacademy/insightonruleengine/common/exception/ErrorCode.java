@@ -11,6 +11,11 @@ public enum ErrorCode {
 
     // Flow
     FLOW_NOT_FOUND(HttpStatus.NOT_FOUND),
+    FLOW_DUPLICATE_NAME(HttpStatus.CONFLICT),
+    FLOW_DELETION_NOT_ALLOWED(HttpStatus.CONFLICT),
+    FLOW_INVALID_QUERY(HttpStatus.BAD_REQUEST),
+    FLOW_INVALID_STATUS_TRANSITION(HttpStatus.CONFLICT),
+    FLOW_FORBIDDEN(HttpStatus.FORBIDDEN),
     FLOW_CYCLE_DETECTED(HttpStatus.BAD_REQUEST),
     FLOW_INVALID_LINK_PORT(HttpStatus.BAD_REQUEST),
     FLOW_DUPLICATE_LINK_BINDING(HttpStatus.BAD_REQUEST),
@@ -35,4 +40,3 @@ public enum ErrorCode {
         return name();
     }
 }
-
