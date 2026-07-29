@@ -1,0 +1,36 @@
+package com.nhnacademy.insightonruleengine.flow.authorization;
+
+import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
+import feign.FeignException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class GroupAuthorizationService {
+
+    private final CoreGroupClient coreGroupClient;
+
+    public GroupRole requireMembership(Long groupId, Long userId) {
+        try {
+            GroupMemberResponse member = coreGroupClient.getGroupMemberByUserId(groupId, userId);
+
+            if (!groupId.equals(member.groupId())) {
+                throw new ForbiddenException(
+                        "Core 응답의 groupId가 요청과 다릅니다. requested:" + groupId + ", returned:" + member.groupId());
+            }
+
+            return member.groupRole();
+        } catch (FeignException.NotFound e) {
+            throw new ForbiddenException("groupId:" + groupId + "의 멤버가 아닙니다. userId:" + userId);
+        }
+    }
+
+    public void requireRole(Long groupId, Long userId, GroupRole minimumRole) {
+        GroupRole role = requireMembership(groupId, userId);
+        if (!role.isAtLeast(minimumRole)) {
+            throw new ForbiddenException(
+                    "groupId:" + groupId + "에서 " + minimumRole + " 이상 권한이 필요합니다. userId:" + userId);
+        }
+    }
+}
