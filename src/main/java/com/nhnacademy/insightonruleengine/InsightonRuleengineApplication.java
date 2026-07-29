@@ -11,5 +11,4 @@ public class InsightonRuleengineApplication {
     public static void main(String[] args) {
         SpringApplication.run(InsightonRuleengineApplication.class, args);
     }
-
 }
