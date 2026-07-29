@@ -1,6 +1,7 @@
 package com.nhnacademy.insightonruleengine.node.domain.params.trigger;
 
 import com.nhnacademy.insightonruleengine.node.domain.params.NodeParams;
+import com.nhnacademy.insightonruleengine.node.domain.validation.ValidCron;
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -9,6 +10,8 @@ import jakarta.validation.constraints.NotBlank;
  * 다중 인스턴스 중복 실행 방지 방식은 미확정 상태다.
  */
 public record ScheduleParams(
-        @NotBlank String cron
+        @NotBlank
+        @ValidCron
+        String cron
 ) implements NodeParams {
 }

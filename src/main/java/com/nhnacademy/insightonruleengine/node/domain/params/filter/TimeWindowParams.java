@@ -13,4 +13,12 @@ public record TimeWindowParams(
         @NotNull LocalTime startTime,
         @NotNull LocalTime endTime
 ) implements NodeParams {
+    public TimeWindowParams {
+        if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
+            throw new IllegalArgumentException("startTime은 endTime보다 뒤일 수 없습니다.");
+        }
+        if (startTime != null && startTime.equals(endTime)) {
+            throw new IllegalArgumentException("startTime과 endTime이 같을 수 없습니다.");
+        }
+    }
 }
