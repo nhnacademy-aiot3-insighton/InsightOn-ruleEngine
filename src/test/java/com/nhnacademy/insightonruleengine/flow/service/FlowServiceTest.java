@@ -87,7 +87,7 @@ class FlowServiceTest {
     // 쓰기 권한이 거부되면 Flow 저장 로직이 시작되지 않도록 확인합니다.
     @Test
     @DisplayName("MEMBER의 생성 요청이 거부되면 Repository를 호출하지 않는다")
-    void 생성_권한이_없으면_repository를_호출하지_않는다() {
+    void RepositoryTest() {
         FlowCreateRequest request = new FlowCreateRequest(1L, "온도", null);
         ForbiddenException exception = new ForbiddenException("MANAGER 이상 권한이 필요합니다.");
         doThrow(exception)
@@ -119,7 +119,7 @@ class FlowServiceTest {
     // 상태 조건 목록도 조회 전에 MEMBER 권한을 한 번 확인하도록 고정합니다.
     @Test
     @DisplayName("상태별 목록 조회는 MEMBER 최소 역할을 확인한다")
-    void 상태별_목록은_member권한을_확인한다() {
+    void findListMemberTest() {
         when(flowRepository.findAllByGroupIdAndStatus(GROUP_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of());
 
@@ -131,7 +131,7 @@ class FlowServiceTest {
     // 장소·상태 조건 목록도 다른 목록 요청과 같은 읽기 권한을 사용하도록 확인합니다.
     @Test
     @DisplayName("장소·상태별 목록 조회는 MEMBER 최소 역할을 확인한다")
-    void 장소_상태별_목록은_member권한을_확인한다() {
+    void locationListMemberTest() {
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(
                 GROUP_ID,
                 10L,
@@ -197,7 +197,7 @@ class FlowServiceTest {
 
     @Test
     @DisplayName("수정 이름 검증이 실패하면 기존 Flow 상태를 유지한다")
-    void keepCurrentFlowWhenUpdateValidationFailsTest() {
+    void ValidationFailsTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
         FlowUpdateRequest request = new FlowUpdateRequest("중복 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
