@@ -87,7 +87,7 @@ class FlowServiceTest {
     // 쓰기 권한이 거부되면 Flow 저장 로직이 시작되지 않도록 확인합니다.
     @Test
     @DisplayName("MEMBER의 생성 요청이 거부되면 Repository를 호출하지 않는다")
-    void RepositoryTest() {
+    void repositoryTest() {
         FlowCreateRequest request = new FlowCreateRequest(1L, "온도", null);
         ForbiddenException exception = new ForbiddenException("MANAGER 이상 권한이 필요합니다.");
         doThrow(exception)

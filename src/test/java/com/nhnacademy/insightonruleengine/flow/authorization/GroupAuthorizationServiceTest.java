@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import feign.FeignException;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +42,17 @@ class GroupAuthorizationServiceTest {
         verify(coreGroupClient).getGroupMemberByUserId(GROUP_ID, USER_ID);
     }
 
+    // 200 응답의 본문 누락은 권한 부족이 아니라 Core 응답 계약 문제로 처리합니다.
+    @Test
+    @DisplayName("Core 응답 body가 null이면 의존성 예외가 발생한다")
+    void nullResponseBodyTest() {
+        when(coreGroupClient.getGroupMemberByUserId(GROUP_ID, USER_ID)).thenReturn(null);
+
+        assertThrows(
+                CoreDependencyException.class,
+                () -> groupAuthorizationService.requireMembership(GROUP_ID, USER_ID));
+    }
+
     // Core 응답 그룹이 요청 그룹과 다르면 접근을 거부
     @Test
     @DisplayName("Core 응답 groupId가 요청과 다르면 권한을 거부한다")
@@ -68,7 +80,7 @@ class GroupAuthorizationServiceTest {
     // Core의 멤버 없음 응답이 공통 권한 거부로 변환되는지 확인합니다.
     @Test
     @DisplayName("Core가 멤버를 찾지 못하면 권한을 거부한다")
-    void NotMemberTest() {
+    void notMemberTest() {
         FeignException.NotFound notFound = mock(FeignException.NotFound.class);
         when(coreGroupClient.getGroupMemberByUserId(GROUP_ID, USER_ID)).thenThrow(notFound);
 
@@ -80,7 +92,7 @@ class GroupAuthorizationServiceTest {
     // MEMBER가 쓰기 작업의 MANAGER 최소 역할을 통과하지 못하도록 확인합니다.
     @Test
     @DisplayName("MEMBER에게 MANAGER 권한이 필요하면 접근을 거부한다")
-    void NotManagerTest() {
+    void notManagerTest() {
         when(coreGroupClient.getGroupMemberByUserId(GROUP_ID, USER_ID))
                 .thenReturn(new GroupMemberResponse(GROUP_ID, GroupRole.MEMBER));
 

@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.authorization;
 
+import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ public class GroupAuthorizationService {
             GroupMemberResponse member = coreGroupClient.getGroupMemberByUserId(groupId, userId);
 
             if (member == null) {
-                throw new ForbiddenException("Core에서 그룹 멤버 정보를 확인할 수 없습니다.");
+                throw new CoreDependencyException("Core 그룹 멤버 응답을 처리할 수 없습니다.");
             }
             if (!groupId.equals(member.groupId())) {
                 throw new ForbiddenException(

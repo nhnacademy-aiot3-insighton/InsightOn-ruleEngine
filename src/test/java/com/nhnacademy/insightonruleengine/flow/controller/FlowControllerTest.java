@@ -17,6 +17,7 @@ import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
@@ -381,6 +382,30 @@ class FlowControllerTest {
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value(exception.getMessage()));
+    }
+
+    // Core 응답 계약 오류가 권한 거부가 아닌 502로 전달되는지 확인합니다.
+    @Test
+    @DisplayName("Core 의존성 예외는 상세 메시지와 502를 반환한다")
+    void handleCoreDependency() throws Exception {
+        FlowCreateRequest request = new FlowCreateRequest(10L, "온도 경고", null);
+        CoreDependencyException exception =
+                new CoreDependencyException("Core 그룹 멤버 응답을 처리할 수 없습니다.");
+        when(flowService.create(1L, USER_ID, request)).thenThrow(exception);
+
+        mockMvc.perform(post(BASE_PATH)
+                        .header(USER_ID_HEADER, USER_ID)
+                        .queryParam("groupId", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "locationId": 10,
+                                  "name": "온도 경고"
+                                }
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.status").value(502))
                 .andExpect(jsonPath("$.message").value(exception.getMessage()));
     }
 

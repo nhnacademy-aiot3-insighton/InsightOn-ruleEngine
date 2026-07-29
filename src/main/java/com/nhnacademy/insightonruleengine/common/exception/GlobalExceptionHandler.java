@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.common.exception;
 
+import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
@@ -73,5 +74,12 @@ public class GlobalExceptionHandler {
                         HttpStatus.FORBIDDEN.value(),
                         exception.getMessage()
                 ));
+    }
+
+    // Core의 잘못된 응답을 사용자 권한 부족과 구분해 외부 의존성 오류로 반환합니다.
+    @ExceptionHandler(CoreDependencyException.class)
+    public ResponseEntity<ErrorResponse> handleCoreDependency(CoreDependencyException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), exception.getMessage()));
     }
 }
