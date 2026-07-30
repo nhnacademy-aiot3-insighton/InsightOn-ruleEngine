@@ -17,8 +17,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * flows/nodes/links 3테이블 중 nodes
- * Link는 이 Entity의 {@link #id}를 직접 참조
+ * flows/nodes/links 3테이블 중 nodes Link는 이 Entity의 {@link #id}를 직접 참조
  *
  * <p>Flow와의 관계는 JPA 연관관계(@ManyToOne)로 매핑고민. 우선은 flowId만 저장하는걸로 고민중
  */
@@ -45,37 +44,28 @@ public class Node {
     @Column(name = "node_type", nullable = false, length = 50)
     private NodeType nodeType;
 
-    /**
-     * ERD 설계 당시 name은 과거 흔적. 사용자에게 캔버스를 제공해주는 것을 상정했을 때의 흔적임. 아마 삭제가 될 것 같음
-     */
-    @Column(name = "name")
-    private String name;
 
     /**
-     * 순수 파라미터만 담긴 JSON 문자열.
-     * 실제 타입 있는 객체로의 변환은 이 클래스가 아니라
-     * {@code node.parser.NodeParamsParser}가 담당
+     * 순수 파라미터만 담긴 JSON 문자열. 실제 타입 있는 객체로의 변환은 이 클래스가 아니라 {@code node.parser.NodeParamsParser}가 담당
      */
     @NotNull
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "configuration", columnDefinition = "jsonb", nullable = false)
     private JsonNode configuration;
 
-    public Node(Long flowId, NodeType nodeType, String name, JsonNode configuration) {
+    public Node(Long flowId, NodeType nodeType, JsonNode configuration) {
         this.flowId = flowId;
         this.nodeType = nodeType;
-        this.name = name;
         this.configuration = configuration;
     }
 
-    /** DB 컬럼이 아니라 Enum 정의 */
+    /**
+     * DB 컬럼이 아니라 Enum 정의
+     */
     public NodeType.Category getCategory() {
         return nodeType.getCategory();
     }
 
-    public void rename(String newName) {
-        this.name = newName;
-    }
 
     public void updateConfiguration(JsonNode newConfiguration) {
         this.configuration = newConfiguration;
@@ -83,8 +73,12 @@ public class Node {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Node other)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Node other)) {
+            return false;
+        }
         return id != null && id.equals(other.id);
     }
 
