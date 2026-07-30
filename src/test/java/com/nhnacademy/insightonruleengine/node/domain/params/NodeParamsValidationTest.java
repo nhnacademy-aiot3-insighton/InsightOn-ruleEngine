@@ -9,13 +9,28 @@ import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimeWindowPa
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimerParams;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import java.time.LocalTime;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class NodeParamsValidationTest {
 
-    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+    private static ValidatorFactory validatorFactory;
+    private static Validator validator;
+
+    @BeforeAll
+    static void setUpValidator() {
+        validatorFactory = Validation.buildDefaultValidatorFactory();
+        validator = validatorFactory.getValidator();
+    }
+
+    @AfterAll
+    static void closeValidatorFactory() {
+        validatorFactory.close();
+    }
 
     @Test
     @DisplayName("TimeWindowParams는 정상 startTime/endTime을 생성한다")
@@ -41,6 +56,13 @@ class NodeParamsValidationTest {
                 IllegalArgumentException.class,
                 () -> new TimeWindowParams(LocalTime.of(9, 0), LocalTime.of(9, 0))
         );
+    }
+
+    @Test
+    @DisplayName("TimeWindowParams startTime/endTime은 필수 값이다")
+    void rejectTimeWindowNullTime() {
+        assertFalse(validator.validate(new TimeWindowParams(null, LocalTime.of(18, 0))).isEmpty());
+        assertFalse(validator.validate(new TimeWindowParams(LocalTime.of(9, 0), null)).isEmpty());
     }
 
     @Test

@@ -29,7 +29,6 @@ class LinkTest {
         Link target = new Link(1L, 10L, "out", 20L, "in");
 
         assertNotEquals(source, target);
-        assertTrue(source.equals(source));
     }
 
     @Test

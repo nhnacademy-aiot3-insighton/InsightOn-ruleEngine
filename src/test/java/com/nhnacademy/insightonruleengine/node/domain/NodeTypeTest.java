@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.node.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
@@ -21,14 +20,20 @@ class NodeTypeTest {
     @Test
     @DisplayName("NodeType은 올바른 category를 가진다")
     void categoryMapping() {
-        assertEquals(NodeType.Category.TRIGGER, NodeType.SENSOR.getCategory());
-        assertEquals(NodeType.Category.TRIGGER, NodeType.SCHEDULE.getCategory());
-        assertEquals(NodeType.Category.FILTER, NodeType.THRESHOLD.getCategory());
-        assertEquals(NodeType.Category.FILTER, NodeType.TIME_WINDOW.getCategory());
-        assertEquals(NodeType.Category.FILTER, NodeType.TIMER.getCategory());
-        assertEquals(NodeType.Category.ACTION, NodeType.ACTUATOR_CONTROL.getCategory());
-        assertEquals(NodeType.Category.ACTION, NodeType.ALERT.getCategory());
-        assertEquals(NodeType.Category.ACTION, NodeType.EXTERNAL_NOTIFICATION.getCategory());
+        Map<NodeType, NodeType.Category> expectedCategories = Map.of(
+                NodeType.SENSOR, NodeType.Category.TRIGGER,
+                NodeType.SCHEDULE, NodeType.Category.TRIGGER,
+                NodeType.THRESHOLD, NodeType.Category.FILTER,
+                NodeType.TIME_WINDOW, NodeType.Category.FILTER,
+                NodeType.TIMER, NodeType.Category.FILTER,
+                NodeType.ACTUATOR_CONTROL, NodeType.Category.ACTION,
+                NodeType.ALERT, NodeType.Category.ACTION,
+                NodeType.EXTERNAL_NOTIFICATION, NodeType.Category.ACTION
+        );
+
+        assertCoversAllNodeTypes(expectedCategories);
+        expectedCategories.forEach((nodeType, category) ->
+                assertEquals(category, nodeType.getCategory()));
     }
 
     @Test
@@ -45,30 +50,31 @@ class NodeTypeTest {
                 NodeType.EXTERNAL_NOTIFICATION, ExternalNotificationParams.class
         );
 
+        assertCoversAllNodeTypes(expectedTypes);
         expectedTypes.forEach((nodeType, paramsType) ->
                 assertEquals(paramsType, nodeType.getParamsType()));
     }
 
     @Test
-    @DisplayName("Trigger Node는 out 출력 포트를 가진다")
-    void triggerOutputPorts() {
-        assertEquals(Set.of("out"), NodeType.SENSOR.getPortSchema().outputPorts(null));
-        assertEquals(Set.of("out"), NodeType.SCHEDULE.getPortSchema().outputPorts(null));
+    @DisplayName("NodeType은 올바른 출력 포트 스키마를 가진다")
+    void outputPorts() {
+        Map<NodeType, Set<String>> expectedPorts = Map.of(
+                NodeType.SENSOR, Set.of("out"),
+                NodeType.SCHEDULE, Set.of("out"),
+                NodeType.THRESHOLD, Set.of("true", "false"),
+                NodeType.TIME_WINDOW, Set.of("true", "false"),
+                NodeType.TIMER, Set.of("true", "false"),
+                NodeType.ACTUATOR_CONTROL, Set.of(),
+                NodeType.ALERT, Set.of(),
+                NodeType.EXTERNAL_NOTIFICATION, Set.of()
+        );
+
+        assertCoversAllNodeTypes(expectedPorts);
+        expectedPorts.forEach((nodeType, ports) ->
+                assertEquals(ports, nodeType.getPortSchema().outputPorts(null)));
     }
 
-    @Test
-    @DisplayName("Filter Node는 true, false 출력 포트를 가진다")
-    void filterOutputPorts() {
-        assertEquals(Set.of("true", "false"), NodeType.THRESHOLD.getPortSchema().outputPorts(null));
-        assertEquals(Set.of("true", "false"), NodeType.TIME_WINDOW.getPortSchema().outputPorts(null));
-        assertEquals(Set.of("true", "false"), NodeType.TIMER.getPortSchema().outputPorts(null));
-    }
-
-    @Test
-    @DisplayName("Action Node는 terminal 포트 스키마를 가진다")
-    void actionOutputPorts() {
-        assertTrue(NodeType.ACTUATOR_CONTROL.getPortSchema().outputPorts(null).isEmpty());
-        assertTrue(NodeType.ALERT.getPortSchema().outputPorts(null).isEmpty());
-        assertTrue(NodeType.EXTERNAL_NOTIFICATION.getPortSchema().outputPorts(null).isEmpty());
+    private void assertCoversAllNodeTypes(Map<NodeType, ?> expectedMappings) {
+        assertEquals(Set.of(NodeType.values()), expectedMappings.keySet());
     }
 }
