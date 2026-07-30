@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -70,15 +71,18 @@ public class Node {
         this.configuration = newConfiguration;
     }
 
+    // 팀원이 조언한 JPA/Hibernate와 equals,hashCode의 계약 불일치 문제를 해결하기 위한 코드 변경 적용
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Node other)) return false;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+
+        Node other = (Node) o;
         return id != null && id.equals(other.getId());
     }
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Hibernate.getClass(this).hashCode();
     }
 }
