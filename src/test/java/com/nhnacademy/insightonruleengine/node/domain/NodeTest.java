@@ -21,36 +21,33 @@ class NodeTest {
                 .put("sensorId", 10L)
                 .put("metric", "temperature");
 
-        Node node = new Node(1L, NodeType.SENSOR, "온도 센서", configuration);
+        Node node = new Node(1L, NodeType.SENSOR, configuration);
 
         assertEquals(1L, node.getFlowId());
         assertEquals(NodeType.SENSOR, node.getNodeType());
         assertEquals(NodeType.Category.TRIGGER, node.getCategory());
-        assertEquals("온도 센서", node.getName());
         assertEquals(configuration, node.getConfiguration());
     }
 
     @Test
-    @DisplayName("Node 이름과 설정을 변경할 수 있다")
+    @DisplayName("Node 설정을 변경할 수 있다")
     void updateNode() {
-        Node node = new Node(1L, NodeType.THRESHOLD, "기존 이름", objectMapper.createObjectNode()
+        Node node = new Node(1L, NodeType.THRESHOLD, objectMapper.createObjectNode()
                 .put("threshold", 30));
         JsonNode newConfiguration = objectMapper.createObjectNode()
                 .put("threshold", 35);
 
-        node.rename("새 이름");
         node.updateConfiguration(newConfiguration);
 
-        assertEquals("새 이름", node.getName());
         assertEquals(newConfiguration, node.getConfiguration());
     }
 
     @Test
     @DisplayName("저장 전 Node는 서로 같은 객체로 취급하지 않는다")
     void transientNodeEquality() {
-        Node source = new Node(1L, NodeType.SENSOR, "노드", objectMapper.createObjectNode()
+        Node source = new Node(1L, NodeType.SENSOR, objectMapper.createObjectNode()
                 .put("sensorId", 1L));
-        Node target = new Node(1L, NodeType.SENSOR, "노드", objectMapper.createObjectNode()
+        Node target = new Node(1L, NodeType.SENSOR, objectMapper.createObjectNode()
                 .put("sensorId", 1L));
 
         assertNotEquals(source, target);
@@ -60,9 +57,9 @@ class NodeTest {
     @Test
     @DisplayName("Node equals는 식별자가 있을 때 같은 ID를 기준으로 판단한다")
     void persistedNodeEquality() {
-        Node source = new Node(1L, NodeType.SENSOR, "노드", objectMapper.createObjectNode()
+        Node source = new Node(1L, NodeType.SENSOR, objectMapper.createObjectNode()
                 .put("sensorId", 1L));
-        Node target = new Node(2L, NodeType.ALERT, "다른 노드", objectMapper.createObjectNode()
+        Node target = new Node(2L, NodeType.ALERT, objectMapper.createObjectNode()
                 .put("message", "alert"));
         ReflectionTestUtils.setField(source, "id", 10L);
         ReflectionTestUtils.setField(target, "id", 10L);

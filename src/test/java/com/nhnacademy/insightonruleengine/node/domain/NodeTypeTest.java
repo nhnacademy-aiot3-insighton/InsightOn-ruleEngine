@@ -3,9 +3,8 @@ package com.nhnacademy.insightonruleengine.node.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.action.AiSuggestionParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimeWindowParams;
@@ -29,7 +28,6 @@ class NodeTypeTest {
         assertEquals(NodeType.Category.FILTER, NodeType.TIMER.getCategory());
         assertEquals(NodeType.Category.ACTION, NodeType.ACTUATOR_CONTROL.getCategory());
         assertEquals(NodeType.Category.ACTION, NodeType.ALERT.getCategory());
-        assertEquals(NodeType.Category.ACTION, NodeType.AI_SUGGESTION.getCategory());
         assertEquals(NodeType.Category.ACTION, NodeType.EXTERNAL_NOTIFICATION.getCategory());
     }
 
@@ -44,7 +42,6 @@ class NodeTypeTest {
                 NodeType.TIMER, TimerParams.class,
                 NodeType.ACTUATOR_CONTROL, ActuatorControlParams.class,
                 NodeType.ALERT, AlertParams.class,
-                NodeType.AI_SUGGESTION, AiSuggestionParams.class,
                 NodeType.EXTERNAL_NOTIFICATION, ExternalNotificationParams.class
         );
 
@@ -72,7 +69,6 @@ class NodeTypeTest {
     void actionOutputPorts() {
         assertTrue(NodeType.ACTUATOR_CONTROL.getPortSchema().outputPorts(null).isEmpty());
         assertTrue(NodeType.ALERT.getPortSchema().outputPorts(null).isEmpty());
-        assertTrue(NodeType.AI_SUGGESTION.getPortSchema().outputPorts(null).isEmpty());
         assertTrue(NodeType.EXTERNAL_NOTIFICATION.getPortSchema().outputPorts(null).isEmpty());
     }
 }
