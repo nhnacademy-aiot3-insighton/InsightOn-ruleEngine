@@ -49,32 +49,32 @@ public class FlowController {
 
     // 입력한 조회 조건에 맞는 Flow 목록을 반환합니다.
     @GetMapping
-    public List<FlowResponse> findAll(
+    public ResponseEntity<List<FlowResponse>> findAll(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestParam(required = false) Long locationId,
             @RequestParam(required = false) FlowStatus status) {
         if (locationId == null && status == null) {
-            return flowService.findAll(groupId, userId);
+            return ResponseEntity.ok(flowService.findAll(groupId, userId));
         }
         if (locationId == null) {
-            return flowService.findAll(groupId, userId, status);
+            return ResponseEntity.ok(flowService.findAll(groupId, userId, status));
         }
         if (status == null) {
             throw new InvalidFlowQueryException();
         }
-        return flowService.findAll(groupId, userId, locationId, status);
+        return ResponseEntity.ok(flowService.findAll(groupId, userId, locationId, status));
     }
 
     // 휴지통에 있는 Flow를 포함해 상세 정보를 조회합니다.
     @GetMapping("/{flowId}")
-    public FlowDefinitionResponse findById(
+    public ResponseEntity<FlowDefinitionResponse> findById(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         FlowDefinition definition = flowDefinitionAssembler.assemble(groupId, flowId);
-        return FlowDefinitionResponse.builder()
+        FlowDefinitionResponse response = FlowDefinitionResponse.builder()
                 .flowId(definition.flowId())
                 .groupId(definition.groupId())
                 .locationId(definition.locationId())
@@ -85,35 +85,39 @@ public class FlowController {
                 .nodes(definition.nodes())
                 .links(definition.links())
                 .build();
+        return ResponseEntity.ok(response);
     }
 
     // Flow를 ACTIVE 또는 INACTIVE 상태로 변경합니다.
     @PutMapping("/{flowId}/status")
-    public FlowResponse changeStatus(
+    public ResponseEntity<FlowResponse> changeStatus(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long flowId,
             @Valid @RequestBody FlowStatusChangeRequest request) {
-        return flowService.changeActivationStatus(groupId, userId, flowId, request);
+        FlowResponse response = flowService.changeActivationStatus(groupId, userId, flowId, request);
+        return ResponseEntity.ok(response);
     }
 
     // 기존 Flow를 보관하고 수정한 내용을 새 Flow로 저장합니다.
     @PutMapping("/{flowId}")
-    public FlowResponse update(
+    public ResponseEntity<FlowResponse> update(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long flowId,
             @Valid @RequestBody FlowUpdateRequest request) {
-        return flowService.update(groupId, userId, flowId, request);
+        FlowResponse response = flowService.update(groupId, userId, flowId, request);
+        return ResponseEntity.ok(response);
     }
 
     // 휴지통에서 선택한 Flow를 INACTIVE 상태로 복구합니다.
     @PostMapping("/{archivedFlowId}/restore")
-    public FlowResponse restore(
+    public ResponseEntity<FlowResponse> restore(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long archivedFlowId) {
-        return flowService.restore(groupId, userId, archivedFlowId);
+        FlowResponse response = flowService.restore(groupId, userId, archivedFlowId);
+        return ResponseEntity.ok(response);
     }
 
     // 휴지통의 Flow를 삭제하고 본문 없이 204를 반환합니다.
@@ -123,6 +127,6 @@ public class FlowController {
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long flowId) {
         flowService.delete(groupId, userId, flowId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        return ResponseEntity.noContent().build();
     }
 }

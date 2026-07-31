@@ -264,6 +264,42 @@ class FlowServiceTest {
         verify(flowRepository, never()).save(any(Flow.class));
     }
 
+    // 지원하지 않는 입력 포트가 규칙 기반 플로우 구성에 저장되지 않도록 확인합니다.
+    @Test
+    @DisplayName("Target Port가 in이 아니면 수정 Flow를 저장하지 않는다")
+    void invalidTargetPortTest() {
+        Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
+        FlowUpdateRequest request = FlowUpdateRequest.builder()
+                .name("수정 Flow")
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("sensor")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("alert")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("sensor")
+                        .targetClientNodeKey("alert")
+                        .sourcePort("out")
+                        .targetPort("unsupported")
+                        .build()))
+                .build();
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
     @Test
     @DisplayName("Link 저장 실패 시 기존 Flow를 보관 상태로 바꾸지 않는다")
     void linkSaveFailureTest() {

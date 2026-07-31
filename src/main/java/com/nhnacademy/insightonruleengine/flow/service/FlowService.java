@@ -36,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FlowService {
 
+    private static final String TARGET_PORT = "in";
+
     private final FlowRepository flowRepository;
     private final GroupAuthorizationService groupAuthorizationService;
     private final NodeRepository nodeRepository;
@@ -251,6 +253,9 @@ public class FlowService {
         }
         if (!source.nodeType().getPortSchema().outputPorts(null).contains(link.sourcePort())) {
             throw new IllegalArgumentException("Source Port가 Node Type과 맞지 않습니다.");
+        }
+        if (!TARGET_PORT.equals(link.targetPort())) {
+            throw new IllegalArgumentException("Target Port는 in이어야 합니다.");
         }
         if (!sourcePorts.add(link.sourceClientNodeKey() + "\u0000" + link.sourcePort())) {
             throw new IllegalArgumentException("Source Node Port는 한 Link에만 사용할 수 있습니다.");
