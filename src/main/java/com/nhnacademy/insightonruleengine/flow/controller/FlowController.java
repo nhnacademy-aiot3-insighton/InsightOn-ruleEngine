@@ -120,6 +120,11 @@ public class FlowController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/flowId")
+    public ResponseEntity<FlowResponse> archive(
+            //todo Archive 로직 필요
+    }
+
     // 휴지통에서 선택한 Flow를 INACTIVE 상태로 복구합니다.
     @PostMapping("/{archivedFlowId}/restore")
     public ResponseEntity<FlowResponse> restore(
