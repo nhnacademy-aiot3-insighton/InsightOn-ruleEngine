@@ -18,8 +18,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * flows/nodes/links 3테이블 중 nodes
- * Link는 이 Entity의 {@link #id}를 직접 참조
+ * flows/nodes/links 3테이블 중 nodes Link는 이 Entity의 {@link #id}를 직접 참조
  *
  * <p>Flow와의 관계는 JPA 연관관계(@ManyToOne)로 매핑고민. 우선은 flowId만 저장하는걸로 고민중
  */
@@ -47,9 +46,7 @@ public class Node {
     private NodeType nodeType;
 
     /**
-     * 순수 파라미터만 담긴 JSON 문자열.
-     * 실제 타입 있는 객체로의 변환은 이 클래스가 아니라
-     * {@code node.parser.NodeParamsParser}가 담당
+     * 순수 파라미터만 담긴 JSON 문자열. 실제 타입 있는 객체로의 변환은 이 클래스가 아니라 {@code node.parser.NodeParamsParser}가 담당
      */
     @NotNull
     @JdbcTypeCode(SqlTypes.JSON)
@@ -62,7 +59,9 @@ public class Node {
         this.configuration = configuration;
     }
 
-    /** DB 컬럼이 아니라 Enum 정의 */
+    /**
+     * DB 컬럼이 아니라 Enum 정의
+     */
     public NodeType.Category getCategory() {
         return nodeType.getCategory();
     }
