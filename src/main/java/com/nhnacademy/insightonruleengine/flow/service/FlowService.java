@@ -58,6 +58,8 @@ public class FlowService {
         return toResponse(flowRepository.save(flow));
     }
 
+    // todo flow 삭제(archive) 로직 필요
+
     // 일반 목록에서는 휴지통의 Flow를 제외합니다.
     public List<FlowResponse> findAll(Long groupId, Long userId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
