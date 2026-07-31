@@ -1,7 +1,12 @@
 package com.nhnacademy.insightonruleengine.flow.controller;
 
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowDefinitionResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
@@ -29,6 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class FlowController {
 
     private final FlowService flowService;
+    private final FlowDefinitionAssembler flowDefinitionAssembler;
+    private final GroupAuthorizationService groupAuthorizationService;
 
     // Flow를 만들고 생성 성공 상태인 201을 반환합니다.
     @PostMapping
@@ -61,11 +68,23 @@ public class FlowController {
 
     // 휴지통에 있는 Flow를 포함해 상세 정보를 조회합니다.
     @GetMapping("/{flowId}")
-    public FlowResponse findById(
+    public FlowDefinitionResponse findById(
             @RequestParam Long groupId,
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long flowId) {
-        return flowService.findById(groupId, userId, flowId);
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
+        FlowDefinition definition = flowDefinitionAssembler.assemble(groupId, flowId);
+        return FlowDefinitionResponse.builder()
+                .flowId(definition.flowId())
+                .groupId(definition.groupId())
+                .locationId(definition.locationId())
+                .name(definition.name())
+                .description(definition.description())
+                .status(definition.status())
+                .createdAt(definition.createdAt())
+                .nodes(definition.nodes())
+                .links(definition.links())
+                .build();
     }
 
     // Flow를 ACTIVE 또는 INACTIVE 상태로 변경합니다.

@@ -9,11 +9,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
@@ -23,6 +26,11 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
+import com.nhnacademy.insightonruleengine.node.domain.Link;
+import com.nhnacademy.insightonruleengine.node.domain.Node;
+import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.node.repository.LinkRepository;
+import com.nhnacademy.insightonruleengine.node.repository.NodeRepository;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +52,12 @@ class FlowServiceTest {
 
     @Mock
     GroupAuthorizationService groupAuthorizationService;
+
+    @Mock
+    NodeRepository nodeRepository;
+
+    @Mock
+    LinkRepository linkRepository;
 
     @InjectMocks
     FlowService flowService;
@@ -180,26 +194,30 @@ class FlowServiceTest {
     @DisplayName("Flow 수정 시 기존 Flow를 보관하고 새 Flow를 INACTIVE로 생성한다")
     void updateFlowInactiveTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", "기존 설명", FlowStatus.ACTIVE);
-        FlowUpdateRequest request = new FlowUpdateRequest("수정 Flow", "수정 설명");
+        FlowUpdateRequest request = updateRequest("수정 Flow", "수정 설명");
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
                 1L,
                 "수정 Flow")).thenReturn(false);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         FlowResponse response = flowService.update(GROUP_ID, USER_ID, 1L, request);
 
         Assertions.assertEquals(FlowStatus.ARCHIVED, currentFlow.getStatus());
         Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+        verify(nodeRepository, times(2)).save(any(Node.class));
+        verify(linkRepository).save(any(Link.class));
     }
 
     @Test
     @DisplayName("수정 이름 검증이 실패하면 기존 Flow 상태를 유지한다")
     void ValidationFailsTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
-        FlowUpdateRequest request = new FlowUpdateRequest("중복 Flow", null);
+        FlowUpdateRequest request = updateRequest("중복 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "중복 Flow"))
                 .thenReturn(true);
@@ -210,6 +228,61 @@ class FlowServiceTest {
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
         verify(flowRepository, never()).save(any(Flow.class));
+    }
+
+    @Test
+    @DisplayName("중복 clientNodeKey가 있으면 수정 Flow를 저장하지 않는다")
+    void duplicateClientNodeKeyTest() {
+        Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
+        FlowUpdateRequest request = FlowUpdateRequest.builder()
+                .name("수정 Flow")
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("same")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("same")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("same")
+                        .targetClientNodeKey("same")
+                        .sourcePort("out")
+                        .targetPort("in")
+                        .build()))
+                .build();
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
+        verify(flowRepository, never()).save(any(Flow.class));
+    }
+
+    @Test
+    @DisplayName("Link 저장 실패 시 기존 Flow를 보관 상태로 바꾸지 않는다")
+    void linkSaveFailureTest() {
+        Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
+        FlowUpdateRequest request = updateRequest("수정 Flow", null);
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "수정 Flow"))
+                .thenReturn(false);
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new IllegalStateException("link save failed"))
+                .when(linkRepository)
+                .save(any(Link.class));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
     }
 
     @Test
@@ -261,5 +334,29 @@ class FlowServiceTest {
                 () -> flowService.delete(GROUP_ID, USER_ID, 1L));
 
         verify(flowRepository, never()).delete(any(Flow.class));
+    }
+
+    private FlowUpdateRequest updateRequest(String name, String description) {
+        return FlowUpdateRequest.builder()
+                .name(name)
+                .description(description)
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("sensor")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("alert")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("sensor")
+                        .targetClientNodeKey("alert")
+                        .sourcePort("out")
+                        .targetPort("in")
+                        .build()))
+                .build();
     }
 }
