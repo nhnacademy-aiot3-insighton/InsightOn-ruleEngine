@@ -1,15 +1,21 @@
 package com.nhnacademy.insightonruleengine.flow.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
+import java.util.List;
+import lombok.Builder;
 
-// Flow 수정에 필요한 이름과 설명을 받습니다.
+@Builder
 public record FlowUpdateRequest(
         @NotBlank
         @Size(max = 100)
         String name,
-        String description
-        //List<NodeRequest> nodes,
-        //List<LinkRequest> links
+        String description,
+        @NotEmpty
+        List<@Valid FlowNodeRequest> nodes,
+        @NotEmpty
+        List<@Valid FlowLinkRequest> links
 ) {
 }

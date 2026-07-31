@@ -4,14 +4,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
+import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.node.repository.LinkRepository;
+import com.nhnacademy.insightonruleengine.node.repository.NodeRepository;
 import jakarta.persistence.EntityManager;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +38,12 @@ class FlowServiceIntegrationTest {
     @Autowired
     private FlowRepository flowRepository;
 
+    @Autowired
+    private NodeRepository nodeRepository;
+
+    @Autowired
+    private LinkRepository linkRepository;
+
     @MockitoBean
     private GroupAuthorizationService groupAuthorizationService;
 
@@ -49,7 +62,7 @@ class FlowServiceIntegrationTest {
                 1L,
                 100L,
                 currentFlowId,
-                new FlowUpdateRequest(" 온도 경고 v2 ", "수정 설명")
+                updateRequest(" 온도 경고 v2 ", "수정 설명")
         );
         entityManager.flush();
         entityManager.clear();
@@ -62,6 +75,8 @@ class FlowServiceIntegrationTest {
         assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
         assertEquals(10L, updatedFlow.getLocationId());
         assertEquals("온도 경고 v2", updatedFlow.getName());
+        assertEquals(2, nodeRepository.findByFlowId(response.flowId()).size());
+        assertEquals(1, linkRepository.findByFlowId(response.flowId()).size());
     }
 
     @Test
@@ -101,7 +116,7 @@ class FlowServiceIntegrationTest {
                         1L,
                         100L,
                         currentFlowId,
-                        new FlowUpdateRequest("온도 경고 v2", null)
+                        updateRequest("온도 경고 v2", null)
                 )
         );
         entityManager.flush();
@@ -111,5 +126,29 @@ class FlowServiceIntegrationTest {
 
         assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
         assertEquals(2L, flowRepository.count());
+    }
+
+    private FlowUpdateRequest updateRequest(String name, String description) {
+        return FlowUpdateRequest.builder()
+                .name(name)
+                .description(description)
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("sensor")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("alert")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("sensor")
+                        .targetClientNodeKey("alert")
+                        .sourcePort("out")
+                        .targetPort("in")
+                        .build()))
+                .build();
     }
 }

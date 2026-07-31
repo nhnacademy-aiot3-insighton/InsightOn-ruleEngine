@@ -12,8 +12,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
+import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
@@ -24,6 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.service.FlowService;
+import com.nhnacademy.insightonruleengine.node.domain.NodeType;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -47,6 +57,12 @@ class FlowControllerTest {
 
     @MockitoBean
     private FlowService flowService;
+
+    @MockitoBean
+    private FlowDefinitionAssembler flowDefinitionAssembler;
+
+    @MockitoBean
+    private GroupAuthorizationService groupAuthorizationService;
 
     @Test
     @DisplayName("Flow 생성 요청은 201과 생성된 Flow를 반환한다")
@@ -162,18 +178,22 @@ class FlowControllerTest {
     }
 
     @Test
-    @DisplayName("ARCHIVED Flow도 공통 상세 응답으로 조회한다")
+    @DisplayName("ARCHIVED Flow도 전체 Node와 Link를 포함한 상세 응답으로 조회한다")
     void findArchivedFlow() throws Exception {
-        when(flowService.findById(1L, USER_ID, 101L)).thenReturn(response(101L, FlowStatus.ARCHIVED));
+        FlowDefinition definition = definition(FlowStatus.ARCHIVED);
+        when(flowDefinitionAssembler.assemble(1L, 101L)).thenReturn(definition);
 
         mockMvc.perform(get(BASE_PATH + "/{flowId}", 101L)
                         .header(USER_ID_HEADER, USER_ID)
                         .queryParam("groupId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.flowId").value(101L))
-                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+                .andExpect(jsonPath("$.status").value("ARCHIVED"))
+                .andExpect(jsonPath("$.nodes[0].nodeId").value(201L))
+                .andExpect(jsonPath("$.links[0].linkId").value(301L));
 
-        verify(flowService).findById(1L, USER_ID, 101L);
+        verify(groupAuthorizationService).requireRole(1L, USER_ID, GroupRole.MEMBER);
+        verify(flowDefinitionAssembler).assemble(1L, 101L);
     }
 
     @Test
@@ -199,7 +219,7 @@ class FlowControllerTest {
     @Test
     @DisplayName("Flow 수정 요청")
     void updateFlow() throws Exception {
-        FlowUpdateRequest request = new FlowUpdateRequest("온도 경고 v2", "수정 설명");
+        FlowUpdateRequest request = updateRequest("온도 경고 v2", "수정 설명");
         when(flowService.update(1L, USER_ID, 101L, request)).thenReturn(response(102L, FlowStatus.INACTIVE));
 
         mockMvc.perform(put(BASE_PATH + "/{flowId}", 101L)
@@ -209,7 +229,27 @@ class FlowControllerTest {
                         .content("""
                                 {
                                   "name": "온도 경고 v2",
-                                  "description": "수정 설명"
+                                  "description": "수정 설명",
+                                  "nodes": [
+                                    {
+                                      "clientNodeKey": "sensor",
+                                      "nodeType": "SENSOR",
+                                      "configuration": {}
+                                    },
+                                    {
+                                      "clientNodeKey": "alert",
+                                      "nodeType": "ALERT",
+                                      "configuration": {}
+                                    }
+                                  ],
+                                  "links": [
+                                    {
+                                      "sourceClientNodeKey": "sensor",
+                                      "targetClientNodeKey": "alert",
+                                      "sourcePort": "out",
+                                      "targetPort": "in"
+                                    }
+                                  ]
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -352,7 +392,7 @@ class FlowControllerTest {
     @DisplayName("Flow 미존재 예외는 상세 메시지와 404를 반환한다")
     void handleNotFound() throws Exception {
         FlowNotFoundException exception = new FlowNotFoundException(1L, 101L);
-        when(flowService.findById(1L, USER_ID, 101L)).thenThrow(exception);
+        when(flowDefinitionAssembler.assemble(1L, 101L)).thenThrow(exception);
 
         mockMvc.perform(get(BASE_PATH + "/{flowId}", 101L)
                         .header(USER_ID_HEADER, USER_ID)
@@ -467,14 +507,59 @@ class FlowControllerTest {
     }
 
     private FlowResponse response(Long flowId, FlowStatus status) {
-        return new FlowResponse(
-                flowId,
+        return FlowResponse.builder()
+                .flowId(flowId)
+                .groupId(1L)
+                .locationId(10L)
+                .name("온도 경고")
+                .description("30도 이상 경고")
+                .status(status)
+                .createdAt(OffsetDateTime.of(2026, 7, 24, 0, 0, 0, 0, ZoneOffset.UTC))
+                .build();
+    }
+
+    // 상세 API가 실행 모델의 전체 Node와 Link를 응답하는지 확인할 Fixture를 만듭니다.
+    private FlowDefinition definition(FlowStatus status) {
+        NodeDefinition node = new NodeDefinition(
+                201L,
+                NodeType.SENSOR,
+                JsonNodeFactory.instance.objectNode().put("metric", "temperature")
+        );
+        LinkDefinition link = new LinkDefinition(301L, 101L, 201L, 202L, "out", "in");
+        return new FlowDefinition(
+                101L,
                 1L,
                 10L,
                 "온도 경고",
                 "30도 이상 경고",
                 status,
-                OffsetDateTime.of(2026, 7, 24, 0, 0, 0, 0, ZoneOffset.UTC)
+                OffsetDateTime.of(2026, 7, 24, 0, 0, 0, 0, ZoneOffset.UTC),
+                List.of(node),
+                List.of(link)
         );
+    }
+
+    private FlowUpdateRequest updateRequest(String name, String description) {
+        return FlowUpdateRequest.builder()
+                .name(name)
+                .description(description)
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("sensor")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("alert")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("sensor")
+                        .targetClientNodeKey("alert")
+                        .sourcePort("out")
+                        .targetPort("in")
+                        .build()))
+                .build();
     }
 }

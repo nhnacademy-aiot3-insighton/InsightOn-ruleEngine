@@ -1,17 +1,20 @@
 package com.nhnacademy.insightonruleengine.flow.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.nhnacademy.insightonruleengine.node.domain.NodeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 @Builder
-public record FlowCreateRequest(
-        @NotNull
-        Long locationId,
+public record FlowNodeRequest(
         @NotBlank
         @Size(max = 100)
-        String name,
-        String description
+        String clientNodeKey,
+        @NotNull
+        NodeType nodeType,
+        @NotNull
+        JsonNode configuration
 ) {
 }
