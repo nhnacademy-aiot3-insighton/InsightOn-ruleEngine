@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -46,12 +47,6 @@ public class Node {
     private NodeType nodeType;
 
     /**
-     * ERD 설계 당시 name은 과거 흔적. 사용자에게 캔버스를 제공해주는 것을 상정했을 때의 흔적임. 아마 삭제가 될 것 같음
-     */
-    @Column(name = "name")
-    private String name;
-
-    /**
      * 순수 파라미터만 담긴 JSON 문자열.
      * 실제 타입 있는 객체로의 변환은 이 클래스가 아니라
      * {@code node.parser.NodeParamsParser}가 담당
@@ -61,10 +56,9 @@ public class Node {
     @Column(name = "configuration", columnDefinition = "jsonb", nullable = false)
     private JsonNode configuration;
 
-    public Node(Long flowId, NodeType nodeType, String name, JsonNode configuration) {
+    public Node(Long flowId, NodeType nodeType, JsonNode configuration) {
         this.flowId = flowId;
         this.nodeType = nodeType;
-        this.name = name;
         this.configuration = configuration;
     }
 
@@ -73,23 +67,22 @@ public class Node {
         return nodeType.getCategory();
     }
 
-    public void rename(String newName) {
-        this.name = newName;
-    }
-
     public void updateConfiguration(JsonNode newConfiguration) {
         this.configuration = newConfiguration;
     }
 
+    // 팀원이 조언한 JPA/Hibernate와 equals,hashCode의 계약 불일치 문제를 해결하기 위한 코드 변경 적용
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Node other)) return false;
-        return id != null && id.equals(other.id);
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+
+        Node other = (Node) o;
+        return id != null && id.equals(other.getId());
     }
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Hibernate.getClass(this).hashCode();
     }
 }

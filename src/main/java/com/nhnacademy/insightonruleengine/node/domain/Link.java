@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.Hibernate;
 
 /**
  */
@@ -49,12 +50,14 @@ public class Link {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Link other)) return false;
-        return id != null && id.equals(other.id);
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+
+        Link other = (Link) o;
+        return id != null && id.equals(other.getId());
     }
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Hibernate.getClass(this).hashCode();
     }
 }
