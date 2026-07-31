@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.node.domain;
 
 import com.nhnacademy.insightonruleengine.node.domain.params.*;
-import com.nhnacademy.insightonruleengine.node.domain.params.action.AiSuggestionParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
@@ -25,7 +24,6 @@ public enum NodeType {
 
     ACTUATOR_CONTROL(Category.ACTION, ActuatorControlParams.class, PortSchema.terminal()),
     ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal()),
-    AI_SUGGESTION(Category.ACTION, AiSuggestionParams.class, PortSchema.terminal()),
     EXTERNAL_NOTIFICATION(Category.ACTION, ExternalNotificationParams.class, PortSchema.terminal());
 
     private final Category category;
