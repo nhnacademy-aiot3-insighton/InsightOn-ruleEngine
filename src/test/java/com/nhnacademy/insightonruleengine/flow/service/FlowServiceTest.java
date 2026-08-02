@@ -213,6 +213,33 @@ class FlowServiceTest {
         verify(linkRepository).save(any(Link.class));
     }
 
+    // 실행 중인 Flow도 권한을 확인한 뒤 안전하게 휴지통으로 보내는지 확인합니다.
+    @Test
+    @DisplayName("ACTIVE Flow를 휴지통의 ARCHIVED 상태로 변경한다")
+    void archiveActiveFlowTest() {
+        Flow activeFlow = new Flow(GROUP_ID, 1L, "현재 Flow", null, FlowStatus.ACTIVE);
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(activeFlow));
+
+        FlowResponse response = flowService.archive(GROUP_ID, USER_ID, 1L);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, activeFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
+        verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+    }
+
+    // 실행 대기 중인 Flow를 별도 삭제 없이 휴지통으로 보내는지 확인합니다.
+    @Test
+    @DisplayName("INACTIVE Flow를 휴지통의 ARCHIVED 상태로 변경한다")
+    void archiveInactiveFlowTest() {
+        Flow inactiveFlow = new Flow(GROUP_ID, 1L, "현재 Flow", null, FlowStatus.INACTIVE);
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(inactiveFlow));
+
+        FlowResponse response = flowService.archive(GROUP_ID, USER_ID, 1L);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, inactiveFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
+    }
+
     @Test
     @DisplayName("수정 이름 검증이 실패하면 기존 Flow 상태를 유지한다")
     void ValidationFailsTest() {

@@ -99,6 +99,16 @@ public class FlowController {
         return ResponseEntity.ok(response);
     }
 
+    // ACTIVE 또는 INACTIVE Flow를 휴지통의 ARCHIVED 상태로 변경합니다.
+    @PostMapping("/{flowId}/archive")
+    public ResponseEntity<FlowResponse> archive(
+            @RequestParam Long groupId,
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long flowId) {
+        FlowResponse response = flowService.archive(groupId, userId, flowId);
+        return ResponseEntity.ok(response);
+    }
+
     // 기존 Flow를 보관하고 수정한 내용을 새 Flow로 저장합니다.
     @PutMapping("/{flowId}")
     public ResponseEntity<FlowResponse> update(

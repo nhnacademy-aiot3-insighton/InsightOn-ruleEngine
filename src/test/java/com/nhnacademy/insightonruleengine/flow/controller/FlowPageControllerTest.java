@@ -2,7 +2,6 @@ package com.nhnacademy.insightonruleengine.flow.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -19,11 +18,10 @@ class FlowPageControllerTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("기본 주소 접속 시 규칙 기반 플로우 관리 화면으로 이동한다")
-    void homeRedirectTest() throws Exception {
+    @DisplayName("기본 주소에는 규칙 기반 플로우 관리 화면을 노출하지 않는다")
+    void homeNotFoundTest() throws Exception {
         mockMvc.perform(get("/"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/rule/flows"));
+                .andExpect(status().isNotFound());
     }
 
     @Test

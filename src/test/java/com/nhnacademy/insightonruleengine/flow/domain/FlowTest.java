@@ -46,6 +46,28 @@ class FlowTest {
         Assertions.assertEquals("테스트", testFlow.getDescription());
     }
 
+    // 이미 보관된 Flow에 대한 중복 요청이 성공으로 숨겨지지 않는지 확인합니다.
+    @Test
+    @DisplayName("이미 보관된 Flow는 다시 보관할 수 없다")
+    void rejectArchivedFlowArchiveTest() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ARCHIVED);
+
+        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
+    }
+
+    // 실행 또는 대기 상태가 아닌 Flow가 휴지통으로 이동하지 않는지 확인합니다.
+    @Test
+    @DisplayName("ACTIVE와 INACTIVE가 아닌 Flow는 보관할 수 없다")
+    void rejectUnsupportedFlowArchiveTest() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ERROR);
+
+        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+
+        Assertions.assertEquals(FlowStatus.ERROR, flow.getStatus());
+    }
+
     @Test
     @DisplayName("보관된 Flow를 INACTIVE 상태로 복구한다")
     void restoreFlowAsInactive() {

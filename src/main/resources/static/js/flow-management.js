@@ -378,11 +378,14 @@
             const label = nextStatus === "ACTIVE" ? "활성화" : "비활성화";
             elements.detailActions.innerHTML = `
                 <button class="button ${nextStatus === "ACTIVE" ? "primary" : "secondary"}"
-                        type="button" data-action="status" data-status="${nextStatus}">${label}</button>`;
+                        type="button" data-action="status" data-status="${nextStatus}">${label}</button>
+                <button class="button danger" type="button" data-action="archive">휴지통으로 이동</button>`;
         }
 
         elements.detailActions.querySelector("[data-action='status']")
             ?.addEventListener("click", changeStatus);
+        elements.detailActions.querySelector("[data-action='archive']")
+            ?.addEventListener("click", archiveFlow);
         elements.detailActions.querySelector("[data-action='restore']")
             ?.addEventListener("click", restoreFlow);
         elements.detailActions.querySelector("[data-action='delete']")
@@ -405,7 +408,7 @@
                 <label>
                     Client Key
                     <input data-field="clientNodeKey" value="${escapeAttribute(node.clientNodeKey)}"
-                           ${readOnly ? "disabled" : ""}>
+                           maxlength="100" required ${readOnly ? "disabled" : ""}>
                 </label>
                 <label>
                     Node Type
@@ -444,26 +447,26 @@
             <article class="link-card" data-link-index="${index}">
                 <label>
                     Source Node
-                    <select data-field="sourceClientNodeKey" ${readOnly ? "disabled" : ""}>
+                    <select data-field="sourceClientNodeKey" required ${readOnly ? "disabled" : ""}>
                         ${nodeOptions(sourceNodes, link.sourceClientNodeKey)}
                     </select>
                 </label>
                 <label>
                     Source Port
                     <input data-field="sourcePort" value="${escapeAttribute(link.sourcePort)}"
-                           ${readOnly ? "disabled" : ""}>
+                           maxlength="50" required ${readOnly ? "disabled" : ""}>
                 </label>
                 <span class="link-arrow" aria-hidden="true">→</span>
                 <label>
                     Target Node
-                    <select data-field="targetClientNodeKey" ${readOnly ? "disabled" : ""}>
+                    <select data-field="targetClientNodeKey" required ${readOnly ? "disabled" : ""}>
                         ${nodeOptions(targetNodes, link.targetClientNodeKey)}
                     </select>
                 </label>
                 <label>
                     Target Port
                     <input data-field="targetPort" value="${escapeAttribute(link.targetPort)}"
-                           ${readOnly ? "disabled" : ""}>
+                           maxlength="50" required ${readOnly ? "disabled" : ""}>
                 </label>
                 ${readOnly ? "" : `
                     <button class="remove-row" data-remove-link="${index}" type="button" aria-label="Link 삭제">×</button>
@@ -611,6 +614,12 @@
             return;
         }
 
+        const validationMessage = validateDraftConfiguration();
+        if (validationMessage != null) {
+            showToast(validationMessage, true);
+            return;
+        }
+
         let nodes;
         try {
             nodes = state.draftNodes.map((node) => ({
@@ -628,12 +637,17 @@
             description: emptyToNull(elements.updateDescription.value),
             nodes,
             links: state.draftLinks.map((link) => ({
-                sourceClientNodeKey: link.sourceClientNodeKey,
-                targetClientNodeKey: link.targetClientNodeKey,
+                sourceClientNodeKey: link.sourceClientNodeKey.trim(),
+                targetClientNodeKey: link.targetClientNodeKey.trim(),
                 sourcePort: link.sourcePort.trim(),
                 targetPort: link.targetPort.trim()
             }))
         };
+
+        if (payload.nodes.length === 0 || payload.links.length === 0) {
+            showToast("수정본 저장을 위해 Node와 Link를 최소 1개 이상 추가해 주세요.", true);
+            return;
+        }
 
         try {
             const updated = await request(`/${state.detail.flowId}`, {
@@ -643,6 +657,55 @@
             state.archivedLoaded = false;
             showToast(`수정본을 저장했습니다. 새 Flow ID는 ${updated.flowId}입니다.`);
             await loadFlows(updated.flowId);
+        } catch (error) {
+            showToast(error.message, true);
+        }
+    }
+
+    // 서버로 보내기 전에 Node와 Link의 필수·길이 제약을 안내하기 위해 검사한다.
+    function validateDraftConfiguration() {
+        const invalidNode = state.draftNodes.find((node) => {
+            const clientNodeKey = node.clientNodeKey.trim();
+            return clientNodeKey === "" || clientNodeKey.length > 100;
+        });
+        if (invalidNode != null) {
+            return "Client Key는 필수이며 100자 이하여야 합니다.";
+        }
+
+        const invalidLinkKey = state.draftLinks.find((link) => {
+            const sourceKey = link.sourceClientNodeKey.trim();
+            const targetKey = link.targetClientNodeKey.trim();
+            return sourceKey === "" || sourceKey.length > 100
+                || targetKey === "" || targetKey.length > 100;
+        });
+        if (invalidLinkKey != null) {
+            return "Link의 Source와 Target Node를 올바르게 선택해 주세요.";
+        }
+
+        const invalidPort = state.draftLinks.find((link) => {
+            const sourcePort = link.sourcePort.trim();
+            const targetPort = link.targetPort.trim();
+            return sourcePort === "" || sourcePort.length > 50
+                || targetPort === "" || targetPort.length > 50;
+        });
+        if (invalidPort != null) {
+            return "Source와 Target Port는 필수이며 50자 이하여야 합니다.";
+        }
+        return null;
+    }
+
+    async function archiveFlow() {
+        const confirmed = window.confirm(`“${state.detail.name}” Flow를 휴지통으로 이동할까요?`);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const archived = await request(`/${state.detail.flowId}/archive`, {method: "POST"});
+            state.archivedLoaded = false;
+            showToast(`${archived.name} Flow를 휴지통으로 이동했습니다.`);
+            clearDetail();
+            await loadFlows();
         } catch (error) {
             showToast(error.message, true);
         }

@@ -13,14 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class FlowPageController {
 
     /**
-     * 기본 주소로 접속한 사용자를 Flow 관리 화면으로 안내한다.
-     */
-    @GetMapping("/")
-    public String home() {
-        return "redirect:/rule/flows";
-    }
-
-    /**
      * 기존 REST API를 사용하는 Flow 관리 화면을 연다.
      */
     @GetMapping({"/rule/flows", "/rule/flows/"})
