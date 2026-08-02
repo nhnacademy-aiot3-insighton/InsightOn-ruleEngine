@@ -505,6 +505,7 @@
                     link.targetClientNodeKey = event.target.value;
                 }
             });
+            renderLinks();
         }
         if (event.target.dataset.field === "nodeType") {
             renderLinks();
