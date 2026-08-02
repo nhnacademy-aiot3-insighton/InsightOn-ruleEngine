@@ -112,6 +112,15 @@ public class FlowService {
         return toResponse(flow);
     }
 
+    // 실행 여부와 관계없이 사용하지 않는 Flow를 휴지통으로 보냅니다.
+    @Transactional
+    public FlowResponse archive(Long groupId, Long userId, Long flowId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
+        Flow flow = oneFlow(groupId, flowId);
+        flow.archive();
+        return toResponse(flow);
+    }
+
     // 휴지통에 있는 Flow만 삭제합니다.
     @Transactional
     public void delete(Long groupId, Long userId, Long flowId) {
