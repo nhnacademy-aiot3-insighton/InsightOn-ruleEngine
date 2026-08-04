@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/rule-events")
-@ConditionalOnProperty(name = "FIXME_PROTOTYPE_PROPERTIES_ENABLED", havingValue = "true")
+@ConditionalOnProperty(name = "rule-engine.prototype.test-controller.enabled", havingValue = "true")
 public class RuleEventTestController {
 
     private final FlowRunner flowRunner;

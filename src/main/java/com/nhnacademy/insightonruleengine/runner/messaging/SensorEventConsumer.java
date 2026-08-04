@@ -13,12 +13,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "", havingValue = "true")
+@ConditionalOnProperty(name = "rule-engine.rabbitmq.enabled", havingValue = "true")
 public class SensorEventConsumer {
 
     private final FlowRunner flowRunner;
 
-    @RabbitListener(queues = "${}")
+    @RabbitListener(queues = "${rule-engine.sensor-event.queue}")
     public void consume(SensorEvent event) {
         flowRunner.run(event);
     }
