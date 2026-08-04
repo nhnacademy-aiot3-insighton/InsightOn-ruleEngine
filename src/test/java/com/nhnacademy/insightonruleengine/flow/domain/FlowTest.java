@@ -1,6 +1,9 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,13 +13,13 @@ class FlowTest {
     @Test
     @DisplayName("Flow 생성시 필요한 값 null 체크")
     void nullCheckTest() {
-        Assertions.assertThrows(NullPointerException.class, () ->
+        Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(null, 1L, "테스트", "테스트", FlowStatus.ACTIVE));
-        Assertions.assertThrows(NullPointerException.class, () ->
+        Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, null, "테스트", "테스트", FlowStatus.ACTIVE));
-        Assertions.assertThrows(NullPointerException.class, () ->
+        Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, 1L, null, "테스트", FlowStatus.ACTIVE));
-        Assertions.assertThrows(NullPointerException.class, () ->
+        Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, 1L, "테스트", "테스트", null));
     }
 
@@ -26,13 +29,7 @@ class FlowTest {
         Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, 1L, "", "테스트", FlowStatus.ACTIVE));
         Assertions.assertThrows(IllegalArgumentException.class, () ->
-                new Flow(1L, 1L,
-                        "테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트"
-                                + "테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트"
-                                + "테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트"
-                                + "테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트"
-                                + "테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트테스트"
-                        , "테스트", FlowStatus.ACTIVE));
+                new Flow(1L, 1L, "가".repeat(101), "테스트", FlowStatus.ACTIVE));
         Flow testFlow = new Flow(1L, 1L, " 테스트 ", "테스트", FlowStatus.ACTIVE);
         Assertions.assertEquals("테스트", testFlow.getName());
     }
@@ -49,4 +46,60 @@ class FlowTest {
         Assertions.assertEquals("테스트", testFlow.getDescription());
     }
 
+    // 이미 보관된 Flow에 대한 중복 요청이 성공으로 숨겨지지 않는지 확인합니다.
+    @Test
+    @DisplayName("이미 보관된 Flow는 다시 보관할 수 없다")
+    void rejectArchivedFlowArchiveTest() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ARCHIVED);
+
+        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
+    }
+
+    // 실행 또는 대기 상태가 아닌 Flow가 휴지통으로 이동하지 않는지 확인합니다.
+    @Test
+    @DisplayName("ACTIVE와 INACTIVE가 아닌 Flow는 보관할 수 없다")
+    void rejectUnsupportedFlowArchiveTest() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ERROR);
+
+        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+
+        Assertions.assertEquals(FlowStatus.ERROR, flow.getStatus());
+    }
+
+    @Test
+    @DisplayName("보관된 Flow를 INACTIVE 상태로 복구한다")
+    void restoreFlowAsInactive() {
+        Flow flow = new Flow(1L, 1L, "테스트", "테스트", FlowStatus.ARCHIVED);
+
+        flow.restore();
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, flow.getStatus());
+    }
+
+    @Test
+    @DisplayName("같은 상태나 ARCHIVED 상태로 일반 변경할 수 없다")
+    void rejectInvalidActivationStatus() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ACTIVE);
+
+        assertThrows(
+                InvalidFlowStatusTransitionException.class,
+                () -> flow.changeActivationStatus(FlowStatus.ACTIVE));
+        assertThrows(
+                InvalidFlowStatusTransitionException.class,
+                () -> flow.changeActivationStatus(FlowStatus.ARCHIVED));
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, flow.getStatus());
+    }
+
+    @Test
+    @DisplayName("ARCHIVED가 아닌 Flow는 복구할 수 없다")
+    void rejectNonArchivedRestore() {
+        Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.INACTIVE);
+
+        assertThrows(InvalidFlowStatusTransitionException.class, flow::restore);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, flow.getStatus());
+    }
 }

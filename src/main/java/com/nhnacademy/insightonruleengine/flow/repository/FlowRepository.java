@@ -6,11 +6,13 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FlowRepository extends JpaRepository<Flow, Long> {
-    List<Flow> findAllByGroupId(Long groupId);
+    List<Flow> findAllByGroupIdAndStatusNot(Long groupId, FlowStatus status);
 
     List<Flow> findAllByGroupIdAndStatus(Long groupId, FlowStatus status);
 
     List<Flow> findAllByGroupIdAndLocationIdAndStatus(Long groupId, Long locationId, FlowStatus status);
+
+    List<Flow> findAllByStatus(FlowStatus status);
 
     boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
 }
