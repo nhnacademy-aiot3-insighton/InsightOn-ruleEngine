@@ -15,11 +15,11 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.node.domain.Link;
-import com.nhnacademy.insightonruleengine.node.domain.Node;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
-import com.nhnacademy.insightonruleengine.node.repository.LinkRepository;
-import com.nhnacademy.insightonruleengine.node.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;

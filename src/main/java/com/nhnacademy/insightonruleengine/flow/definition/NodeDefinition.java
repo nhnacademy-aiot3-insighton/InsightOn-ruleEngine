@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.definition;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 
 public record NodeDefinition(
         Long nodeId,

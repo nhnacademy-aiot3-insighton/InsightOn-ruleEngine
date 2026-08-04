@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimerParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;

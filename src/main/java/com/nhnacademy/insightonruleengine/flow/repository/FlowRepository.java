@@ -12,5 +12,7 @@ public interface FlowRepository extends JpaRepository<Flow, Long> {
 
     List<Flow> findAllByGroupIdAndLocationIdAndStatus(Long groupId, Long locationId, FlowStatus status);
 
+    List<Flow> findAllByStatus(FlowStatus status);
+
     boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
 }
