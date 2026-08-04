@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.*;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
