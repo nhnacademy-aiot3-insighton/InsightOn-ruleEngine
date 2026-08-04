@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.node.domain;
+package com.nhnacademy.insightonruleengine.flow.domain;
 
 
-import com.nhnacademy.insightonruleengine.node.domain.params.NodeParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import java.util.Set;
 
 /**

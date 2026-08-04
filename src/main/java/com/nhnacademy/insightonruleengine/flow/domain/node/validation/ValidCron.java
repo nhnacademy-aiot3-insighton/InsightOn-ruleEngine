@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain.validation;
+package com.nhnacademy.insightonruleengine.flow.domain.node.validation;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;

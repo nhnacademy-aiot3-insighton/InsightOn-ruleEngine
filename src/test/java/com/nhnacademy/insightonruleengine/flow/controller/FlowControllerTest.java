@@ -33,7 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.service.FlowService;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;

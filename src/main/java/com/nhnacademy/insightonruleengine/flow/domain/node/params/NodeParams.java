@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain.params;
+package com.nhnacademy.insightonruleengine.flow.domain.node.params;
 
 /**
  * Node.configuration(JSONB)에 대응하는 순수 파라미터의 공통 마커 인터페이스.

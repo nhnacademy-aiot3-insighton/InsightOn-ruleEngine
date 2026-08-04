@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.node.dto;
+package com.nhnacademy.insightonruleengine.flow.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import jakarta.validation.constraints.NotNull;
 
 public record NodeCreateRequest(

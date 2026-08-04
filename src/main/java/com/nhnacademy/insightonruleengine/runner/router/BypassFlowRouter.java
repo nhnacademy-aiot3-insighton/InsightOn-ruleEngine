@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner;
+package com.nhnacademy.insightonruleengine.runner.router;
 
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;

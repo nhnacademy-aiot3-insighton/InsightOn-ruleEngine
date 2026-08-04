@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain;
+package com.nhnacademy.insightonruleengine.flow.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

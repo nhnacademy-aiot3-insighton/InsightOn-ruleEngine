@@ -1,6 +1,6 @@
-package com.nhnacademy.insightonruleengine.node.repository;
+package com.nhnacademy.insightonruleengine.flow.repository;
 
-import com.nhnacademy.insightonruleengine.node.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

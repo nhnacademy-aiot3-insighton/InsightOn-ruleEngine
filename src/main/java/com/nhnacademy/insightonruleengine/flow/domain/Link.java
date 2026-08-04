@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain;
+package com.nhnacademy.insightonruleengine.flow.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

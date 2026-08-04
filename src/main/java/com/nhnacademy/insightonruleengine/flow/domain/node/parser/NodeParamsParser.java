@@ -1,10 +1,10 @@
-package com.nhnacademy.insightonruleengine.node.domain.parser;
+package com.nhnacademy.insightonruleengine.flow.domain.node.parser;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
-import com.nhnacademy.insightonruleengine.node.domain.params.NodeParams;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;

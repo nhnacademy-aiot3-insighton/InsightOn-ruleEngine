@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.dto;
+package com.nhnacademy.insightonruleengine.flow.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

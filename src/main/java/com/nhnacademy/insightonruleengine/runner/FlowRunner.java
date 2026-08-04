@@ -4,13 +4,15 @@ import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionIndex;
 import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
 import java.util.List;
+
+import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

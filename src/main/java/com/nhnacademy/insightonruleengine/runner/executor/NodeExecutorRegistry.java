@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.executor;
 
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
