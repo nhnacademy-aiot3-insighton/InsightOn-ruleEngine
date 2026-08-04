@@ -88,11 +88,11 @@ public class FlowService {
     // 요청한 그룹에 속한 Flow의 상세 정보를 반환합니다.
     public FlowResponse findById(Long groupId, Long userId, Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
-        return toResponse(oneFlow(groupId, flowId));
+        return toResponse(getFlow(groupId, flowId));
     }
 
-    // Flow가 없거나 다른 그룹의 Flow이면 같은 예외를 발생시킵니다.
-    private Flow oneFlow(Long groupId, Long flowId) {
+    // 플로우 하나 조회, validation처리
+    private Flow getFlow(Long groupId, Long flowId) {
         return flowRepository.findById(flowId)
                 .filter(flow -> flow.getGroupId().equals(groupId))
                 .orElseThrow(() -> new FlowNotFoundException(groupId, flowId));
@@ -107,7 +107,7 @@ public class FlowService {
             FlowStatusChangeRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
-        Flow flow = oneFlow(groupId, flowId);
+        Flow flow = getFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
         return toResponse(flow);
     }
@@ -116,7 +116,7 @@ public class FlowService {
     @Transactional
     public void delete(Long groupId, Long userId, Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        Flow flow = oneFlow(groupId, flowId);
+        Flow flow = getFlow(groupId, flowId);
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
         }
@@ -130,7 +130,7 @@ public class FlowService {
     public FlowResponse update(Long groupId, Long userId, Long flowId, FlowUpdateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
-        Flow currentFlow = oneFlow(groupId, flowId);
+        Flow currentFlow = getFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
@@ -153,7 +153,7 @@ public class FlowService {
     @Transactional
     public FlowResponse restore(Long groupId, Long userId, Long archivedFlowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        Flow archivedFlow = oneFlow(groupId, archivedFlowId);
+        Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
         return toResponse(archivedFlow);
     }
