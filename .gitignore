@@ -34,4 +34,5 @@ build/
 
 ### Local files ###
 .env
+.env.dev
 /docs/
