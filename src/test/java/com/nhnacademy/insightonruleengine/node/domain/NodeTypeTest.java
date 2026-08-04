@@ -2,14 +2,15 @@ package com.nhnacademy.insightonruleengine.node.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.nhnacademy.insightonruleengine.node.domain.params.action.AlertParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.action.ActuatorControlParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.action.ExternalNotificationParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.ThresholdParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.filter.TimerParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.trigger.ScheduleParams;
-import com.nhnacademy.insightonruleengine.node.domain.params.trigger.SensorParams;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;

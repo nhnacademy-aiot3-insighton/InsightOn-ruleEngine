@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title layout:title-pattern="$CONTENT_TITLE · $LAYOUT_TITLE">InsightOn</title>
+    <link rel="icon" type="image/png" sizes="64x64" th:href="@{/images/insighton-favicon.png}">
+    <link rel="stylesheet" th:href="@{/css/flow-management.css}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" th:href="@{/rule/flows}" aria-label="InsightOn 규칙 기반 플로우">
+            <img class="brand-logo" th:src="@{/images/insighton-logo.jpg}" alt="InsightOn 로고">
+            <span>
+                <strong>InsightOn</strong>
+                <small>Rule Engine</small>
+            </span>
+        </a>
+
+        <nav class="side-nav" aria-label="주요 메뉴">
+            <p class="nav-label">Workspace</p>
+            <a class="nav-item active" th:href="@{/rule/flows}">
+                <span class="nav-icon" aria-hidden="true">⌘</span>
+                규칙 기반 플로우
+            </a>
+            <span class="nav-item disabled">
+                <span class="nav-icon" aria-hidden="true">◌</span>
+                실행 모니터
+                <small>준비 중</small>
+            </span>
+            <span class="nav-item disabled">
+                <span class="nav-icon" aria-hidden="true">◇</span>
+                알림 이력
+                <small>준비 중</small>
+            </span>
+        </nav>
+
+        <div class="sidebar-note">
+            <span class="status-dot"></span>
+            <div>
+                <strong>Rule Engine API</strong>
+                <small>현재 서버와 직접 연결</small>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">AUTOMATION WORKSPACE</p>
+                <h1 layout:fragment="page-title">규칙 기반 플로우</h1>
+            </div>
+            <button class="connection-button" id="connectionToggle" type="button">
+                <span class="status-dot muted" id="connectionDot"></span>
+                <span id="connectionLabel">연결 정보 설정</span>
+            </button>
+        </header>
+
+        <section layout:fragment="content"></section>
+    </main>
+</div>
+
+<div class="loading-layer" id="loadingLayer" hidden>
+    <div class="loading" role="status" aria-label="데이터를 불러오는 중">
+        <svg width="96" height="48" viewBox="0 0 64 32" aria-hidden="true">
+            <polyline id="back" points="0,16 12,16 18,4 26,28 34,10 40,16 64,16"></polyline>
+            <polyline id="front" points="0,16 12,16 18,4 26,28 34,10 40,16 64,16"></polyline>
+            <polyline id="front2" points="0,16 12,16 18,4 26,28 34,10 40,16 64,16"></polyline>
+        </svg>
+        <span>Flow를 불러오고 있어요</span>
+    </div>
+</div>
+
+<div class="toast-region" id="toastRegion" aria-live="polite"></div>
+<script th:src="@{/js/flow-management.js}" defer></script>
+<th:block layout:fragment="scripts"></th:block>
+</body>
+</html>

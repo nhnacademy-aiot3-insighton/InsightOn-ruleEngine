@@ -26,11 +26,11 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.node.domain.Link;
-import com.nhnacademy.insightonruleengine.node.domain.Node;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
-import com.nhnacademy.insightonruleengine.node.repository.LinkRepository;
-import com.nhnacademy.insightonruleengine.node.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -211,6 +211,33 @@ class FlowServiceTest {
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
         verify(nodeRepository, times(2)).save(any(Node.class));
         verify(linkRepository).save(any(Link.class));
+    }
+
+    // 실행 중인 Flow도 권한을 확인한 뒤 안전하게 휴지통으로 보내는지 확인합니다.
+    @Test
+    @DisplayName("ACTIVE Flow를 휴지통의 ARCHIVED 상태로 변경한다")
+    void archiveActiveFlowTest() {
+        Flow activeFlow = new Flow(GROUP_ID, 1L, "현재 Flow", null, FlowStatus.ACTIVE);
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(activeFlow));
+
+        FlowResponse response = flowService.archive(GROUP_ID, USER_ID, 1L);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, activeFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
+        verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+    }
+
+    // 실행 대기 중인 Flow를 별도 삭제 없이 휴지통으로 보내는지 확인합니다.
+    @Test
+    @DisplayName("INACTIVE Flow를 휴지통의 ARCHIVED 상태로 변경한다")
+    void archiveInactiveFlowTest() {
+        Flow inactiveFlow = new Flow(GROUP_ID, 1L, "현재 Flow", null, FlowStatus.INACTIVE);
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(inactiveFlow));
+
+        FlowResponse response = flowService.archive(GROUP_ID, USER_ID, 1L);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, inactiveFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
     }
 
     @Test

@@ -33,7 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.service.FlowService;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -214,6 +214,22 @@ class FlowControllerTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         verify(flowService).changeActivationStatus(1L, USER_ID, 101L, request);
+    }
+
+    // 전용 보관 API가 Service 결과와 HTTP 응답을 그대로 전달하는지 확인합니다.
+    @Test
+    @DisplayName("휴지통 이동 요청은 선택한 Flow를 ARCHIVED 상태로 반환한다")
+    void archiveFlowTest() throws Exception {
+        when(flowService.archive(1L, USER_ID, 101L)).thenReturn(response(101L, FlowStatus.ARCHIVED));
+
+        mockMvc.perform(post(BASE_PATH + "/{flowId}/archive", 101L)
+                        .header(USER_ID_HEADER, USER_ID)
+                        .queryParam("groupId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.flowId").value(101L))
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+
+        verify(flowService).archive(1L, USER_ID, 101L);
     }
 
     @Test

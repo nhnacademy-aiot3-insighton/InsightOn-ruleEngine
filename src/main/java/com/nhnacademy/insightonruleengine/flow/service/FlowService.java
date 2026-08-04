@@ -15,11 +15,11 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.node.domain.Link;
-import com.nhnacademy.insightonruleengine.node.domain.Node;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
-import com.nhnacademy.insightonruleengine.node.repository.LinkRepository;
-import com.nhnacademy.insightonruleengine.node.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -109,6 +109,15 @@ public class FlowService {
         validateRequest(request);
         Flow flow = getFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
+        return toResponse(flow);
+    }
+
+    // 실행 여부와 관계없이 사용하지 않는 Flow를 휴지통으로 보냅니다.
+    @Transactional
+    public FlowResponse archive(Long groupId, Long userId, Long flowId) {
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
+        Flow flow = oneFlow(groupId, flowId);
+        flow.archive();
         return toResponse(flow);
     }
 
