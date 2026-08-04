@@ -14,6 +14,9 @@ import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationS
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -26,9 +29,6 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.Link;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import java.util.List;
@@ -122,7 +122,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatusNot(1L, FlowStatus.ARCHIVED))
                 .thenReturn(List.of(activeFlow));
 
-        List<FlowResponse> responses = flowService.findAll(GROUP_ID, USER_ID);
+        List<FlowResponse> responses = flowService.findAllUnarchivedFlows(GROUP_ID, USER_ID);
 
         Assertions.assertEquals(1, responses.size());
         Assertions.assertEquals(FlowStatus.ACTIVE, responses.getFirst().status());
@@ -137,7 +137,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatus(GROUP_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndStatus(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }
@@ -151,7 +151,11 @@ class FlowServiceTest {
                 10L,
                 FlowStatus.ACTIVE)).thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, 10L, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndLocationIdAndStatus(
+                GROUP_ID,
+                USER_ID,
+                10L,
+                FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }

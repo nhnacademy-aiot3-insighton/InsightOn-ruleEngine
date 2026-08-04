@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType.Category;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.node.domain.NodeType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class FlowNodeValidator {
 
+    //필수 노드값을 검사하고 링크와 연결될 노드를 key로 저장합니다.
     public NodeValidationResult validate(List<FlowNodeRequest> nodes) {
         List<FlowStructureValidationError> errors = new ArrayList<>();
         if (nodes == null || nodes.isEmpty()) {
@@ -105,8 +106,8 @@ public class FlowNodeValidator {
             return new NodeRoleValidationResult(false, List.of());
         }
         List<FlowStructureValidationError> errors = new ArrayList<>();
-        long triggerCount = countCategory(result.nodesByKey().values(), NodeType.Category.TRIGGER);
-        long actionCount = countCategory(result.nodesByKey().values(), NodeType.Category.ACTION);
+        long triggerCount = countCategory(result.nodesByKey().values(), Category.TRIGGER);
+        long actionCount = countCategory(result.nodesByKey().values(), Category.ACTION);
         boolean hasValidRoles = true;
         if (triggerCount != 1L) {
             addError(
@@ -132,7 +133,7 @@ public class FlowNodeValidator {
     }
 
     //null 노드타입 제외, 노드 수를 카운트한다.
-    private long countCategory(Collection<FlowNodeRequest> nodes, NodeType.Category category) {
+    private long countCategory(Collection<FlowNodeRequest> nodes, Category category) {
         return nodes.stream()
                 .filter(node -> node.nodeType() != null && node.nodeType().getCategory() == category)
                 .count();
