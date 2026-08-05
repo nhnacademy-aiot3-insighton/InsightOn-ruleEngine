@@ -9,10 +9,11 @@ import lombok.Builder;
 public record FlowCreateRequest(
         @NotNull
         Long locationId,
+
         @NotBlank
         @Size(max = 100)
-        
         String name,
+
         String description
 ) {
 }

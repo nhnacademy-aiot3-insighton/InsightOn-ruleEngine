@@ -28,9 +28,14 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -58,6 +63,9 @@ class FlowServiceTest {
 
     @Mock
     LinkRepository linkRepository;
+
+    @Mock
+    FlowStructureValidator flowStructureValidator;
 
     @InjectMocks
     FlowService flowService;
@@ -286,13 +294,20 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
+                        "same",
+                        "nodes[1].clientNodeKey",
+                        "clientKey는 중복될 수 없습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
         verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
     }
 
     // 지원하지 않는 입력 포트가 규칙 기반 플로우 구성에 저장되지 않도록 확인합니다.
@@ -321,9 +336,15 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        FlowStructureErrorCode.INVALID_PORT,
+                        "alert",
+                        "links[0].targetPort",
+                        "타겟 포트는 in만 사용할 수 있습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());

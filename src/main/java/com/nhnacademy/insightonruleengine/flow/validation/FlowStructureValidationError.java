@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
 public record FlowStructureValidationError(
-        FlowStructureErrorCode code,
+        FlowValidationErrorReason code,
         String clientNodeKey,
         String fieldPath,
         String message

@@ -1,13 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
-public enum FlowStructureErrorCode {
+public enum FlowStructureErrorCode implements FlowValidationErrorReason {
 
-    //노드는 필수입니다.
-    EMPTY_NODES,
-    //링크는 필수입니다.
-    EMPTY_LINKS,
-    //노드키가 중복되면 링크가 어디 노드를 가리키는지 결정할 수 없습니다.
-    DUPLICATE_CLIENT_NODE_KEY,
     //트리거 노드는 시작점이므로 하나여야합니다.
     INVALID_TRIGGER_COUNT,
     //실행결과를 만드는 액션은 하나라도 있어야합니다.
@@ -30,20 +24,8 @@ public enum FlowStructureErrorCode {
     INVALID_PORT,
     //트리거에서 도달 할 수 없는 노드가 존재합니다. (예시 트리거 -> 트리거)
     UNREACHABLE_NODE,
+    //어떤 Action에도 도달할 수 없는 노드가 존재합니다.
+    CANNOT_REACH_ACTION,
     //노드 링크 연결 구조에 순환 경로가 있습니다. (SELF_LOOP와 비슷한 문제 노드 A -> 노드 B -> 노드 A-> 노드 B) 이런 반복을 방지를 위함
-    CYCLE_DETECTED,
-    //clientNodeKey는 필수입니다.
-    MISSING_CLIENT_NODE_KEY,
-    //노드 타입은 필수입니다.
-    MISSING_NODE_TYPE,
-    //노드 설정값은 필수입니다.
-    MISSING_NODE_CONFIGURATION,
-    //sourceClientNodeKey는 필수입니다.
-    MISSING_SOURCE_CLIENT_NODE_KEY,
-    //targetClientNodeKey는 필수입니다.
-    MISSING_TARGET_CLIENT_NODE_KEY,
-    //sourcePort는 필수입니다.
-    MISSING_SOURCE_PORT,
-    //targetPort는 필수입니다.
-    MISSING_TARGET_PORT
+    CYCLE_DETECTED
 }
