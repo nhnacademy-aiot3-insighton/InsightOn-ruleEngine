@@ -113,8 +113,9 @@ public class FlowLinkValidator {
             }
             FlowNodeRequest source = nodeByKey.get(link.sourceClientNodeKey());
             FlowNodeRequest target = nodeByKey.get(link.targetClientNodeKey());
-            if (!validatePorts(link, source, fieldPath, errors)
-                    || !validateDirection(link, source, target, fieldPath, errors)) {
+            boolean validPorts = validatePorts(link, source, fieldPath, errors);
+            boolean validDirection = validateDirection(link, source, target, fieldPath, errors);
+            if (!validPorts || !validDirection) {
                 canValidateConnections = false;
             }
         }
