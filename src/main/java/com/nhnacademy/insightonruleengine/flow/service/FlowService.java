@@ -46,7 +46,11 @@ public class FlowService {
     @Transactional
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        validateRequest(request);
+        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
+                request.links());
+        if (!validationErrors.isEmpty()) {
+            throw new InvalidFlowStructureException(validationErrors);
+        }
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -54,7 +58,10 @@ public class FlowService {
                 request.description(),
                 FlowStatus.INACTIVE);
         validate(flow);
-        return toResponse(flowRepository.save(flow));
+        Flow savedFlow = flowRepository.save(flow);
+        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
+        saveLinks(savedFlow.getId(), request.links(), nodeIds);
+        return toResponse(savedFlow);
     }
 
     // 일반 목록에서는 휴지통의 Flow를 제외합니다.

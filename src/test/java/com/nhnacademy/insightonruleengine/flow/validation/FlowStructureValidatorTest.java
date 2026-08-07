@@ -1,9 +1,12 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -78,4 +81,49 @@ class FlowStructureValidatorTest {
                 .map(FlowStructureValidationError::code)
                 .toList();
     }
+
+    @Test
+    @DisplayName("사전 구성 1: 온도 30도 이상 경보 플로우가 구조 검증을 통과한다")
+    void temperatureThreshold30FlowTest() {
+        var request = FlowTestData.createTemperatureThreshold30FlowRequest(
+                10L);
+        List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
+        assertTrue(errors.isEmpty(), "온도 30도 경보 플로우 검증 에러: " + errors);
+    }
+
+    @Test
+    @DisplayName("사전 구성 2: 정기 환기 장치 구동 플로우가 구조 검증을 통과한다")
+    void scheduledActuatorFlowTest() {
+        var request = FlowTestData.createScheduledActuatorFlowRequest(10L);
+        List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
+        assertTrue(errors.isEmpty(), "정기 환기 플로우 검증 에러: " + errors);
+    }
+
+    @Test
+    @DisplayName("사전 구성 4: 이중 조건 직렬 검사 플로우가 구조 검증을 통과한다")
+    void multiThresholdSerialFlowTest() {
+        var request = FlowTestData.createMultiThresholdSerialFlowRequest(
+                10L);
+        List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
+        assertTrue(errors.isEmpty(), "이중 직렬 검사 플로우 검증 에러: " + errors);
+    }
+
+    @Test
+    @DisplayName("사전 구성 5: 참/거짓 이중 분기 플로우가 구조 검증을 통과한다")
+    void branchingTrueFalseFlowTest() {
+        var request = FlowTestData.createTrueFalseFlowRequest(10L);
+        List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
+        assertTrue(errors.isEmpty(), "이중 분기 플로우 검증 에러: " + errors);
+    }
+
+    @Test
+    @DisplayName("사전 구성 6: 순환 구조 오류 플로우는 구조 검증에서 오류를 검출한다")
+    void cyclicInvalidFlowTest() {
+        var request = FlowTestData.createCyclicInvalidFlowRequest(10L);
+        List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
+        assertFalse(errors.isEmpty(), "오류가 검출되어야 합니다: " + errors);
+    }
+
+
 }
+
