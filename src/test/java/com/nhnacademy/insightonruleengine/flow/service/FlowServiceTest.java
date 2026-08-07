@@ -14,6 +14,9 @@ import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationS
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -25,12 +28,14 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.Link;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -58,6 +63,9 @@ class FlowServiceTest {
 
     @Mock
     LinkRepository linkRepository;
+
+    @Mock
+    FlowStructureValidator flowStructureValidator;
 
     @InjectMocks
     FlowService flowService;
@@ -122,7 +130,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatusNot(1L, FlowStatus.ARCHIVED))
                 .thenReturn(List.of(activeFlow));
 
-        List<FlowResponse> responses = flowService.findAll(GROUP_ID, USER_ID);
+        List<FlowResponse> responses = flowService.findAllUnarchivedFlows(GROUP_ID, USER_ID);
 
         Assertions.assertEquals(1, responses.size());
         Assertions.assertEquals(FlowStatus.ACTIVE, responses.getFirst().status());
@@ -137,7 +145,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatus(GROUP_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndStatus(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }
@@ -151,7 +159,11 @@ class FlowServiceTest {
                 10L,
                 FlowStatus.ACTIVE)).thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, 10L, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndLocationIdAndStatus(
+                GROUP_ID,
+                USER_ID,
+                10L,
+                FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }
@@ -282,13 +294,20 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
+                        "same",
+                        "nodes[1].clientNodeKey",
+                        "clientKey는 중복될 수 없습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
         verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
     }
 
     // 지원하지 않는 입력 포트가 규칙 기반 플로우 구성에 저장되지 않도록 확인합니다.
@@ -317,9 +336,15 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        FlowStructureErrorCode.INVALID_PORT,
+                        "alert",
+                        "links[0].targetPort",
+                        "타겟 포트는 in만 사용할 수 있습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());

@@ -25,7 +25,8 @@ public enum ErrorCode {
     FLOW_MISSING_ACTION_NODE(HttpStatus.BAD_REQUEST),
     FLOW_FAN_IN_NOT_ALLOWED(HttpStatus.BAD_REQUEST),
     FLOW_NOT_ACTIVE(HttpStatus.CONFLICT),
-    FLOW_UNKNOWN_NODE_REFERENCE(HttpStatus.BAD_REQUEST);
+    FLOW_UNKNOWN_NODE_REFERENCE(HttpStatus.BAD_REQUEST),
+    FLOW_INVALID_STRUCTURE(HttpStatus.BAD_REQUEST);
 
     // Node 와 link 다른 도메인은 아직 미구현
 

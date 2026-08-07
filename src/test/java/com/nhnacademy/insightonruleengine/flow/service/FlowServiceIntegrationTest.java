@@ -8,15 +8,22 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowLinkValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowNodeValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowPathValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +36,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(FlowService.class)
+@Import({
+        FlowService.class,
+        NodeValidator.class,
+        LinkValidator.class,
+        FlowNodeValidator.class,
+        FlowLinkValidator.class,
+        FlowPathValidator.class,
+        FlowStructureValidator.class
+})
 class FlowServiceIntegrationTest {
 
     @Autowired
@@ -126,6 +141,50 @@ class FlowServiceIntegrationTest {
 
         assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
         assertEquals(2L, flowRepository.count());
+    }
+
+    // 실제 구조 검증기가 저장 전에 요청을 거부해 기존 Flow와 저장 데이터를 보호하는지 확인합니다.
+    @Test
+    @DisplayName("Flow 구조 검증 실패 시 어떤 구성 데이터도 저장하지 않는다")
+    void invalidStructurePreventsPersistenceTest() {
+        Flow currentFlow = flowRepository.saveAndFlush(
+                new Flow(1L, 10L, "온도 경고 v1", null, FlowStatus.ACTIVE)
+        );
+        Long currentFlowId = currentFlow.getId();
+        FlowUpdateRequest invalidRequest = FlowUpdateRequest.builder()
+                .name("온도 경고 v2")
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("same")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("same")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()))
+                .links(List.of(FlowLinkRequest.builder()
+                        .sourceClientNodeKey("same")
+                        .targetClientNodeKey("same")
+                        .sourcePort("out")
+                        .targetPort("in")
+                        .build()))
+                .build();
+
+        assertThrows(
+                InvalidFlowStructureException.class,
+                () -> flowService.update(1L, 100L, currentFlowId, invalidRequest)
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        Flow unchangedFlow = flowRepository.findById(currentFlowId).orElseThrow();
+
+        assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
+        assertEquals(1L, flowRepository.count());
+        assertEquals(0L, nodeRepository.count());
+        assertEquals(0L, linkRepository.count());
     }
 
     private FlowUpdateRequest updateRequest(String name, String description) {

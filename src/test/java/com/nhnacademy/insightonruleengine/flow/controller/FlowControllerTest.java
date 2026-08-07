@@ -20,6 +20,7 @@ import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssemble
 import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -33,7 +34,6 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.service.FlowService;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -117,7 +117,8 @@ class FlowControllerTest {
     @Test
     @DisplayName("선택 조회 조건이 없으면 ARCHIVED를 제외하는 기본 목록을 호출한다")
     void findDefaultList() throws Exception {
-        when(flowService.findAll(1L, USER_ID)).thenReturn(List.of(response(101L, FlowStatus.ACTIVE)));
+        when(flowService.findAllUnarchivedFlows(1L, USER_ID))
+                .thenReturn(List.of(response(101L, FlowStatus.ACTIVE)));
 
         mockMvc.perform(get(BASE_PATH)
                         .header(USER_ID_HEADER, USER_ID)
@@ -125,13 +126,13 @@ class FlowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].flowId").value(101L));
 
-        verify(flowService).findAll(1L, USER_ID);
+        verify(flowService).findAllUnarchivedFlows(1L, USER_ID);
     }
 
     @Test
     @DisplayName("상태만 지정하면 그룹 상태 목록을 호출한다")
     void findListByStatus() throws Exception {
-        when(flowService.findAll(1L, USER_ID, FlowStatus.ARCHIVED))
+        when(flowService.findByGroupIdAndStatus(1L, USER_ID, FlowStatus.ARCHIVED))
                 .thenReturn(List.of(response(101L, FlowStatus.ARCHIVED)));
 
         mockMvc.perform(get(BASE_PATH)
@@ -141,13 +142,17 @@ class FlowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("ARCHIVED"));
 
-        verify(flowService).findAll(1L, USER_ID, FlowStatus.ARCHIVED);
+        verify(flowService).findByGroupIdAndStatus(1L, USER_ID, FlowStatus.ARCHIVED);
     }
 
     @Test
     @DisplayName("장소와 상태를 지정하면 그룹 장소 상태 목록을 호출한다")
     void findListByLocationAndStatus() throws Exception {
-        when(flowService.findAll(1L, USER_ID, 10L, FlowStatus.ACTIVE))
+        when(flowService.findByGroupIdAndLocationIdAndStatus(
+                1L,
+                USER_ID,
+                10L,
+                FlowStatus.ACTIVE))
                 .thenReturn(List.of(response(101L, FlowStatus.ACTIVE)));
 
         mockMvc.perform(get(BASE_PATH)
@@ -157,7 +162,11 @@ class FlowControllerTest {
                         .queryParam("status", "ACTIVE"))
                 .andExpect(status().isOk());
 
-        verify(flowService).findAll(1L, USER_ID, 10L, FlowStatus.ACTIVE);
+        verify(flowService).findByGroupIdAndLocationIdAndStatus(
+                1L,
+                USER_ID,
+                10L,
+                FlowStatus.ACTIVE);
     }
 
     @Test
