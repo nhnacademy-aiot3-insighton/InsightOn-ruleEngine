@@ -8,6 +8,7 @@ public record FlowExecutionContext(
         FlowDefinition flow,
         SensorEvent event
 ) {
+
     public FlowExecutionContext {
         if (flow == null) {
             throw new IllegalArgumentException("flow는 필수입니다.");
