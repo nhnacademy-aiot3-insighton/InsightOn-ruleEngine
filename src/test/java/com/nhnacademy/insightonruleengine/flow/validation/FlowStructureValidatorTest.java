@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -57,6 +56,36 @@ class FlowStructureValidatorTest {
                 List.of(NodeErrorCode.EMPTY_NODES, LinkErrorCode.EMPTY_LINKS),
                 errorCodes(errors)
         );
+    }
+
+    @Test
+    @DisplayName("NodeType이 누락된 노드가 링크에 포함되어도 검증 오류를 반환합니다.")
+    void missingNodeTypeInLinkTest() {
+        FlowNodeRequest source = node("source", null);
+        FlowNodeRequest action = node("action", NodeType.ALERT);
+        FlowLinkRequest link = link("source", "action", "out");
+
+        List<FlowStructureValidationError> errors = validator.validate(
+                List.of(source, action),
+                List.of(link)
+        );
+
+        assertEquals(List.of(NodeErrorCode.MISSING_NODE_TYPE), errorCodes(errors));
+    }
+
+    @Test
+    @DisplayName("Target NodeType이 누락된 링크도 검증 오류를 반환합니다.")
+    void missingTargetNodeTypeInLinkTest() {
+        FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
+        FlowNodeRequest target = node("target", null);
+        FlowLinkRequest link = link("trigger", "target", "out");
+
+        List<FlowStructureValidationError> errors = validator.validate(
+                List.of(trigger, target),
+                List.of(link)
+        );
+
+        assertEquals(List.of(NodeErrorCode.MISSING_NODE_TYPE), errorCodes(errors));
     }
 
     private FlowNodeRequest node(String clientNodeKey, NodeType nodeType) {
@@ -121,9 +150,11 @@ class FlowStructureValidatorTest {
     void cyclicInvalidFlowTest() {
         var request = FlowTestData.createCyclicInvalidFlowRequest(10L);
         List<FlowStructureValidationError> errors = validator.validate(request.nodes(), request.links());
-        assertFalse(errors.isEmpty(), "오류가 검출되어야 합니다: " + errors);
+        assertTrue(
+                errors.stream().anyMatch(error -> error.code() == FlowStructureErrorCode.CYCLE_DETECTED),
+                "Cycle 오류가 검출되어야 합니다: " + errors
+        );
     }
 
 
 }
-

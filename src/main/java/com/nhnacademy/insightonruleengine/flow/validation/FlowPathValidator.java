@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class FlowPathValidator {
 
-    //기본 구조가 확인된 연결에서 도달성, Action 경로, Cycle 오류를 찾는다.
+    //기본 구조 검증을 통과한 Node와 Link에서 도달성, Action 경로와 Cycle 오류를 찾습니다.
     public List<FlowStructureValidationError> validate(
             Map<String, FlowNodeRequest> nodesByKey,
             List<FlowLinkRequest> links
@@ -78,7 +78,7 @@ public class FlowPathValidator {
         throw new IllegalArgumentException("경로 검증에는 Trigger Node가 필요합니다.");
     }
 
-    //역방향 탐색을 시작할 모든 Action Key를 입력 순서대로 모은다.
+    //역방향 탐색을 시작할 Action Key를 중복 없이 모은다.
     private Set<String> findActionKeys(Map<String, FlowNodeRequest> nodesByKey) {
         Set<String> actionKeys = new LinkedHashSet<>();
         for (FlowNodeRequest node : nodesByKey.values()) {

@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -18,9 +19,9 @@ public record FlowCreateRequest(
         String description,
 
         @NotNull
-        List<FlowNodeRequest> nodes,
+        List<@Valid FlowNodeRequest> nodes,
 
         @NotNull
-        List<FlowLinkRequest> links
+        List<@Valid FlowLinkRequest> links
 ) {
 }

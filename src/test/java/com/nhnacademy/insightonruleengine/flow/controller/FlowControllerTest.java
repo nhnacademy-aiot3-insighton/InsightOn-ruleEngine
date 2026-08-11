@@ -215,6 +215,45 @@ class FlowControllerTest {
     }
 
     @Test
+    @DisplayName("Flow 생성 요청의 NodeType이 누락되면 Service 호출 전에 400으로 거부한다")
+    void missingCreateNodeType400Test() throws Exception {
+        mockMvc.perform(post(BASE_PATH)
+                        .header(USER_ID_HEADER, USER_ID)
+                        .queryParam("groupId", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "locationId": 10,
+                                  "name": "노드 타입 누락 플로우",
+                                  "nodes": [
+                                    {
+                                      "clientNodeKey": "sensor",
+                                      "configuration": {}
+                                    },
+                                    {
+                                      "clientNodeKey": "alert",
+                                      "nodeType": "ALERT",
+                                      "configuration": {}
+                                    }
+                                  ],
+                                  "links": [
+                                    {
+                                      "sourceClientNodeKey": "sensor",
+                                      "targetClientNodeKey": "alert",
+                                      "sourcePort": "out",
+                                      "targetPort": "in"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
+
+        verifyNoInteractions(flowService);
+    }
+
+    @Test
     @DisplayName("Flow 생성 요청 시 name 필드가 공백이면 Validation 400으로 거부한다")
     void blankName400Test() throws Exception {
         mockMvc.perform(post(BASE_PATH)

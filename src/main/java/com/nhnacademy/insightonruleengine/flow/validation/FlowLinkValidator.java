@@ -139,6 +139,9 @@ public class FlowLinkValidator {
             String fieldPath,
             List<FlowStructureValidationError> errors
     ) {
+        if (source.nodeType() == null || target.nodeType() == null) {
+            return false;
+        }
         boolean valid = true;
         if (source.nodeType().getCategory() == Category.ACTION) {
             addError(

@@ -234,7 +234,7 @@ public abstract class FlowTestData {
                 .build();
     }
 
-    //시나리오 6: 구조 검증 실패 순환 플로우 (SENSOR -> THRESHOLD <-> TIMER)
+    //시나리오 6: 구조 검증 실패 순환 플로우 (SENSOR -> THRESHOLD <-> TIMER -> ALERT)
     public static FlowCreateRequest createCyclicInvalidFlowRequest(Long locationId) {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
@@ -250,6 +250,11 @@ public abstract class FlowTestData {
                 FlowNodeRequest.builder()
                         .clientNodeKey("timer")
                         .nodeType(NodeType.TIMER)
+                        .configuration(JsonNodeFactory.instance.objectNode())
+                        .build(),
+                FlowNodeRequest.builder()
+                        .clientNodeKey("alert")
+                        .nodeType(NodeType.ALERT)
                         .configuration(JsonNodeFactory.instance.objectNode())
                         .build()
         );
@@ -272,6 +277,12 @@ public abstract class FlowTestData {
                         .targetClientNodeKey("threshold")
                         .sourcePort("true")
                         .targetPort("in")
+                        .build(),
+                FlowLinkRequest.builder()
+                        .sourceClientNodeKey("timer")
+                        .targetClientNodeKey("alert")
+                        .sourcePort("false")
+                        .targetPort("in")
                         .build()
         );
 
@@ -284,4 +295,3 @@ public abstract class FlowTestData {
                 .build();
     }
 }
-
