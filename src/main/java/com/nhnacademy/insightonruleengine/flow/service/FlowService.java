@@ -4,6 +4,8 @@ import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationS
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -14,19 +16,15 @@ import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameExcept
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.Link;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,12 +40,17 @@ public class FlowService {
     private final GroupAuthorizationService groupAuthorizationService;
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
+    private final FlowStructureValidator flowStructureValidator;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        validateRequest(request);
+        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
+                request.links());
+        if (!validationErrors.isEmpty()) {
+            throw new InvalidFlowStructureException(validationErrors);
+        }
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -55,11 +58,14 @@ public class FlowService {
                 request.description(),
                 FlowStatus.INACTIVE);
         validate(flow);
-        return toResponse(flowRepository.save(flow));
+        Flow savedFlow = flowRepository.save(flow);
+        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
+        saveLinks(savedFlow.getId(), request.links(), nodeIds);
+        return toResponse(savedFlow);
     }
 
     // 일반 목록에서는 휴지통의 Flow를 제외합니다.
-    public List<FlowResponse> findAll(Long groupId, Long userId) {
+    public List<FlowResponse> findAllUnarchivedFlows(Long groupId, Long userId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndStatusNot(groupId, FlowStatus.ARCHIVED)
                 .stream()
@@ -68,7 +74,7 @@ public class FlowService {
     }
 
     // 선택한 상태의 Flow만 조회합니다.
-    public List<FlowResponse> findAll(Long groupId, Long userId, FlowStatus status) {
+    public List<FlowResponse> findByGroupIdAndStatus(Long groupId, Long userId, FlowStatus status) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndStatus(groupId, status)
                 .stream()
@@ -77,7 +83,11 @@ public class FlowService {
     }
 
     // 선택한 그룹, 장소, 상태에 맞는 Flow만 조회합니다.
-    public List<FlowResponse> findAll(Long groupId, Long userId, Long locationId, FlowStatus status) {
+    public List<FlowResponse> findByGroupIdAndLocationIdAndStatus(
+            Long groupId,
+            Long userId,
+            Long locationId,
+            FlowStatus status) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
         return flowRepository.findAllByGroupIdAndLocationIdAndStatus(groupId, locationId, status)
                 .stream()
@@ -88,11 +98,11 @@ public class FlowService {
     // 요청한 그룹에 속한 Flow의 상세 정보를 반환합니다.
     public FlowResponse findById(Long groupId, Long userId, Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
-        return toResponse(oneFlow(groupId, flowId));
+        return toResponse(getFlow(groupId, flowId));
     }
 
-    // Flow가 없거나 다른 그룹의 Flow이면 같은 예외를 발생시킵니다.
-    private Flow oneFlow(Long groupId, Long flowId) {
+    // 플로우 하나 조회, validation처리
+    private Flow getFlow(Long groupId, Long flowId) {
         return flowRepository.findById(flowId)
                 .filter(flow -> flow.getGroupId().equals(groupId))
                 .orElseThrow(() -> new FlowNotFoundException(groupId, flowId));
@@ -107,7 +117,7 @@ public class FlowService {
             FlowStatusChangeRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
-        Flow flow = oneFlow(groupId, flowId);
+        Flow flow = getFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
         return toResponse(flow);
     }
@@ -116,7 +126,7 @@ public class FlowService {
     @Transactional
     public FlowResponse archive(Long groupId, Long userId, Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        Flow flow = oneFlow(groupId, flowId);
+        Flow flow = getFlow(groupId, flowId);
         flow.archive();
         return toResponse(flow);
     }
@@ -125,7 +135,7 @@ public class FlowService {
     @Transactional
     public void delete(Long groupId, Long userId, Long flowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        Flow flow = oneFlow(groupId, flowId);
+        Flow flow = getFlow(groupId, flowId);
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
         }
@@ -139,11 +149,16 @@ public class FlowService {
     public FlowResponse update(Long groupId, Long userId, Long flowId, FlowUpdateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
-        Flow currentFlow = oneFlow(groupId, flowId);
+        Flow currentFlow = getFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
-        validateConfiguration(request);
+        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
+                request.links());
+        if (!validationErrors.isEmpty()) {
+            throw new InvalidFlowStructureException(validationErrors);
+        }
+
         Flow updateFlow = new Flow(
                 groupId,
                 currentFlow.getLocationId(),
@@ -162,7 +177,7 @@ public class FlowService {
     @Transactional
     public FlowResponse restore(Long groupId, Long userId, Long archivedFlowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        Flow archivedFlow = oneFlow(groupId, archivedFlowId);
+        Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
         return toResponse(archivedFlow);
     }
@@ -182,147 +197,6 @@ public class FlowService {
     private void validateRequest(Object request) {
         if (request == null) {
             throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
-        }
-    }
-
-    private void validateConfiguration(FlowUpdateRequest request) {
-        if (request.nodes() == null || request.nodes().isEmpty()) {
-            throw new IllegalArgumentException("Node 목록은 비어 있을 수 없습니다.");
-        }
-        if (request.links() == null || request.links().isEmpty()) {
-            throw new IllegalArgumentException("Link 목록은 비어 있을 수 없습니다.");
-        }
-
-        Map<String, FlowNodeRequest> nodesByKey = new HashMap<>();
-        for (FlowNodeRequest node : request.nodes()) {
-            if (node == null
-                    || node.clientNodeKey() == null
-                    || node.clientNodeKey().isBlank()
-                    || node.nodeType() == null
-                    || node.configuration() == null) {
-                throw new IllegalArgumentException("Node 요청값이 올바르지 않습니다.");
-            }
-            if (nodesByKey.putIfAbsent(node.clientNodeKey(), node) != null) {
-                throw new IllegalArgumentException("clientNodeKey는 중복될 수 없습니다.");
-            }
-        }
-
-        long triggerCount = request.nodes().stream()
-                .filter(node -> node.nodeType().getCategory() == NodeType.Category.TRIGGER)
-                .count();
-        long actionCount = request.nodes().stream()
-                .filter(node -> node.nodeType().getCategory() == NodeType.Category.ACTION)
-                .count();
-        if (triggerCount != 1L || actionCount == 0L) {
-            throw new IllegalArgumentException(
-                    "Trigger Node는 하나이고 Action Node는 하나 이상이어야 합니다.");
-        }
-
-        Map<String, List<String>> targetsBySource = new HashMap<>();
-        Map<String, Integer> incomingCounts = new HashMap<>();
-        request.nodes().forEach(node -> {
-            targetsBySource.put(node.clientNodeKey(), new ArrayList<>());
-            incomingCounts.put(node.clientNodeKey(), 0);
-        });
-        Set<String> sourcePorts = new HashSet<>();
-
-        for (FlowLinkRequest link : request.links()) {
-            validateLink(link, nodesByKey, sourcePorts);
-            targetsBySource.get(link.sourceClientNodeKey()).add(link.targetClientNodeKey());
-            incomingCounts.compute(link.targetClientNodeKey(), (key, count) -> count + 1);
-        }
-
-        validateConnectionStructure(nodesByKey, targetsBySource, incomingCounts);
-    }
-
-    private void validateLink(
-            FlowLinkRequest link,
-            Map<String, FlowNodeRequest> nodesByKey,
-            Set<String> sourcePorts) {
-        if (link == null
-                || link.sourceClientNodeKey() == null
-                || link.targetClientNodeKey() == null
-                || link.sourcePort() == null
-                || link.sourcePort().isBlank()
-                || link.targetPort() == null
-                || link.targetPort().isBlank()) {
-            throw new IllegalArgumentException("Link 요청값이 올바르지 않습니다.");
-        }
-        FlowNodeRequest source = nodesByKey.get(link.sourceClientNodeKey());
-        FlowNodeRequest target = nodesByKey.get(link.targetClientNodeKey());
-        if (source == null || target == null) {
-            throw new IllegalArgumentException("Link가 존재하지 않는 Node를 참조합니다.");
-        }
-        if (link.sourceClientNodeKey().equals(link.targetClientNodeKey())) {
-            throw new IllegalArgumentException("Node는 자기 자신과 연결할 수 없습니다.");
-        }
-        if (source.nodeType().getCategory() == NodeType.Category.ACTION
-                || target.nodeType().getCategory() == NodeType.Category.TRIGGER) {
-            throw new IllegalArgumentException("Node 연결 방향이 올바르지 않습니다.");
-        }
-        if (!source.nodeType().getPortSchema().outputPorts(null).contains(link.sourcePort())) {
-            throw new IllegalArgumentException("Source Port가 Node Type과 맞지 않습니다.");
-        }
-        if (!TARGET_PORT.equals(link.targetPort())) {
-            throw new IllegalArgumentException("Target Port는 in이어야 합니다.");
-        }
-        if (!sourcePorts.add(link.sourceClientNodeKey() + "\u0000" + link.sourcePort())) {
-            throw new IllegalArgumentException("Source Node Port는 한 Link에만 사용할 수 있습니다.");
-        }
-    }
-
-    private void validateConnectionStructure(
-            Map<String, FlowNodeRequest> nodesByKey,
-            Map<String, List<String>> targetsBySource,
-            Map<String, Integer> incomingCounts) {
-        String triggerKey = nodesByKey.values().stream()
-                .filter(node -> node.nodeType().getCategory() == NodeType.Category.TRIGGER)
-                .findFirst()
-                .orElseThrow()
-                .clientNodeKey();
-
-        for (FlowNodeRequest node : nodesByKey.values()) {
-            boolean action = node.nodeType().getCategory() == NodeType.Category.ACTION;
-            if (action && !targetsBySource.get(node.clientNodeKey()).isEmpty()) {
-                throw new IllegalArgumentException("Action Node는 출력 Link를 가질 수 없습니다.");
-            }
-            if (!action && targetsBySource.get(node.clientNodeKey()).isEmpty()) {
-                throw new IllegalArgumentException("Action이 아닌 Node는 출력 Link가 필요합니다.");
-            }
-        }
-
-        Set<String> reachable = new HashSet<>();
-        ArrayDeque<String> pending = new ArrayDeque<>();
-        pending.add(triggerKey);
-        while (!pending.isEmpty()) {
-            String current = pending.removeFirst();
-            if (reachable.add(current)) {
-                pending.addAll(targetsBySource.get(current));
-            }
-        }
-        if (reachable.size() != nodesByKey.size()) {
-            throw new IllegalArgumentException("Trigger에서 도달할 수 없는 Node가 있습니다.");
-        }
-
-        ArrayDeque<String> roots = new ArrayDeque<>();
-        incomingCounts.forEach((key, count) -> {
-            if (count == 0) {
-                roots.add(key);
-            }
-        });
-        int visited = 0;
-        while (!roots.isEmpty()) {
-            String current = roots.removeFirst();
-            visited++;
-            for (String target : targetsBySource.get(current)) {
-                int remaining = incomingCounts.compute(target, (key, count) -> count - 1);
-                if (remaining == 0) {
-                    roots.add(target);
-                }
-            }
-        }
-        if (visited != nodesByKey.size()) {
-            throw new IllegalArgumentException("Flow의 Node와 Link 연결에 Cycle이 있습니다.");
         }
     }
 

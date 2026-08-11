@@ -1,5 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.service;
 
+import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidLinks;
+import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidNodes;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -10,10 +12,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
@@ -25,12 +31,14 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.Link;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -59,27 +67,41 @@ class FlowServiceTest {
     @Mock
     LinkRepository linkRepository;
 
+    @Mock
+    FlowStructureValidator flowStructureValidator;
+
     @InjectMocks
     FlowService flowService;
 
     @Test
     @DisplayName("INACTIVE 상태 플로우 생성 테스트")
     void createInactiveFlowTest() {
-        FlowCreateRequest flowCreateRequest =
-                new FlowCreateRequest(2L, " 온도 알람 ", "온도가 너무 높아요");
+        FlowCreateRequest request = FlowCreateRequest
+                .builder()
+                .locationId(10L)
+                .name("온도 경고")
+                .description("설명")
+                .nodes(createValidNodes())
+                .links(createValidLinks())
+                .build();
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
-                2L,
-                "온도 알람")).thenReturn(false);
+                10L,
+                "온도 경고")).thenReturn(false);
         when(flowRepository.save(any(Flow.class))).thenAnswer(flow -> flow.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(node -> {
+            Node n = node.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(n, "id", 1L);
+            return n;
+        });
 
-        FlowResponse flowResponse = flowService.create(GROUP_ID, USER_ID, flowCreateRequest);
+        FlowResponse flowResponse = flowService.create(GROUP_ID, USER_ID, request);
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
         verify(flowRepository).save(any(Flow.class));
         Assertions.assertEquals(1L, flowResponse.groupId());
-        Assertions.assertEquals(2L, flowResponse.locationId());
-        Assertions.assertEquals("온도 알람", flowResponse.name());
-        Assertions.assertEquals("온도가 너무 높아요", flowResponse.description());
+        Assertions.assertEquals(10L, flowResponse.locationId());
+        Assertions.assertEquals("온도 경고", flowResponse.name());
+        Assertions.assertEquals("설명", flowResponse.description());
         Assertions.assertEquals(FlowStatus.INACTIVE, flowResponse.status());
 
     }
@@ -87,22 +109,36 @@ class FlowServiceTest {
     @Test
     @DisplayName("동일 플로우 이름 중복 테스트")
     void sameFlowNameTest() {
-        FlowCreateRequest flowCreateRequest = new FlowCreateRequest(1L, "온도", "온도");
+        FlowCreateRequest request = FlowCreateRequest
+                .builder()
+                .locationId(10L)
+                .name("온도 경고")
+                .description("설명")
+                .nodes(createValidNodes())
+                .links(createValidLinks())
+                .build();
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
-                1L,
-                "온도")).thenReturn(true);
+                10L,
+                "온도 경고")).thenReturn(true);
         Assertions.assertThrows(DuplicateFlowNameException.class, () -> flowService.create(
                 GROUP_ID,
                 USER_ID,
-                flowCreateRequest));
+                request));
     }
 
     // 쓰기 권한이 거부되면 Flow 저장 로직이 시작되지 않도록 확인합니다.
     @Test
     @DisplayName("MEMBER의 생성 요청이 거부되면 Repository를 호출하지 않는다")
     void repositoryTest() {
-        FlowCreateRequest request = new FlowCreateRequest(1L, "온도", null);
+        FlowCreateRequest request = FlowCreateRequest
+                .builder()
+                .locationId(10L)
+                .name("온도 경고")
+                .description("설명")
+                .nodes(createValidNodes())
+                .links(createValidLinks())
+                .build();
         ForbiddenException exception = new ForbiddenException("MANAGER 이상 권한이 필요합니다.");
         doThrow(exception)
                 .when(groupAuthorizationService)
@@ -122,7 +158,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatusNot(1L, FlowStatus.ARCHIVED))
                 .thenReturn(List.of(activeFlow));
 
-        List<FlowResponse> responses = flowService.findAll(GROUP_ID, USER_ID);
+        List<FlowResponse> responses = flowService.findAllUnarchivedFlows(GROUP_ID, USER_ID);
 
         Assertions.assertEquals(1, responses.size());
         Assertions.assertEquals(FlowStatus.ACTIVE, responses.getFirst().status());
@@ -137,7 +173,7 @@ class FlowServiceTest {
         when(flowRepository.findAllByGroupIdAndStatus(GROUP_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndStatus(GROUP_ID, USER_ID, FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }
@@ -151,7 +187,11 @@ class FlowServiceTest {
                 10L,
                 FlowStatus.ACTIVE)).thenReturn(List.of());
 
-        flowService.findAll(GROUP_ID, USER_ID, 10L, FlowStatus.ACTIVE);
+        flowService.findByGroupIdAndLocationIdAndStatus(
+                GROUP_ID,
+                USER_ID,
+                10L,
+                FlowStatus.ACTIVE);
 
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MEMBER);
     }
@@ -194,7 +234,7 @@ class FlowServiceTest {
     @DisplayName("Flow 수정 시 기존 Flow를 보관하고 새 Flow를 INACTIVE로 생성한다")
     void updateFlowInactiveTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", "기존 설명", FlowStatus.ACTIVE);
-        FlowUpdateRequest request = updateRequest("수정 Flow", "수정 설명");
+        FlowUpdateRequest request = FlowTestData.createValidUpdateRequest("수정 Flow", "수정 설명");
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
@@ -244,7 +284,7 @@ class FlowServiceTest {
     @DisplayName("수정 이름 검증이 실패하면 기존 Flow 상태를 유지한다")
     void ValidationFailsTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
-        FlowUpdateRequest request = updateRequest("중복 Flow", null);
+        FlowUpdateRequest request = FlowTestData.createValidUpdateRequest("중복 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "중복 Flow"))
                 .thenReturn(true);
@@ -282,13 +322,20 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
+                        "same",
+                        "nodes[1].clientNodeKey",
+                        "clientKey는 중복될 수 없습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
         verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
     }
 
     // 지원하지 않는 입력 포트가 규칙 기반 플로우 구성에 저장되지 않도록 확인합니다.
@@ -317,9 +364,15 @@ class FlowServiceTest {
                         .build()))
                 .build();
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowStructureValidator.validate(request.nodes(), request.links()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        FlowStructureErrorCode.INVALID_PORT,
+                        "alert",
+                        "links[0].targetPort",
+                        "타겟 포트는 in만 사용할 수 있습니다.")));
 
         assertThrows(
-                IllegalArgumentException.class,
+                InvalidFlowStructureException.class,
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
@@ -331,7 +384,7 @@ class FlowServiceTest {
     @DisplayName("Link 저장 실패 시 기존 Flow를 보관 상태로 바꾸지 않는다")
     void linkSaveFailureTest() {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
-        FlowUpdateRequest request = updateRequest("수정 Flow", null);
+        FlowUpdateRequest request = FlowTestData.createValidUpdateRequest("수정 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "수정 Flow"))
                 .thenReturn(false);
@@ -397,29 +450,5 @@ class FlowServiceTest {
                 () -> flowService.delete(GROUP_ID, USER_ID, 1L));
 
         verify(flowRepository, never()).delete(any(Flow.class));
-    }
-
-    private FlowUpdateRequest updateRequest(String name, String description) {
-        return FlowUpdateRequest.builder()
-                .name(name)
-                .description(description)
-                .nodes(List.of(
-                        FlowNodeRequest.builder()
-                                .clientNodeKey("sensor")
-                                .nodeType(NodeType.SENSOR)
-                                .configuration(JsonNodeFactory.instance.objectNode())
-                                .build(),
-                        FlowNodeRequest.builder()
-                                .clientNodeKey("alert")
-                                .nodeType(NodeType.ALERT)
-                                .configuration(JsonNodeFactory.instance.objectNode())
-                                .build()))
-                .links(List.of(FlowLinkRequest.builder()
-                        .sourceClientNodeKey("sensor")
-                        .targetClientNodeKey("alert")
-                        .sourcePort("out")
-                        .targetPort("in")
-                        .build()))
-                .build();
     }
 }

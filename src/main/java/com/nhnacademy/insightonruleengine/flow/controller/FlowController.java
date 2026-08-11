@@ -55,15 +55,16 @@ public class FlowController {
             @RequestParam(required = false) Long locationId,
             @RequestParam(required = false) FlowStatus status) {
         if (locationId == null && status == null) {
-            return ResponseEntity.ok(flowService.findAll(groupId, userId));
+            return ResponseEntity.ok(flowService.findAllUnarchivedFlows(groupId, userId));
         }
         if (locationId == null) {
-            return ResponseEntity.ok(flowService.findAll(groupId, userId, status));
+            return ResponseEntity.ok(flowService.findByGroupIdAndStatus(groupId, userId, status));
         }
         if (status == null) {
             throw new InvalidFlowQueryException();
         }
-        return ResponseEntity.ok(flowService.findAll(groupId, userId, locationId, status));
+        return ResponseEntity.ok(
+                flowService.findByGroupIdAndLocationIdAndStatus(groupId, userId, locationId, status));
     }
 
     // 휴지통에 있는 Flow를 포함해 상세 정보를 조회합니다.

@@ -50,7 +50,7 @@ public class FlowDefinitionIndex {
         return link;
     }
 
-    // 인덱스 노드: 노드 조회를 위함
+    // 인덱스 노드: 노드 조회를 위함 DB 저장이 끝난 FlowDefinition을 실행할 때 사용하는 메서드
     private Map<Long, NodeDefinition> indexNodes(FlowDefinition flowDefinition) {
         Map<Long, NodeDefinition> result = new HashMap<>();
         for (NodeDefinition node : flowDefinition.nodes()) {
