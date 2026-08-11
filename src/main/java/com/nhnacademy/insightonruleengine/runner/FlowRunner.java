@@ -10,19 +10,20 @@ import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
+import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogContext;
+import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FlowRunner {
 
     private final FlowRouter flowRouter;
     private final NodeExecutorRegistry nodeExecutorRegistry;
+    private final ExecutionLogger executionLogger;
 
     public void run(SensorEvent event) {
         if (event == null) {
@@ -30,41 +31,54 @@ public class FlowRunner {
         }
 
         List<FlowDefinition> flows = flowRouter.route(event);
-        log.info("Prototype rule event received. flowCount={}, deviceId={}, deviceEui={}",
-                flows.size(), event.deviceId(), event.deviceEui());
+        executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
+            ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
             try {
-                runFlow(flow, event);
+                runFlow(flow, event, logContext);
             } catch (RuntimeException exception) {
-                log.warn("Prototype flow execution failed. flowId={}, deviceId={}, deviceEui={}",
-                        flow.flowId(), event.deviceId(), event.deviceEui(), exception);
+                executionLogger.flowFailed(logContext, exception);
             }
         }
     }
 
     void runFlow(FlowDefinition flow, SensorEvent event) {
+        runFlow(flow, event, ExecutionLogContext.create(flow, event));
+    }
+
+    private void runFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
         FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
         NodeDefinition current = findTriggerNode(flow);
         FlowExecutionContext context = new FlowExecutionContext(flow, event);
 
-        log.info("Prototype flow execution started. flowId={}, triggerNodeId={}",
-                flow.flowId(), current.nodeId());
+        executionLogger.flowStarted(logContext, current.nodeId());
         while (current != null) {
+            current = executeNode(index, current, context, logContext);
+        }
+    }
+
+    private NodeDefinition executeNode(
+            FlowDefinitionIndex index,
+            NodeDefinition current,
+            FlowExecutionContext context,
+            ExecutionLogContext logContext
+    ) {
+        try {
             NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
-            log.info("Prototype node execution started. flowId={}, nodeId={}, nodeType={}",
-                    flow.flowId(), current.nodeId(), current.nodeType());
+            executionLogger.nodeStarted(logContext, current);
 
             NodeExecutionResult result = executor.execute(current, context);
+            executionLogger.nodeFinished(logContext, current, result);
             if (result.terminal()) {
-                log.info("Prototype flow execution finished. flowId={}, terminalNodeId={}",
-                        flow.flowId(), current.nodeId());
-                return;
+                executionLogger.flowFinished(logContext, current.nodeId(), true);
+                return null;
             }
 
-            log.info("Prototype node execution finished. flowId={}, nodeId={}, outputPort={}",
-                    flow.flowId(), current.nodeId(), result.outputPort());
             LinkDefinition nextLink = index.requireLink(current.nodeId(), result.outputPort());
-            current = index.requireNode(nextLink.targetNodeId());
+            return index.requireNode(nextLink.targetNodeId());
+        } catch (RuntimeException exception) {
+            executionLogger.nodeFailed(logContext, current, exception);
+            throw exception;
         }
     }
 
