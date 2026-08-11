@@ -17,7 +17,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class FlowPathValidator {
 
-    //기본 구조 검증을 통과한 Node와 Link에서 도달성, Action 경로와 Cycle 오류를 찾습니다.
+    /**
+     * 기본 구조 검증을 통과한 Node와 Link에서 도달성, Action 경로와 Cycle 오류를 찾습니다.
+     *
+     * @param nodesByKey NodeType이 존재하고 Trigger는 하나, Action이 하나 이상인 Node
+     * @param links      Source와 Target이 모두 nodesByKey에 존재하는 Link 목록
+     * @return 경로와 Cycle 검증 오류 목록
+     */
     public List<FlowStructureValidationError> validate(
             Map<String, FlowNodeRequest> nodesByKey,
             List<FlowLinkRequest> links
