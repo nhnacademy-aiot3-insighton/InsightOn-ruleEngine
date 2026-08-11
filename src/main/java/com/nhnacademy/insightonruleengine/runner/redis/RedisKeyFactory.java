@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.runner.redis;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
+//Redis에 값을 저장하고 찾을때 사용하는 key를 여기서 만듭니다.
 @NoArgsConstructor
 @Component
 public class RedisKeyFactory {
@@ -18,19 +19,28 @@ public class RedisKeyFactory {
         return ROUTE_KEY_FORMAT.formatted(groupId, locationId);
     }
 
+    //특정 그룹의 ACTIVE Flow 실행 정보를 저장할 key를 만듭니다.
     public String activeFlow(Long groupId, Long flowId) {
         validateId(groupId, "groupId");
         validateId(flowId, "flowId");
         return ACTIVE_FLOW_KEY_FORMAT.formatted(groupId, flowId);
     }
 
+    //각 엔진이 살아있는지 확인할 때 사용하는 heartbeat key를 만듭니다.
     public String heartbeat(String engineId) {
+        validateEngineId(engineId);
         return HEARTBEAT_KEY_FORMAT.formatted(engineId);
     }
 
     private void validateId(Long id, String fileName) {
         if (id == null || id <= 0L) {
             throw new IllegalArgumentException(fileName + "는 양수여야 합니다.");
+        }
+    }
+
+    private void validateEngineId(String engineId) {
+        if (engineId == null || engineId.isBlank()) {
+            throw new IllegalArgumentException("engineId는 필수입니다.");
         }
     }
 }

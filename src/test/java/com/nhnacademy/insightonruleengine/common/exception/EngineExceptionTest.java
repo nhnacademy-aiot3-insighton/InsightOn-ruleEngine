@@ -10,7 +10,7 @@ class EngineExceptionTest {
 
     @Test
     @DisplayName("EngineException은 errorCode null을 허용하지 않는다")
-    void rejectNullErrorCode() {
+    void rNullErrorCodeTest() {
         NullPointerException exception = assertThrows(
                 NullPointerException.class,
                 () -> new TestEngineException(null, "test")

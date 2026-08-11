@@ -25,7 +25,7 @@ public record TelemetryRoutingProperties(
         if (!enabled) {
             return;
         }
-        if (exchange == null || queuePrefix.isBlank()) {
+        if (exchange == null || exchange.isBlank() || queuePrefix == null || queuePrefix.isBlank()) {
             throw new IllegalStateException("Telemetry Exchange와 queue prefix는 필수입니다.");
         }
         Set<Integer> ownIndices = Set.copyOf(ownedQueueIndices);
