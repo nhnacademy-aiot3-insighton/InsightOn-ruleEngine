@@ -23,7 +23,10 @@ public class BypassFlowRouter implements FlowRouter {
     @Override
     @Transactional(readOnly = true)
     public List<FlowDefinition> route(SensorEvent event) {
-        return flowRepository.findAllByStatus(FlowStatus.ACTIVE)
+        return flowRepository.findAllByGroupIdAndLocationIdAndStatus(
+                        event.groupId(),
+                        event.locationId(),
+                        FlowStatus.ACTIVE)
                 .stream()
                 .map(flow -> flowDefinitionAssembler.assemble(flow.getGroupId(), flow.getId()))
                 .toList();
