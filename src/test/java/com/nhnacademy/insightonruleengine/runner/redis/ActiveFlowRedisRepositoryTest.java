@@ -151,6 +151,38 @@ class ActiveFlowRedisRepositoryTest {
         );
     }
 
+    // Redis JSON에 groupId가 없어도 NullPointerException 대신 저장 데이터 오류로 처리되는지 검증합니다.
+    @Test
+    @DisplayName("groupId가 누락된 Redis FlowDefinition을 Runtime 데이터 오류로 반환한다")
+    void missingGroupIdTest() throws JsonProcessingException {
+        FlowDefinition definition = definition(FLOW_ID, null, FlowStatus.ACTIVE);
+        when(redisKeyFactory.activeFlow(GROUP_ID, FLOW_ID)).thenReturn(KEY);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(KEY)).thenReturn("missing-group-id");
+        when(objectMapper.readValue("missing-group-id", FlowDefinition.class)).thenReturn(definition);
+
+        assertThrows(
+                InvalidActiveFlowDataException.class,
+                () -> repository.getActiveFlow(GROUP_ID, FLOW_ID)
+        );
+    }
+
+    // Redis JSON에 flowId가 없어도 NullPointerException 대신 저장 데이터 오류로 처리되는지 검증합니다.
+    @Test
+    @DisplayName("flowId가 누락된 Redis FlowDefinition을 Runtime 데이터 오류로 반환한다")
+    void missingFlowIdTest() throws JsonProcessingException {
+        FlowDefinition definition = definition(null, GROUP_ID, FlowStatus.ACTIVE);
+        when(redisKeyFactory.activeFlow(GROUP_ID, FLOW_ID)).thenReturn(KEY);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(KEY)).thenReturn("missing-flow-id");
+        when(objectMapper.readValue("missing-flow-id", FlowDefinition.class)).thenReturn(definition);
+
+        assertThrows(
+                InvalidActiveFlowDataException.class,
+                () -> repository.getActiveFlow(GROUP_ID, FLOW_ID)
+        );
+    }
+
     // 존재 확인과 삭제가 JSON 전체 조회 없이 정확한 Key만 사용하는지 검증합니다.
     @Test
     @DisplayName("Active Flow 존재 확인과 삭제는 정확한 Key를 사용한다")

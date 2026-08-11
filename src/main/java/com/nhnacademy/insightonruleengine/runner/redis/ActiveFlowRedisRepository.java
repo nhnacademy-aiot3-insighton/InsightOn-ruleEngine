@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,8 +74,8 @@ public class ActiveFlowRedisRepository {
     private void validateKey(Long groupId, Long flowId, FlowDefinition flowDefinition) {
         if (flowDefinition == null
                 || flowDefinition.status() != FlowStatus.ACTIVE
-                || !flowDefinition.groupId().equals(groupId)
-                || !flowDefinition.flowId().equals(flowId)) {
+                || !Objects.equals(flowDefinition.groupId(), groupId)
+                || !Objects.equals(flowDefinition.flowId(), flowId)) {
             throw new InvalidActiveFlowDataException("Redis Key와 FlowDefinition이 일치하지 않습니다.");
         }
     }
