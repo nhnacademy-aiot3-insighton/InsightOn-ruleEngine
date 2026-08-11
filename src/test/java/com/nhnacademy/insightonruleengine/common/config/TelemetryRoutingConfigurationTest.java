@@ -37,7 +37,7 @@ class TelemetryRoutingConfigurationTest {
     void hashHeaderTest() {
         CustomExchange exchange = configuration.telemetryExchange(properties("locationId"));
 
-        assertEquals("locationId", exchange.getArguments().get("hashHeader"));
+        assertEquals("locationId", exchange.getArguments().get("hash-header"));
     }
 
     // 고정 16개 Queue와 weight 1 Binding이 모두 생성되는지 검증합니다.

@@ -75,7 +75,7 @@ public class ActiveFlowRedisRepository {
                 || flowDefinition.status() != FlowStatus.ACTIVE
                 || !flowDefinition.groupId().equals(groupId)
                 || !flowDefinition.flowId().equals(flowId)) {
-            throw new IllegalArgumentException("Redis Key와 FlowDefinition이 일치하지 않습니다.");
+            throw new InvalidActiveFlowDataException("Redis Key와 FlowDefinition이 일치하지 않습니다.");
         }
     }
 }

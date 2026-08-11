@@ -29,7 +29,7 @@ public class TelemetryRoutingConfiguration {
         properties.validateEnabledConfiguration();
         Map<String, Object> arguments = new HashMap<>();
         if (properties.hashHeader() != null && !properties.hashHeader().isBlank()) {
-            arguments.put("hashHeader", properties.hashHeader());
+            arguments.put("hash-header", properties.hashHeader());
         }
         return new CustomExchange(
                 properties.exchange(),
