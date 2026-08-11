@@ -56,4 +56,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), exception.getMessage()));
     }
+
+    //내부 실행 데이터 오류가 500 응답으로 반환하게 합니다.
 }
