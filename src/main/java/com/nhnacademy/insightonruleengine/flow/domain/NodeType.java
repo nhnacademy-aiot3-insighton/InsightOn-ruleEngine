@@ -1,14 +1,15 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.LocationParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 
 /**
  *
@@ -16,6 +17,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.Sensor
 public enum NodeType {
 
     SENSOR(Category.TRIGGER, SensorParams.class, PortSchema.fixed("out")),
+    LOCATION(Category.TRIGGER, LocationParams.class, PortSchema.fixed("out")),
     SCHEDULE(Category.TRIGGER, ScheduleParams.class, PortSchema.fixed("out")),
 
     THRESHOLD(Category.FILTER, ThresholdParams.class, PortSchema.fixed("true", "false")),

@@ -9,6 +9,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Externa
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.LocationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import java.util.Map;
@@ -23,6 +24,7 @@ class NodeTypeTest {
     void categoryMapping() {
         Map<NodeType, NodeType.Category> expectedCategories = Map.of(
                 NodeType.SENSOR, NodeType.Category.TRIGGER,
+                NodeType.LOCATION, NodeType.Category.TRIGGER,
                 NodeType.SCHEDULE, NodeType.Category.TRIGGER,
                 NodeType.THRESHOLD, NodeType.Category.FILTER,
                 NodeType.TIME_WINDOW, NodeType.Category.FILTER,
@@ -42,6 +44,7 @@ class NodeTypeTest {
     void paramsTypeMapping() {
         Map<NodeType, Class<?>> expectedTypes = Map.of(
                 NodeType.SENSOR, SensorParams.class,
+                NodeType.LOCATION, LocationParams.class,
                 NodeType.SCHEDULE, ScheduleParams.class,
                 NodeType.THRESHOLD, ThresholdParams.class,
                 NodeType.TIME_WINDOW, TimeWindowParams.class,
@@ -61,6 +64,7 @@ class NodeTypeTest {
     void outputPorts() {
         Map<NodeType, Set<String>> expectedPorts = Map.of(
                 NodeType.SENSOR, Set.of("out"),
+                NodeType.LOCATION, Set.of("out"),
                 NodeType.SCHEDULE, Set.of("out"),
                 NodeType.THRESHOLD, Set.of("true", "false"),
                 NodeType.TIME_WINDOW, Set.of("true", "false"),
