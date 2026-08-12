@@ -10,6 +10,8 @@ RUN mvn clean package -DskipTests -B
 
 FROM eclipse-temurin:21-jre
 
+ENV TZ=Asia/Seoul
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
