@@ -3,26 +3,15 @@ package com.nhnacademy.insightonruleengine.flow.service;
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidLinks;
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidNodes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-
 import static org.mockito.Mockito.doThrow;
-
-import static org.mockito.Mockito.when;
-
-
-
-
-
-
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
@@ -271,11 +260,6 @@ class FlowServiceIntegrationTest {
         // 2. Node 저장 시점에 DB 저장 실패(예외) 강제 발생 설정 (표준 Mockito doThrow 구문)
         doThrow(new RuntimeException("Node 저장 중 DB 오류 발생"))
                 .when(nodeRepository).save(any());
-
-
-
-
-
 
         // 3. create 실행 시 예외 발생 검증
         assertThrows(RuntimeException.class, () -> flowService.create(1L, 100L, request));

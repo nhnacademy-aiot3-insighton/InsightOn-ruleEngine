@@ -11,6 +11,8 @@ public class RedisKeyFactory {
     private static final String ACTIVE_FLOW_KEY_FORMAT = "active-flow:%d:%d";
     private static final String HEARTBEAT_KEY_FORMAT = "heartbeat:%s";
     private static final String ROUTE_KEY_FORMAT = "route:%d:%d";
+    private static final String COUNT_KEY_FORMAT = "count:%d:%d";
+    private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
 
     //특정 그룹과 특정 장소를 하나의 active flow id 집합 키로 고정합니다.
     public String route(Long groupId, Long locationId) {
@@ -30,6 +32,20 @@ public class RedisKeyFactory {
     public String heartbeat(String engineId) {
         validateEngineId(engineId);
         return HEARTBEAT_KEY_FORMAT.formatted(engineId);
+    }
+
+    //특정 Flow의 ALERT Action Node에 도달한 횟수를 저장할 Key를 만듭니다.
+    public String count(Long flowId, Long actionNodeId) {
+        validateId(flowId, "flowId");
+        validateId(actionNodeId, "actionNodeId");
+        return COUNT_KEY_FORMAT.formatted(flowId, actionNodeId);
+    }
+
+    //특정 Flow의 ALERT Action Node가 연속적으로 알람을 보내진 않게 하기 위해 쿨다운 키를 만듭니다.
+    public String cooldown(Long flowId, Long actionNodeId) {
+        validateId(flowId, "flowId");
+        validateId(actionNodeId, "actionNodeId");
+        return COOLDOWN_KEY_FORMAT.formatted(flowId, actionNodeId);
     }
 
     private void validateId(Long id, String fileName) {
