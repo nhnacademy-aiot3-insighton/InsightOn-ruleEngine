@@ -3,6 +3,9 @@ package com.nhnacademy.insightonruleengine.runner.logging;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -13,43 +16,33 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     @Override
     public void eventRouted(SensorEvent event, int flowCount) {
         log.info(
-                "Rule event routed. flowCount={}, groupId={}, locationId={}, sensorId={}, timestamp={}",
+                "Rule event routed. flowCount={}, sensorEvent={}",
                 flowCount,
-                event.groupId(),
-                event.locationId(),
-                event.sensorId(),
-                event.timestamp()
+                sensorEventFields(event)
         );
     }
 
     @Override
     public void flowStarted(ExecutionLogContext context, Long triggerNodeId) {
         log.info(
-                "Flow execution started. executionId={}, flowId={}, groupId={}, locationId={}, "
-                        + "sensorId={}, timestamp={}, triggerNodeId={}",
+                "Flow execution started. executionId={}, flowId={}, triggerNodeId={}, sensorEvent={}",
                 context.executionId(),
                 context.flowId(),
-                context.groupId(),
-                context.locationId(),
-                context.sensorId(),
-                context.timestamp(),
-                triggerNodeId
+                triggerNodeId,
+                sensorEventFields(context)
         );
     }
 
     @Override
     public void flowFinished(ExecutionLogContext context, Long terminalNodeId, boolean terminalActionReached) {
         log.info(
-                "Flow execution finished. executionId={}, flowId={}, groupId={}, locationId={}, "
-                        + "sensorId={}, timestamp={}, terminalNodeId={}, terminalActionReached={}",
+                "Flow execution finished. executionId={}, flowId={}, terminalNodeId={}, "
+                        + "terminalActionReached={}, sensorEvent={}",
                 context.executionId(),
                 context.flowId(),
-                context.groupId(),
-                context.locationId(),
-                context.sensorId(),
-                context.timestamp(),
                 terminalNodeId,
-                terminalActionReached
+                terminalActionReached,
+                sensorEventFields(context)
         );
     }
 
@@ -86,13 +79,12 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     public void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception) {
         log.warn(
                 "Node execution failed. executionId={}, flowId={}, nodeId={}, nodeType={}, "
-                        + "sensorId={}, locationId={}",
+                        + "sensorEvent={}",
                 context.executionId(),
                 context.flowId(),
                 node.nodeId(),
                 node.nodeType(),
-                context.sensorId(),
-                context.locationId(),
+                sensorEventFields(context),
                 exception
         );
     }
@@ -100,15 +92,48 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     @Override
     public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
         log.warn(
-                "Flow execution failed. executionId={}, flowId={}, groupId={}, locationId={}, "
-                        + "sensorId={}, exceptionType={}, message={}",
+                "Flow execution failed. executionId={}, flowId={}, exceptionType={}, message={}, sensorEvent={}",
                 context.executionId(),
                 context.flowId(),
+                exception.getClass().getSimpleName(),
+                exception.getMessage(),
+                sensorEventFields(context)
+        );
+    }
+
+    private Map<String, Object> sensorEventFields(SensorEvent event) {
+        return sensorEventFields(
+                event.groupId(),
+                event.locationId(),
+                event.sensorId(),
+                event.metrics(),
+                event.timestamp()
+        );
+    }
+
+    private Map<String, Object> sensorEventFields(ExecutionLogContext context) {
+        return sensorEventFields(
                 context.groupId(),
                 context.locationId(),
                 context.sensorId(),
-                exception.getClass().getSimpleName(),
-                exception.getMessage()
+                context.metrics(),
+                context.timestamp()
         );
+    }
+
+    private Map<String, Object> sensorEventFields(
+            Long groupId,
+            Long locationId,
+            Long sensorId,
+            Map<String, Object> metrics,
+            Instant timestamp
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("groupId", groupId);
+        fields.put("locationId", locationId);
+        fields.put("sensorId", sensorId);
+        fields.put("metrics", metrics);
+        fields.put("timestamp", timestamp);
+        return fields;
     }
 }
