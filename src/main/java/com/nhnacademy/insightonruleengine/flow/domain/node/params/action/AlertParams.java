@@ -3,7 +3,7 @@ package com.nhnacademy.insightonruleengine.flow.domain.node.params.action;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
  */
 public record AlertParams(
         @NotBlank @Size(max = 200) String title,
-        @NotBlank @Pattern(regexp = "INFO|WARNING|CRITICAL") String severity,
+        @NotNull Severity severity,
         @NotBlank String message,
         @Min(1) Integer requiredCount,
         @Min(1) Integer countTimeoutSeconds,

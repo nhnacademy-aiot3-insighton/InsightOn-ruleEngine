@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.node.domain.params;
 
+import static com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,11 +31,11 @@ public class RuntimeStateParamsTest {
     void requiredCountCountTimeoutSecondsTest() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new AlertParams("온도 경고", "WARNING", "고온", 2, null, 0)
+                () -> new AlertParams("온도 경고", WARNING, "고온", 2, null, 0)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new AlertParams("온도 경고", "WARNING", "고온", 2, 0, 0)
+                () -> new AlertParams("온도 경고", WARNING, "고온", 2, 0, 0)
         );
     }
 }

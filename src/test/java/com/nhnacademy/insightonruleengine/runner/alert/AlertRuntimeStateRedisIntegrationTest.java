@@ -109,7 +109,7 @@ class AlertRuntimeStateRedisIntegrationTest {
 
     @Test
     @DisplayName("동시 호출 중 한 번만 true를 반환하고 Cooldown을 생성합니다.")
-    void concurrentCooldownTest() {
+    void concurrentCooldownTest() throws Exception {
         int requiredCount = 40;
         List<Callable<Boolean>> calls = IntStream.range(0, requiredCount)
                 .mapToObj(index -> (Callable<Boolean>) () ->
@@ -122,8 +122,6 @@ class AlertRuntimeStateRedisIntegrationTest {
                     .count();
 
             assertEquals(1L, publishCount);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
         assertTrue(Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 10L))));
         assertFalse(Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.count(100L, 10L))));

@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.alert;
 
+import static com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -77,7 +78,7 @@ public class AlertCountServiceTest {
     ) {
         return new AlertParams(
                 "온도 경고",
-                "WARNING",
+                WARNING,
                 "설정 온도를 초과했습니다.",
                 requiredCount,
                 countTimeoutSeconds,
