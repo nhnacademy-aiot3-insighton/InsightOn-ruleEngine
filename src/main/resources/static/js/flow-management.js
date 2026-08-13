@@ -885,14 +885,10 @@
 
     function defaultConfiguration(nodeType) {
         if (nodeType === "SENSOR") {
-            return JSON.stringify({devName: "sensor-dev-name"});
+            return JSON.stringify({sensorId: 1});
         }
         if (nodeType === "LOCATION") {
-            return JSON.stringify({
-                metricSourcePolicy: "INCLUDE_ALL",
-                excludedSensorIds: [],
-                metricAggregationPolicies: {}
-            });
+            return "{}";
         }
         return "{}";
     }
