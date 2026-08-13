@@ -1,22 +1,31 @@
 package com.nhnacademy.insightonruleengine.runner.alert;
 
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+//ALERT Action Node의 반복 도달과 Cooldown을 함께 판정합니다.
 @Service
 @RequiredArgsConstructor
 public class AlertCountService {
 
     private final AlertCountRedisRepository alertCountRedisRepository;
 
-    public boolean shouldPublish(Long flowId, Long alertActionNodeId, int requiredCount) {
-        if(requiredCount < 1) {
-            throw new IllegalArgumentException("목표 Count는 1 이상이어야 합니다.");
+    public boolean shouldPublish(Long flowId, Long alertActionNodeId, AlertParams alertParams) {
+        if(alertParams == null) {
+            throw new IllegalArgumentException("alertParams는 필수입니다.");
         }
-        if(requiredCount == 1) {
+        if(alertParams.requiredCount() == 1 && alertParams.cooldownSeconds() == 0){
             return true;
         }
-        return alertCountRedisRepository.incrementAndCheck(flowId, alertActionNodeId, requiredCount);
+        int countTimeoutSeconds = alertParams.countTimeoutSeconds() == null ? 0 : alertParams.countTimeoutSeconds();
+        return alertCountRedisRepository.incrementAndCheck(
+                flowId,
+                alertActionNodeId,
+                alertParams.requiredCount(),
+                countTimeoutSeconds,
+                alertParams.cooldownSeconds()
+                );
     }
 
 }

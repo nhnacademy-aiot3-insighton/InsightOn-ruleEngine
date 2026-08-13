@@ -12,6 +12,7 @@ import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.heartbeat.EngineHeartbeatRepository;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -28,9 +29,13 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Testcontainers(disabledWithoutDocker = true)
 class RedisRuntimeRepositoryIntegrationTest {
 
+    @Container
     private static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7.4-alpine")
             .withExposedPorts(6379);
 
@@ -40,11 +45,11 @@ class RedisRuntimeRepositoryIntegrationTest {
     private static FlowRouteRedisRepository routeRepository;
     private static ActiveFlowRedisRepository activeFlowRepository;
     private static EngineHeartbeatRepository heartbeatRepository;
+    private static AlertCountRedisRepository alertCountRedisRepository;
 
     // 실제 Redis 명령과 JSON 변환을 함께 검증할 Repository들을 컨테이너에 연결합니다.
     @BeforeAll
     static void setUpRedis() {
-        REDIS.start();
         RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration(
                 REDIS.getHost(),
                 REDIS.getMappedPort(6379)
@@ -59,6 +64,7 @@ class RedisRuntimeRepositoryIntegrationTest {
         routeRepository = new FlowRouteRedisRepository(redisTemplate, keyFactory);
         activeFlowRepository = new ActiveFlowRedisRepository(redisTemplate, objectMapper, keyFactory);
         heartbeatRepository = new EngineHeartbeatRepository(redisTemplate, keyFactory);
+        alertCountRedisRepository = new AlertCountRedisRepository(redisTemplate, keyFactory);
     }
 
     // 테스트 간 Redis Key가 남아 결과를 바꾸지 않도록 매번 현재 DB만 비워줍니다.
@@ -71,7 +77,6 @@ class RedisRuntimeRepositoryIntegrationTest {
     @AfterAll
     static void closeRedisConnection() {
         connectionFactory.destroy();
-        REDIS.stop();
     }
 
     // Lua 기반 교체가 중간 빈 상태 없이 최종 Set으로 반영되고 삭제되는지 검증합니다.
@@ -145,6 +150,17 @@ class RedisRuntimeRepositoryIntegrationTest {
         while (heartbeatRepository.isHeartbeat("engine-a") && System.nanoTime() < deadline) {
             Thread.sleep(25L);
         }
+    }
+
+    @Test
+    @DisplayName("ALERT는 requiredCount 도달 시 한 번 허용하고 Counter를 초기화한다")
+    void alertRequiredCountTest() {
+        assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
+        assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
+        assertTrue(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
+
+        assertFalse(redisTemplate.hasKey("count:1:10"));
+        assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
     }
 
     // enum 전체가 포함된 실제 실행 모델로 Redis 직렬화 계약을 검증합니다.
