@@ -1,7 +1,5 @@
 package com.nhnacademy.insightonruleengine.runner.alert;
 
-//ALERT COUNT와 Cooldown을 실제 Redis에서 검증합니다.
-
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +28,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+//ALERT COUNT와 Cooldown을 실제 Redis에서 검증합니다.
 @Testcontainers(disabledWithoutDocker = true)
 class AlertRuntimeStateRedisIntegrationTest {
 

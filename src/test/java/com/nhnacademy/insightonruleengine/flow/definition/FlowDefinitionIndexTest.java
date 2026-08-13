@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowDefinitionKeyException;
 import com.nhnacademy.insightonruleengine.flow.exception.LinkNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.NodeNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
