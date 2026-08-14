@@ -21,7 +21,9 @@ import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,16 +43,13 @@ public class FlowService {
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
+    private final NodeConfigurationValidator nodeConfigurationValidator;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
-                request.links());
-        if (!validationErrors.isEmpty()) {
-            throw new InvalidFlowStructureException(validationErrors);
-        }
+        validateConfiguration(request.nodes(), request.links());
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -153,12 +152,7 @@ public class FlowService {
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
-        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
-                request.links());
-        if (!validationErrors.isEmpty()) {
-            throw new InvalidFlowStructureException(validationErrors);
-        }
-
+        validateConfiguration(request.nodes(), request.links());
         Flow updateFlow = new Flow(
                 groupId,
                 currentFlow.getLocationId(),
@@ -197,6 +191,19 @@ public class FlowService {
     private void validateRequest(Object request) {
         if (request == null) {
             throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
+        }
+    }
+
+    // 연결 구조와 노드 타입별 configuration 오류를 한 응답에서 함께 반환합니다.
+    private void validateConfiguration(
+            List<FlowNodeRequest> nodes,
+            List<FlowLinkRequest> links
+    ) {
+        List<FlowStructureValidationError> errors = new ArrayList<>();
+        errors.addAll(flowStructureValidator.validate(nodes, links));
+        errors.addAll(nodeConfigurationValidator.validate(nodes));
+        if (!errors.isEmpty()) {
+            throw new InvalidFlowStructureException(errors);
         }
     }
 
