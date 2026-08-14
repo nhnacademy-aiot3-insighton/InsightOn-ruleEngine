@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.validation;
+package com.nhnacademy.insightonruleengine.flow.validation.domain;
 
 public record FlowStructureValidationError(
         FlowValidationErrorReason code,

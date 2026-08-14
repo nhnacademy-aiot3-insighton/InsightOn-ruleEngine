@@ -24,6 +24,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.FlowNodeValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -71,6 +72,9 @@ class FlowLifecycleE2ETest {
     @MockitoBean
     private GroupAuthorizationService groupAuthorizationService;
 
+    @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
+
     @Autowired
     private EntityManager entityManager;
 
@@ -102,7 +106,6 @@ class FlowLifecycleE2ETest {
         assertEquals(3, v1Definition.nodes().size());
         assertEquals(2, v1Definition.links().size());
 
-
         // Step 3: 상태 변경 (INACTIVE -> ACTIVE 활성화)
         FlowResponse activeResponse = flowService.changeActivationStatus(
                 GROUP_ID, USER_ID, v1FlowId, new FlowStatusChangeRequest(FlowStatus.ACTIVE)
@@ -132,7 +135,6 @@ class FlowLifecycleE2ETest {
         assertEquals(FlowStatus.INACTIVE, v2Flow.getStatus());
         assertEquals(2, nodeRepository.findByFlowId(v2FlowId).size());
         assertEquals(1, linkRepository.findByFlowId(v2FlowId).size());
-
 
         // Step 5: 보관 및 영구 삭제 (v2 플로우 보관 후 영구 삭제)
         flowService.archive(GROUP_ID, USER_ID, v2FlowId);

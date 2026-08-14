@@ -3,25 +3,19 @@ package com.nhnacademy.insightonruleengine.flow.service;
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidLinks;
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidNodes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-
 import static org.mockito.Mockito.doThrow;
-
-import static org.mockito.Mockito.when;
-
-
-
-
-
-
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
@@ -39,6 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.FlowNodeValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -75,11 +70,14 @@ class FlowServiceIntegrationTest {
     @MockitoSpyBean
     private NodeRepository nodeRepository;
 
-    @Autowired
+    @MockitoSpyBean
     private LinkRepository linkRepository;
 
     @MockitoBean
     private GroupAuthorizationService groupAuthorizationService;
+
+    @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
 
     @Autowired
     private EntityManager entityManager;
@@ -93,6 +91,27 @@ class FlowServiceIntegrationTest {
         );
         Long currentFlowId = currentFlow.getId();
 
+        Node oldSensor = nodeRepository.save(
+                new Node(
+                        currentFlowId,
+                        NodeType.SENSOR,
+                        JsonNodeFactory.instance.objectNode().put("devName", "old-sensor")
+                )
+        );
+        Node oldAlert = nodeRepository.save(
+                new Node(
+                        currentFlowId,
+                        NodeType.ALERT,
+                        JsonNodeFactory.instance.objectNode()
+                                .put("title", "이전 온도 경고")
+                                .put("severity", "WARNING")
+                                .put("message", "이전 경고 메시지")
+                )
+        );
+        nodeRepository.flush();
+        Link oldLink = linkRepository.saveAndFlush(
+                new Link(currentFlowId, oldSensor.getId(), "out", oldAlert.getId(), "in")
+        );
         FlowResponse response = flowService.update(
                 1L,
                 100L,
@@ -105,13 +124,21 @@ class FlowServiceIntegrationTest {
         Flow archivedFlow = flowRepository.findById(currentFlowId).orElseThrow();
         Flow updatedFlow = flowRepository.findById(response.flowId()).orElseThrow();
 
+        assertNotEquals(currentFlowId, response.flowId());
         assertEquals(false, currentFlowId.equals(response.flowId()));
         assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
         assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
         assertEquals(10L, updatedFlow.getLocationId());
         assertEquals("온도 경고 v2", updatedFlow.getName());
-        assertEquals(2, nodeRepository.findByFlowId(response.flowId()).size());
-        assertEquals(1, linkRepository.findByFlowId(response.flowId()).size());
+        assertEquals(2, nodeRepository.findByFlowId(currentFlowId).size());
+        assertEquals(oldLink.getId(), linkRepository.findByFlowId(currentFlowId).getFirst().getId());
+
+        List<Node> updatedNodes = nodeRepository.findByFlowId(response.flowId());
+        Link updatedLink = linkRepository.findByFlowId(response.flowId()).getFirst();
+        assertEquals(2, updatedNodes.size());
+        assertTrue(updatedNodes.stream().anyMatch(node -> node.getId().equals(updatedLink.getSourceNodeId())));
+        assertTrue(updatedNodes.stream().anyMatch(node -> node.getId().equals(updatedLink.getTargetNodeId())));
+
     }
 
     @Test
@@ -272,11 +299,6 @@ class FlowServiceIntegrationTest {
         doThrow(new RuntimeException("Node 저장 중 DB 오류 발생"))
                 .when(nodeRepository).save(any());
 
-
-
-
-
-
         // 3. create 실행 시 예외 발생 검증
         assertThrows(RuntimeException.class, () -> flowService.create(1L, 100L, request));
 
@@ -286,5 +308,61 @@ class FlowServiceIntegrationTest {
         assertEquals(0L, linkRepository.count());
     }
 
-
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("수정 링크 저장 실패시 이전 상태로 롤백합니다.")
+    void updateLinkRollbackTest() {
+        Flow currentFlow = flowRepository.saveAndFlush(
+                new Flow(1L, 10L, "온도 경고 v1", null, FlowStatus.ACTIVE)
+        );
+        Long currentFlowId = currentFlow.getId();
+        Node oldSensor = nodeRepository.save(
+                new Node(
+                        currentFlowId,
+                        NodeType.SENSOR,
+                        JsonNodeFactory.instance.objectNode().put("devName", "old-sensor")
+                )
+        );
+        Node oldAlert = nodeRepository.save(
+                new Node(
+                        currentFlowId,
+                        NodeType.ALERT,
+                        JsonNodeFactory.instance.objectNode()
+                                .put("title", "이전 온도 경고")
+                                .put("severity", "WARNING")
+                                .put("message", "이전 경고 메시지")
+                )
+        );
+        nodeRepository.flush();
+        linkRepository.saveAndFlush(
+                new Link(currentFlowId, oldSensor.getId(), "out", oldAlert.getId(), "in")
+        );
+        doThrow(new IllegalStateException("Link 저장 실패"))
+                .when(linkRepository).save(any(Link.class));
+        try {
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> flowService.update(
+                            1L,
+                            100L,
+                            currentFlowId,
+                            FlowTestData.createValidUpdateRequest("온도 경고 v2", "수정 설명")
+                    )
+            );
+            Flow updatedFlow = flowRepository.findById(currentFlowId).orElseThrow();
+            assertEquals(1L, flowRepository.count());
+            assertEquals(FlowStatus.ACTIVE, updatedFlow.getStatus());
+            assertEquals(2, nodeRepository.findByFlowId(currentFlowId).size());
+            assertEquals(1, linkRepository.findByFlowId(currentFlowId).size());
+            assertFalse(flowRepository.existsByGroupIdAndLocationIdAndName(
+                    1L,
+                    10L,
+                    "온도 경고 v2"
+            ));
+        } finally {
+            linkRepository.deleteAll();
+            nodeRepository.deleteAll();
+            flowRepository.deleteAll();
+        }
+    }
 }
