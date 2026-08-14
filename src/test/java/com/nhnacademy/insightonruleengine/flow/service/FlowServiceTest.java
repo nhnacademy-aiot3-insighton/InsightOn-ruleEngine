@@ -102,6 +102,8 @@ class FlowServiceTest {
 
         FlowResponse flowResponse = flowService.create(GROUP_ID, USER_ID, request);
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+        verify(flowStructureValidator).validate(request.nodes(), request.links());
+        verify(nodeConfigurationValidator).validate(request.nodes());
         verify(flowRepository).save(any(Flow.class));
         assertEquals(1L, flowResponse.groupId());
         assertEquals(10L, flowResponse.locationId());
