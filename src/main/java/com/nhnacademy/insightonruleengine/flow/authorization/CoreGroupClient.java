@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "insighton-core", path = "/internal/groups")
+@FeignClient(name = "insighton-core", path = "/internal/groups", url = "${service-url.core}")
 public interface CoreGroupClient {
 
     @GetMapping("/{group-id}/members/user/{user-id}")
