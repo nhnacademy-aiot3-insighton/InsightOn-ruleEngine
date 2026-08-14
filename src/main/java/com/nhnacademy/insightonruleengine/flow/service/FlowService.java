@@ -2,6 +2,8 @@ package com.nhnacademy.insightonruleengine.flow.service;
 
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
+import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -22,6 +24,8 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureExc
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
@@ -50,6 +54,9 @@ public class FlowService {
     private final FlowStructureValidator flowStructureValidator;
     private final NodeConfigurationValidator nodeConfigurationValidator;
     private final ApplicationEventPublisher eventPublisher;
+    private final FlowDefinitionAssembler flowDefinitionAssembler;
+    private final FlowActivationValidator flowActivationValidator;
+    private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
@@ -123,6 +130,13 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
         Flow flow = getFlow(groupId, flowId);
+        if (request.status().equals(FlowStatus.ACTIVE)) {
+            List<FlowStructureValidationError> executableErrors = flowActivationValidator.validate(
+                    flowDefinitionAssembler.assemble(groupId, flowId));
+            if (!executableErrors.isEmpty()) {
+                throw new InvalidFlowStructureException(executableErrors);
+            }
+        }
         flow.changeActivationStatus(request.status());
         if (flow.getStatus().equals(FlowStatus.ACTIVE)) {
             eventPublisher.publishEvent(FlowRuntimeChangeEvent.activate(
@@ -133,6 +147,7 @@ public class FlowService {
         } else {
             publishRuntimeRemoval(flow, flowId);
         }
+        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -143,6 +158,7 @@ public class FlowService {
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
         publishRuntimeRemoval(flow, flowId);
+        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -159,6 +175,7 @@ public class FlowService {
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
         eventPublisher.publishEvent(runtimeRemovalEvent);
+        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -183,6 +200,7 @@ public class FlowService {
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
         publishRuntimeRemoval(currentFlow, flowId);
+        activeFlowDefinitionProvider.refreshAfterCommit(groupId, currentFlow.getLocationId());
         return toResponse(savedFlow);
     }
 
@@ -193,6 +211,7 @@ public class FlowService {
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
         publishRuntimeRemoval(archivedFlow, archivedFlowId);
+        activeFlowDefinitionProvider.refreshAfterCommit(groupId, archivedFlow.getLocationId());
         return toResponse(archivedFlow);
     }
 

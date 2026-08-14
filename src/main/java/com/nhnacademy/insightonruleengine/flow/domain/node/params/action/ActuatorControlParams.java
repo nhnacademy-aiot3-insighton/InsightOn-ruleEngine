@@ -2,15 +2,15 @@ package com.nhnacademy.insightonruleengine.flow.domain.node.params.action;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 /**
- * node_type = DEVICE_CONTROL.
- * Core 제어 API를 Feign으로 동기 호출. 실행 후 Core의
- * simulator_run_logs.executed_by_type='RULE_ENGINE' 기록을 요청함
+ * node_type = ACTUATOR_CONTROL.
+ * 실제 장치 제어는 Core가 담당하며, Engine은 이 설정을 Core 명령 DTO로 변환해 발행한다.
+ * callerService는 사용자가 설정하지 않고 Engine이 outbound DTO에 주입한다.
  */
 public record ActuatorControlParams(
-        @NotNull Long deviceId,
-        @NotBlank String command
+        @NotBlank String actuatorType,
+        @NotBlank String command,
+        @NotBlank String commandValue
 ) implements NodeParams {
 }
