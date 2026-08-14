@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

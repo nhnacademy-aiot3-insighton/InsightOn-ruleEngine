@@ -1,6 +1,9 @@
 package com.nhnacademy.insightonruleengine.flow.validation;
 
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;

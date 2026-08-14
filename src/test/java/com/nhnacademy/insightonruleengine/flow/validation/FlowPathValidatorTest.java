@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +52,8 @@ class FlowPathValidatorTest {
 
         List<FlowStructureValidationError> errors = validator.validate(nodesByKey, links);
 
-        assertEquals(List.of(FlowStructureErrorCode.UNREACHABLE_NODE, FlowStructureErrorCode.CANNOT_REACH_ACTION), errorCodes(errors));
+        assertEquals(List.of(FlowStructureErrorCode.UNREACHABLE_NODE, FlowStructureErrorCode.CANNOT_REACH_ACTION),
+                errorCodes(errors));
         assertEquals("unreachable", errors.getFirst().clientNodeKey());
     }
 

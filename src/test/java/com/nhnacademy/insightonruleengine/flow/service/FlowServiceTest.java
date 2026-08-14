@@ -35,10 +35,10 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureExc
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;

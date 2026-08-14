@@ -7,6 +7,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.FlowLinkValidator.Link
 import com.nhnacademy.insightonruleengine.flow.validation.FlowNodeValidator.NodeRoleValidationResult;
 import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator.LinkValidationResult;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator.NodeValidationResult;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

@@ -20,8 +20,8 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureExc
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

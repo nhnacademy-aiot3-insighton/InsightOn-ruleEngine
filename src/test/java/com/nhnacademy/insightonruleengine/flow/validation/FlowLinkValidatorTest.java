@@ -12,6 +12,9 @@ import com.nhnacademy.insightonruleengine.flow.validation.FlowLinkValidator.Link
 import com.nhnacademy.insightonruleengine.flow.validation.FlowLinkValidator.LinkRulesResult;
 import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator.LinkValidationResult;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator.NodeValidationResult;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +36,8 @@ class FlowLinkValidatorTest {
         FlowLinkRequest link = link("trigger", "action", "out");
 
         LinkValidationResult linkResult = linkValidator.validate(List.of(link));
-        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult, nodeMap(trigger, action));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult,
+                nodeMap(trigger, action));
         LinkRulesResult actual = flowLinkValidator.validateBusinessRules(linkRefResult, nodeMap(trigger, action));
 
         assertTrue(actual.errors().isEmpty());
@@ -47,7 +51,8 @@ class FlowLinkValidatorTest {
         FlowLinkRequest link = link("filter", "trigger", "true");
 
         LinkValidationResult linkResult = linkValidator.validate(List.of(link));
-        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult, nodeMap(filter, trigger));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult,
+                nodeMap(filter, trigger));
         LinkRulesResult actual = flowLinkValidator.validateBusinessRules(linkRefResult, nodeMap(filter, trigger));
 
         assertEquals(List.of(FlowStructureErrorCode.TRIGGER_INPUT_LINK), errorCodes(actual.errors()));
@@ -78,8 +83,10 @@ class FlowLinkValidatorTest {
         FlowLinkRequest link2 = link("trigger", "action2", "out");
 
         LinkValidationResult linkResult = linkValidator.validate(List.of(link1, link2));
-        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult, nodeMap(trigger, action1, action2));
-        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(linkRefResult, nodeMap(trigger, action1, action2));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(linkResult,
+                nodeMap(trigger, action1, action2));
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(linkRefResult,
+                nodeMap(trigger, action1, action2));
 
         assertEquals(List.of(FlowStructureErrorCode.DUPLICATE_SOURCE_PORT), errorCodes(actual.errors()));
         assertFalse(actual.canValidateConnections());
