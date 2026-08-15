@@ -6,12 +6,14 @@ import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
@@ -25,9 +27,13 @@ import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValid
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +50,7 @@ public class FlowService {
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
     private final NodeConfigurationValidator nodeConfigurationValidator;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
@@ -118,6 +125,15 @@ public class FlowService {
         validateRequest(request);
         Flow flow = getFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
+        if(flow.getStatus().equals(FlowStatus.ACTIVE)) {
+            eventPublisher.publishEvent(FlowRuntimeChangeEvent.activate(
+                    groupId,
+                    flow.getLocationId(),
+                    flowId
+            ));
+        }else {
+            publishRuntimeRemoval(flow, flowId);
+        }
         return toResponse(flow);
     }
 
@@ -127,6 +143,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
+        publishRuntimeRemoval(flow, flowId);
         return toResponse(flow);
     }
 
@@ -138,9 +155,11 @@ public class FlowService {
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
         }
+        FlowRuntimeChangeEvent runtimeRemovalEvent = runtimeRemovalEvent(flow, flowId);
         linkRepository.deleteByFlowId(flowId);
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
+        eventPublisher.publishEvent(runtimeRemovalEvent);
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -164,6 +183,7 @@ public class FlowService {
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
+        publishRuntimeRemoval(currentFlow, flowId);
         return toResponse(savedFlow);
     }
 
@@ -173,6 +193,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
+        publishRuntimeRemoval(archivedFlow, archivedFlowId);
         return toResponse(archivedFlow);
     }
 
@@ -205,6 +226,23 @@ public class FlowService {
         if (!errors.isEmpty()) {
             throw new InvalidFlowStructureException(errors);
         }
+    }
+
+    private void publishRuntimeRemoval(Flow flow, Long flowId) {
+        eventPublisher.publishEvent(runtimeRemovalEvent(flow, flowId));
+    }
+
+    private FlowRuntimeChangeEvent runtimeRemovalEvent(Flow flow, Long flowId) {
+        Set<Long> runtimeNodeIds = nodeRepository.findByFlowId(flowId).stream()
+                .filter(node -> node.getNodeType() == NodeType.ALERT)
+                .map(Node::getId)
+                .collect(Collectors.toUnmodifiableSet());
+        return FlowRuntimeChangeEvent.remove(
+                flow.getGroupId(),
+                flow.getLocationId(),
+                flowId,
+                runtimeNodeIds
+        );
     }
 
     private Map<String, Long> saveNodes(Long flowId, List<FlowNodeRequest> requests) {
