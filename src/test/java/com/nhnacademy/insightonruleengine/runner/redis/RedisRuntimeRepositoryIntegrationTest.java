@@ -81,7 +81,7 @@ class RedisRuntimeRepositoryIntegrationTest {
 
     // Lua 기반 교체가 중간 빈 상태 없이 최종 Set으로 반영되고 삭제되는지 검증합니다.
     @Test
-    @DisplayName("Route를 원자적으로 저장하고 조회 및 교체한 뒤 삭제한다")
+    @DisplayName("Route를 원자적으로 저장하고 조회 및 교체한 뒤 삭제합니다.")
     void routeLifecycleTest() {
         routeRepository.replace(1L, 10L, Set.of(100L, 200L));
 
@@ -100,7 +100,7 @@ class RedisRuntimeRepositoryIntegrationTest {
 
     // Flow와 모든 NodeType 및 Link가 실제 Redis JSON에서 손실 없이 복원되는지 검증합니다.
     @Test
-    @DisplayName("Flow Node Link Definition과 모든 NodeType을 JSON으로 저장하고 복원한다")
+    @DisplayName("Flow Node Link Definition과 모든 NodeType을 JSON으로 저장하고 복원합니다.")
     void activeFlowSerializationTest() {
         FlowDefinition definition = definition();
 
@@ -117,7 +117,7 @@ class RedisRuntimeRepositoryIntegrationTest {
 
     // Route와 Active Flow 및 heartbeat가 한 Redis에서도 서로 다른 namespace를 쓰는지 확인합니다.
     @Test
-    @DisplayName("Route Active Flow heartbeat Key는 하나의 Redis에서 서로 격리된다")
+    @DisplayName("Route Active Flow heartbeat Key는 하나의 Redis에서 서로 격리됩니다")
     void namespaceIsolationTest() {
         routeRepository.replace(1L, 10L, Set.of(100L));
         activeFlowRepository.save(definition());
@@ -132,7 +132,7 @@ class RedisRuntimeRepositoryIntegrationTest {
 
     // heartbeat가 실제 TTL을 가지며 만료 후 상대 생존 조회에서 사라지는지 검증합니다.
     @Test
-    @DisplayName("heartbeat는 TTL과 함께 저장되고 만료 후 존재하지 않는다")
+    @DisplayName("heartbeat는 TTL과 함께 저장되고 만료 후 존재하지 않습니다.")
     void heartbeatExpirationTest() throws InterruptedException {
         heartbeatRepository.refresh("engine-a", Duration.ofMillis(300));
 
@@ -153,7 +153,7 @@ class RedisRuntimeRepositoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("ALERT는 requiredCount 도달 시 한 번 허용하고 Counter를 초기화한다")
+    @DisplayName("ALERT는 requiredCount 도달 시 한 번 허용하고 Counter를 초기화합니다")
     void alertRequiredCountTest() {
         assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
         assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
@@ -161,6 +161,22 @@ class RedisRuntimeRepositoryIntegrationTest {
 
         assertFalse(redisTemplate.hasKey("count:1:10"));
         assertFalse(alertCountRedisRepository.incrementAndCheck(1L, 10L, 3, 30, 0));
+    }
+
+    @Test
+    @DisplayName("Flow Runtime State 정리는 전달한 Node ID의 COUNT와 Cooldown만 삭제합니다")
+    void deleteFlowRuntimeStateTest() {
+        redisTemplate.opsForValue().set("count:1:10", "2");
+        redisTemplate.opsForValue().set("cooldown:1:10", "1");
+        redisTemplate.opsForValue().set("count:1:20", "1");
+        redisTemplate.opsForValue().set("cooldown:2:10", "1");
+
+        alertCountRedisRepository.deleteStates(1L, Set.of(10L));
+
+        assertFalse(redisTemplate.hasKey("count:1:10"));
+        assertFalse(redisTemplate.hasKey("cooldown:1:10"));
+        assertTrue(redisTemplate.hasKey("count:1:20"));
+        assertTrue(redisTemplate.hasKey("cooldown:2:10"));
     }
 
     // enum 전체가 포함된 실제 실행 모델로 Redis 직렬화 계약을 검증합니다.
