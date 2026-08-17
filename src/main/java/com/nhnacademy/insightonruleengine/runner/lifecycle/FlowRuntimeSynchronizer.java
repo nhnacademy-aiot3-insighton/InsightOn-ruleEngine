@@ -36,14 +36,19 @@ public class FlowRuntimeSynchronizer {
                 () -> refreshRoute(event.groupId(), event.locationId()),
                 failure
         );
-        failure = runCleanup(
-                () -> activeFlowRedisRepository.delete(event.groupId(), event.flowId()),
-                failure
-        );
-        failure = runCleanup(
-                () -> alertCountRedisRepository.deleteStates(event.flowId(), event.runtimeNodeIds()),
-                failure
-        );
+        boolean isActive = flowRepository.findById(event.flowId())
+                .map(flow -> flow.getStatus() == FlowStatus.ACTIVE)
+                .orElse(false);
+        if (!isActive) {
+            failure = runCleanup(
+                    () -> activeFlowRedisRepository.delete(event.groupId(), event.flowId()),
+                    failure
+            );
+            failure = runCleanup(
+                    () -> alertCountRedisRepository.deleteStates(event.flowId(), event.runtimeNodeIds()),
+                    failure
+            );
+        }
         if(failure != null) {
             throw failure;
         }

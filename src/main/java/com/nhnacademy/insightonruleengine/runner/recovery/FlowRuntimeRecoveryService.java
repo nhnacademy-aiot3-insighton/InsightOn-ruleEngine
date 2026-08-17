@@ -41,10 +41,10 @@ public class FlowRuntimeRecoveryService {
             }
             flowIds = flowRouteRedisRepository.findFlowIds(groupId, locationId);
         } catch (InvalidActiveFlowDataException exception) {
-            log.warn("검증되지 않은 Flow Data입니다. groupId={}, flowId={}", groupId, locationId, exception);
+            log.warn("검증되지 않은 Flow Data입니다. groupId={}, locationId={}", groupId, locationId, exception);
             return rebuildLocation(groupId, locationId);
         } catch (RuntimeException exception) {
-            log.error("Active Flow를 찾지 못했습니다. groupId={}, flowId={}", groupId, locationId, exception);
+            log.error("Active Flow를 찾지 못했습니다. groupId={}, locationId={}", groupId, locationId, exception);
             throw exception;
         }
         List<FlowDefinition> definitions = new ArrayList<>();
@@ -78,11 +78,11 @@ public class FlowRuntimeRecoveryService {
     }
 
     public int rebuildAll() {
-        return flowRepository.findAllByStatus(FlowStatus.ACTIVE).stream()
-                .collect(Collectors.groupingBy(flow -> new RouteKey(flow.getGroupId(), flow.getLocationId())))
-                .entrySet()
-                .stream()
-                .mapToInt(entry -> rebuildLocation(entry.getKey().groupId, entry.getKey().locationId).size())
+        Set<RouteKey> allLocations = flowRepository.findAll().stream()
+                .map(flow -> new RouteKey(flow.getGroupId(), flow.getLocationId()))
+                .collect(Collectors.toUnmodifiableSet());
+        return allLocations.stream()
+                .mapToInt(location -> rebuildLocation(location.groupId(), location.locationId()).size())
                 .sum();
     }
 
