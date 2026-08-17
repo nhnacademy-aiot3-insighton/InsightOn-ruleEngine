@@ -2,6 +2,8 @@ package com.nhnacademy.insightonruleengine.runner.alert;
 
 import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -66,5 +68,20 @@ public class AlertCountRedisRepository {
         );
 
         return Long.valueOf(1L).equals(result);
+    }
+
+    //Flow 삭제, 비활성화 시 미리 수집한 Node Id로 Count와 Cooldown을 정리합니다.
+    public void deleteStates(Long flowId, Set<Long> actionNodeIds) {
+        if(actionNodeIds == null || actionNodeIds.isEmpty()) {
+            return;
+        }
+        List<String> keys = actionNodeIds.stream()
+                .sorted()
+                .flatMap(actionNodeId -> Stream.of(
+                        redisKeyFactory.count(flowId, actionNodeId),
+                        redisKeyFactory.cooldown(flowId, actionNodeId)
+                ))
+                .toList();
+        redisTemplate.delete(keys);
     }
 }
