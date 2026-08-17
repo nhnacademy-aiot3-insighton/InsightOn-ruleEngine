@@ -27,7 +27,6 @@ import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValid
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,13 +124,13 @@ public class FlowService {
         validateRequest(request);
         Flow flow = getFlow(groupId, flowId);
         flow.changeActivationStatus(request.status());
-        if(flow.getStatus().equals(FlowStatus.ACTIVE)) {
+        if (flow.getStatus().equals(FlowStatus.ACTIVE)) {
             eventPublisher.publishEvent(FlowRuntimeChangeEvent.activate(
                     groupId,
                     flow.getLocationId(),
                     flowId
             ));
-        }else {
+        } else {
             publishRuntimeRemoval(flow, flowId);
         }
         return toResponse(flow);
