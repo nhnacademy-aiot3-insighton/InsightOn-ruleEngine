@@ -55,7 +55,7 @@ public class FlowRouteRedisRepository {
     //FlowId 목록을 읽지 않고 특정 장소의 RouteKey가 있는지 확인합니다.
     public boolean exists(Long groupId, Long locationId) {
         String key = redisKeyFactory.route(groupId, locationId);
-        return redisTemplate.hasKey(key);
+        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
     //Flow 비활성화나 아카이브, 변경 및 삭제 시 해당 그룹과 장소의 Route 목록을 제거합니다.

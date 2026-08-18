@@ -97,12 +97,11 @@ public class FlowRuntimeRecoveryService {
             log.error("Active Flow를 찾지 못했습니다. groupId={}, flowId={}", groupId, flowId, exception);
             throw exception;
         }
-        if (storedDefinition.isPresent()) {
-            return storedDefinition.get();
-        }
-        FlowDefinition recoveredDefinition = flowDefinitionAssembler.assembleActive(groupId, flowId);
-        activeFlowRedisRepository.save(recoveredDefinition);
-        return recoveredDefinition;
+        return storedDefinition.orElseGet(() -> {
+            FlowDefinition recoveredDefinition = flowDefinitionAssembler.assembleActive(groupId, flowId);
+            activeFlowRedisRepository.save(recoveredDefinition);
+            return recoveredDefinition;
+        });
     }
 
     //라우팅 키 groupId + locationId

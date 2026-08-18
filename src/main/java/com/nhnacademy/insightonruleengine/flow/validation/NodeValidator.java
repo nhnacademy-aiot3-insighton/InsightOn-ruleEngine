@@ -92,7 +92,7 @@ public class NodeValidator {
             );
         }
         boolean hasNodeType = node.nodeType() != null;
-        if (!hasNodeType) {
+        if (node.nodeType() == null) {
             addError(
                     errors,
                     NodeErrorCode.MISSING_NODE_TYPE,
