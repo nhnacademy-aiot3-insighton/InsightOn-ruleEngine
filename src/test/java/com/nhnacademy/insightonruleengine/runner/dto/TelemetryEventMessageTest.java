@@ -40,8 +40,8 @@ class TelemetryEventMessageTest {
     }
 
     @Test
-    @DisplayName("devName이 null이거나 공백이면 유효성 검증에 실패함을 증명하는 테스트")
-    void missingDeviceNameTest() {
+    @DisplayName("sensorId가 null이거나 공백이면 유효성 검증에 실패함을 증명하는 테스트")
+    void missingSensorIdTest() {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         TelemetryEventMessage message = new TelemetryEventMessage(
                 1L,
@@ -50,7 +50,7 @@ class TelemetryEventMessageTest {
                 Map.of("temperature", 25.5, "humidity", 60),
                 now
         );
-        TelemetryEventMessage blankDevName = new TelemetryEventMessage(
+        TelemetryEventMessage blankSensorId = new TelemetryEventMessage(
                 1L,
                 100L,
                 "  ",
@@ -58,7 +58,7 @@ class TelemetryEventMessageTest {
                 now
         );
         assertThrows(IllegalArgumentException.class, message::validate);
-        assertThrows(IllegalArgumentException.class, blankDevName::validate);
+        assertThrows(IllegalArgumentException.class, blankSensorId::validate);
     }
 
     @Test
@@ -104,7 +104,7 @@ class TelemetryEventMessageTest {
                 {
                     "groupId": 10,
                     "locationId": 200,
-                    "devName": "sensor-01",
+                    "sensorId": "sensor-01",
                     "metrics": {
                         "temperature": 23.4,
                         "co2": 450
@@ -117,7 +117,7 @@ class TelemetryEventMessageTest {
 
         assertEquals(10L, message.groupId());
         assertEquals(200L, message.locationId());
-        assertEquals("sensor-01", message.devName());
+        assertEquals("sensor-01", message.sensorId());
         assertEquals(23.4, message.metrics().get("temperature"));
         assertEquals(450, message.metrics().get("co2"));
     }

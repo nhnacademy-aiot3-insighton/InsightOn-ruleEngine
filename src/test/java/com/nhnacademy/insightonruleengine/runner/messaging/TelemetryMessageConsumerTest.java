@@ -86,7 +86,7 @@ class TelemetryMessageConsumerTest {
         String missingLocationJson = """
                 {
                     "time": "2026-08-17T12:00:00Z",
-                    "devName": "sensor-01",
+                    "sensorId": "sensor-01",
                     "groupId": 1,
                     "metrics": { "temperature": 25.0 }
                 }

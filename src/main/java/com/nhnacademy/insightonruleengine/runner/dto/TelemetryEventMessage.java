@@ -17,13 +17,13 @@ public record TelemetryEventMessage(
         metrics = metrics != null ? Map.copyOf(metrics) : Map.of();
     }
 
-    //필수 필드(time, devName, groupId, locationId, metrics)의 유효성을 검증합니다.
+    //필수 필드(time, sensorId, groupId, locationId, metrics)의 유효성을 검증합니다.
     public void validate() {
         if (time == null) {
             throw new IllegalArgumentException("time은 필수입니다.");
         }
         if (sensorId == null || sensorId.isBlank()) {
-            throw new IllegalArgumentException("devName은 필수입니다.");
+            throw new IllegalArgumentException("sensorId는 필수입니다.");
         }
         if (groupId == null) {
             throw new IllegalArgumentException("groupId는 필수입니다.");
