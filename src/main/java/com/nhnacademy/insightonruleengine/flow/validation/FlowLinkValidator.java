@@ -10,7 +10,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureEr
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,8 +79,8 @@ public class FlowLinkValidator {
             return new LinkRulesResult(Set.of(), false, List.of());
         }
         List<FlowStructureValidationError> errors = new ArrayList<>();
-        Set<SourcePortKey> sourcePort = new LinkedHashSet<>();
-        Set<String> sourceNodeKeys = new LinkedHashSet<>();
+        Set<SourcePortKey> sourcePort = new HashSet<>();
+        Set<String> sourceNodeKeys = new HashSet<>();
         boolean canValidateConnections = true;
 
         for (IndexedLink indexedLink : linkRefResult.validIndexedLinks()) {

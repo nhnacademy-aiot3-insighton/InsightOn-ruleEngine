@@ -125,7 +125,6 @@ class FlowServiceIntegrationTest {
         Flow updatedFlow = flowRepository.findById(response.flowId()).orElseThrow();
 
         assertNotEquals(currentFlowId, response.flowId());
-        assertEquals(false, currentFlowId.equals(response.flowId()));
         assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
         assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
         assertEquals(10L, updatedFlow.getLocationId());
