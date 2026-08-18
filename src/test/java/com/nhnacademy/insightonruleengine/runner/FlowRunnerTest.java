@@ -1,8 +1,7 @@
 package com.nhnacademy.insightonruleengine.runner;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
@@ -10,67 +9,88 @@ import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
+import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 class FlowRunnerTest {
 
-    @Mock
-    private NodeExecutorRegistry nodeExecutorRegistry;
-
-    @Mock
-    private ExecutionLogger executionLogger;
-
-    @Mock
-    private FlowRouter flowRouter;
-
-    @Mock
-    private NodeExecutor sensorExecutor;
-
-    @Mock
-    private NodeExecutor thresholdExecutor;
-
     @Test
-    void filterFalseWithoutLinkFinishesNormally() {
-        FlowRunner flowRunner = new FlowRunner(flowRouter, nodeExecutorRegistry, executionLogger);
-        FlowDefinition flow = definition();
-        SensorEvent event = new SensorEvent(1L, 10L, 100L, Map.of("temperature", 20), Instant.now());
+    @DisplayName("Trigger부터 Link를 따라 Action까지 실행한다")
+    void runSensorThresholdAlertPath() {
+        List<NodeType> executed = new ArrayList<>();
+        FlowRouter router = event -> List.of(flowDefinition());
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("true"), executed),
+                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed)
+        ));
+        FlowRunner runner = new FlowRunner(router, registry, new RecordingExecutionLogger());
 
-        when(nodeExecutorRegistry.get(NodeType.SENSOR)).thenReturn(sensorExecutor);
-        when(nodeExecutorRegistry.get(NodeType.THRESHOLD)).thenReturn(thresholdExecutor);
-        when(sensorExecutor.execute(any(), any())).thenReturn(NodeExecutionResult.next("out"));
-        when(thresholdExecutor.execute(any(), any())).thenReturn(NodeExecutionResult.next("false"));
+        runner.run(sensorEvent());
 
-        flowRunner.runFlow(flow, event);
-
-        verify(executionLogger).flowFinished(
-                any(),
-                org.mockito.ArgumentMatchers.eq(2L),
-                org.mockito.ArgumentMatchers.eq(false));
+        assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.ALERT), executed);
     }
 
-    private FlowDefinition definition() {
+    @Test
+    @DisplayName("Filter가 false를 반환하고 false Link가 없으면 Action 없이 정상 종료한다")
+    void filterFalseWithoutLinkFinishesNormally() {
+        List<NodeType> executed = new ArrayList<>();
+        FlowRouter router = event -> List.of(falseBranchFlowDefinition());
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("false"), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(router, registry, logger);
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD), executed);
+        assertEquals(2L, logger.terminalNodeId);
+        assertFalse(logger.terminalActionReached);
+    }
+
+    private NodeExecutor executor(
+            NodeType nodeType,
+            NodeExecutionResult result,
+            List<NodeType> executed
+    ) {
+        return new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return nodeType;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                executed.add(node.nodeType());
+                return result;
+            }
+        };
+    }
+
+    private FlowDefinition flowDefinition() {
         return new FlowDefinition(
                 1L,
                 1L,
                 10L,
-                "온도 Flow",
+                "온도 알람",
                 null,
                 FlowStatus.ACTIVE,
-                OffsetDateTime.now(),
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
                 List.of(
                         node(1L, NodeType.SENSOR),
                         node(2L, NodeType.THRESHOLD),
@@ -83,7 +103,76 @@ class FlowRunnerTest {
         );
     }
 
+    private FlowDefinition falseBranchFlowDefinition() {
+        return new FlowDefinition(
+                1L,
+                1L,
+                10L,
+                "온도 알람",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        node(1L, NodeType.SENSOR),
+                        node(2L, NodeType.THRESHOLD)
+                ),
+                List.of(
+                        new LinkDefinition(1L, 1L, 1L, 2L, "out", "in")
+                )
+        );
+    }
+
     private NodeDefinition node(Long nodeId, NodeType nodeType) {
         return new NodeDefinition(nodeId, nodeType, JsonNodeFactory.instance.objectNode());
+    }
+
+    private SensorEvent sensorEvent() {
+        return new SensorEvent(
+                1L,
+                10L,
+                100L,
+                Map.of("temperature", 31.2),
+                Instant.parse("2026-08-03T00:00:00Z")
+        );
+    }
+
+    private static class RecordingExecutionLogger implements ExecutionLogger {
+
+        private Long terminalNodeId;
+        private boolean terminalActionReached;
+
+        @Override
+        public void eventRouted(SensorEvent event, int flowCount) {
+        }
+
+        @Override
+        public void flowStarted(ExecutionLogContext context, Long triggerNodeId) {
+        }
+
+        @Override
+        public void flowFinished(
+                ExecutionLogContext context,
+                Long terminalNodeId,
+                boolean terminalActionReached
+        ) {
+            this.terminalNodeId = terminalNodeId;
+            this.terminalActionReached = terminalActionReached;
+        }
+
+        @Override
+        public void nodeStarted(ExecutionLogContext context, NodeDefinition node) {
+        }
+
+        @Override
+        public void nodeFinished(ExecutionLogContext context, NodeDefinition node, NodeExecutionResult result) {
+        }
+
+        @Override
+        public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
+        }
+
+        @Override
+        public void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception) {
+        }
     }
 }
