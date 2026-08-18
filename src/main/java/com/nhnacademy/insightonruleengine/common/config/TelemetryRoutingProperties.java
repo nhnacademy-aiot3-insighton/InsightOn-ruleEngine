@@ -49,4 +49,23 @@ public record TelemetryRoutingProperties(
                 .map(this::queueName)
                 .toList();
     }
+
+    //상대 인스턴스가 정상일 때 소유하는 8개의 큐 인덱스를 조회합니다.
+    public List<Integer> peerQueueIndices() {
+        Set<Integer> ownIndices = Set.copyOf(ownedQueueIndices);
+        if (ownIndices.equals(ENGINE_A_INDICES)) {
+            return ENGINE_B_INDICES.stream().sorted().toList();
+        }
+        if (ownIndices.equals(ENGINE_B_INDICES)) {
+            return ENGINE_A_INDICES.stream().sorted().toList();
+        }
+        return List.of();
+    }
+
+    //상대 인스턴스가 정상일 때 소유하는 8개의 큐 이름을 조회합니다.
+    public List<String> peerQueueNames() {
+        return peerQueueIndices().stream()
+                .map(this::queueName)
+                .toList();
+    }
 }

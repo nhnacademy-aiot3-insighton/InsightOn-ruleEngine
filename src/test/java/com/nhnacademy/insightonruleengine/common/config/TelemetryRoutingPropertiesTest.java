@@ -142,6 +142,42 @@ class TelemetryRoutingPropertiesTest {
         assertThrows(UnsupportedOperationException.class, () -> properties.ownedQueueIndices().add(1));
     }
 
+    @Test
+    @DisplayName("서로 다른 엔진은 서로의 인덱스 8개 큐를 조회할 수 있습니다.")
+    void peerQueueIndicesTest() {
+        TelemetryRoutingProperties propertiesA = properties(ENGINE_A_INDICES);
+        TelemetryRoutingProperties propertiesB = properties(ENGINE_B_INDICES);
+
+        assertEquals(ENGINE_B_INDICES, propertiesA.peerQueueIndices());
+        assertEquals(
+                List.of(
+                        "telemetry.01",
+                        "telemetry.03",
+                        "telemetry.05",
+                        "telemetry.07",
+                        "telemetry.09",
+                        "telemetry.11",
+                        "telemetry.13",
+                        "telemetry.15"
+                ),
+                propertiesA.peerQueueNames()
+        );
+        assertEquals(ENGINE_A_INDICES, propertiesB.peerQueueIndices());
+        assertEquals(
+                List.of(
+                        "telemetry.00",
+                        "telemetry.02",
+                        "telemetry.04",
+                        "telemetry.06",
+                        "telemetry.08",
+                        "telemetry.10",
+                        "telemetry.12",
+                        "telemetry.14"
+                ),
+                propertiesB.peerQueueNames()
+        );
+    }
+
     // 반복되는 유효 토폴로지 값은 고정하고 Queue 소유 목록만 바꿔 테스트합니다.
     private TelemetryRoutingProperties properties(List<Integer> ownedQueueIndices) {
         return new TelemetryRoutingProperties(
