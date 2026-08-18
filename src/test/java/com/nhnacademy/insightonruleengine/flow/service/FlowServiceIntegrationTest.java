@@ -170,6 +170,7 @@ class FlowServiceIntegrationTest {
                 new Flow(1L, 10L, "온도 경고 v2", null, FlowStatus.ARCHIVED)
         );
         Long currentFlowId = currentFlow.getId();
+        FlowUpdateRequest updateRequest = FlowTestData.createValidUpdateRequest("온도 경고 v2", null);
 
         assertThrows(
                 DuplicateFlowNameException.class,
@@ -177,7 +178,7 @@ class FlowServiceIntegrationTest {
                         1L,
                         100L,
                         currentFlowId,
-                        FlowTestData.createValidUpdateRequest("온도 경고 v2", null)
+                        updateRequest
                 )
         );
         entityManager.flush();
@@ -338,6 +339,7 @@ class FlowServiceIntegrationTest {
         );
         doThrow(new IllegalStateException("Link 저장 실패"))
                 .when(linkRepository).save(any(Link.class));
+        FlowUpdateRequest updateRequest = FlowTestData.createValidUpdateRequest("온도 경고 v2", "수정 설명");
         try {
             assertThrows(
                     IllegalStateException.class,
@@ -345,7 +347,7 @@ class FlowServiceIntegrationTest {
                             1L,
                             100L,
                             currentFlowId,
-                            FlowTestData.createValidUpdateRequest("온도 경고 v2", "수정 설명")
+                            updateRequest
                     )
             );
             Flow updatedFlow = flowRepository.findById(currentFlowId).orElseThrow();

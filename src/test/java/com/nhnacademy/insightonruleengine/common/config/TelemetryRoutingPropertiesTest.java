@@ -41,61 +41,55 @@ class TelemetryRoutingPropertiesTest {
     @Test
     @DisplayName("활성화된 Routing은 Exchange와 Queue prefix가 모두 필요하다")
     void missingTopologyNameTest() {
-        assertThrows(
-                IllegalStateException.class,
-                () -> new TelemetryRoutingProperties(
-                        true,
-                        null,
-                        "telemetry.",
-                        ENGINE_A_INDICES,
-                        null
-                ).validateEnabledConfiguration()
+        TelemetryRoutingProperties props1 = new TelemetryRoutingProperties(
+                true,
+                null,
+                "telemetry.",
+                ENGINE_A_INDICES,
+                null
         );
-        assertThrows(
-                IllegalStateException.class,
-                () -> new TelemetryRoutingProperties(
-                        true,
-                        " ",
-                        "telemetry.",
-                        ENGINE_A_INDICES,
-                        null
-                ).validateEnabledConfiguration()
+        assertThrows(IllegalStateException.class, props1::validateEnabledConfiguration);
+
+        TelemetryRoutingProperties props2 = new TelemetryRoutingProperties(
+                true,
+                " ",
+                "telemetry.",
+                ENGINE_A_INDICES,
+                null
         );
-        assertThrows(
-                IllegalStateException.class,
-                () -> new TelemetryRoutingProperties(
-                        true,
-                        "insighton.core.telemetry.exchange",
-                        null,
-                        ENGINE_A_INDICES,
-                        null
-                ).validateEnabledConfiguration()
+        assertThrows(IllegalStateException.class, props2::validateEnabledConfiguration);
+
+        TelemetryRoutingProperties props3 = new TelemetryRoutingProperties(
+                true,
+                "insighton.core.telemetry.exchange",
+                null,
+                ENGINE_A_INDICES,
+                null
         );
-        assertThrows(
-                IllegalStateException.class,
-                () -> new TelemetryRoutingProperties(
-                        true,
-                        "insighton.core.telemetry.exchange",
-                        " ",
-                        ENGINE_A_INDICES,
-                        null
-                ).validateEnabledConfiguration()
+        assertThrows(IllegalStateException.class, props3::validateEnabledConfiguration);
+
+        TelemetryRoutingProperties props4 = new TelemetryRoutingProperties(
+                true,
+                "insighton.core.telemetry.exchange",
+                " ",
+                ENGINE_A_INDICES,
+                null
         );
+        assertThrows(IllegalStateException.class, props4::validateEnabledConfiguration);
     }
 
     // 정확히 짝수 또는 홀수 8개가 아닌 임의 Queue 소유 구성을 거부합니다.
     @Test
     @DisplayName("Queue 소유 목록은 확정된 짝수 또는 홀수 인덱스 8개여야 한다")
     void invalidOwnershipTest() {
-        assertThrows(IllegalStateException.class, () -> properties(List.of()).validateEnabledConfiguration());
-        assertThrows(
-                IllegalStateException.class,
-                () -> properties(List.of(0, 1, 2, 3, 4, 5, 6, 7)).validateEnabledConfiguration()
-        );
-        assertThrows(
-                IllegalStateException.class,
-                () -> properties(List.of(0, 0, 2, 4, 6, 8, 10, 12)).validateEnabledConfiguration()
-        );
+        TelemetryRoutingProperties emptyProps = properties(List.of());
+        assertThrows(IllegalStateException.class, emptyProps::validateEnabledConfiguration);
+
+        TelemetryRoutingProperties contiguousProps = properties(List.of(0, 1, 2, 3, 4, 5, 6, 7));
+        assertThrows(IllegalStateException.class, contiguousProps::validateEnabledConfiguration);
+
+        TelemetryRoutingProperties duplicateProps = properties(List.of(0, 0, 2, 4, 6, 8, 10, 12));
+        assertThrows(IllegalStateException.class, duplicateProps::validateEnabledConfiguration);
     }
 
     // Queue 이름이 고정된 00부터 15까지의 두 자리 인덱스를 사용하는지 확인합니다.
@@ -139,7 +133,8 @@ class TelemetryRoutingPropertiesTest {
         indices.clear();
 
         assertEquals(ENGINE_A_INDICES, properties.ownedQueueIndices());
-        assertThrows(UnsupportedOperationException.class, () -> properties.ownedQueueIndices().add(1));
+        List<Integer> owned = properties.ownedQueueIndices();
+        assertThrows(UnsupportedOperationException.class, () -> owned.add(1));
     }
 
     @Test

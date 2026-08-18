@@ -46,17 +46,21 @@ class FlowDefinitionTest {
                 List.of(new LinkDefinition(100L, 1L, 10L, 20L, "out", "in"))
         );
 
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> definition.nodes().add(new NodeDefinition(
-                        20L,
-                        NodeType.ALERT,
-                        JsonNodeFactory.instance.objectNode()
-                ))
+        List<NodeDefinition> nodes = definition.nodes();
+        NodeDefinition alertNode = new NodeDefinition(
+                20L,
+                NodeType.ALERT,
+                JsonNodeFactory.instance.objectNode()
         );
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> definition.links().clear()
+                () -> nodes.add(alertNode)
+        );
+
+        List<LinkDefinition> links = definition.links();
+        assertThrows(
+                UnsupportedOperationException.class,
+                links::clear
         );
     }
 

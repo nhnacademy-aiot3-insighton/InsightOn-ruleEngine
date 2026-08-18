@@ -42,29 +42,24 @@ public class NodeValidator {
                         "노드는 null일 수 없습니다."
                 );
                 canValidateConnections = false;
-                continue;
-            }
-            NodeFieldValidation fieldValidation = validateNodeRequiredFields(node, fieldPath, errors);
-            if (!fieldValidation.hasNodeType()) {
-                canValidateConnections = false;
-            }
-            if (!fieldValidation.hasClientNodeKey()) {
-                canValidateConnections = false;
-            }
-            String nodeKey = node.clientNodeKey();
-            if (fieldValidation.hasClientNodeKey()) {
-                if (nodesByKey.containsKey(nodeKey)) {
-                    addError(
-                            errors,
-                            NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
-                            nodeKey,
-                            fieldPath + ".clientNodeKey",
-                            "clientKey는 중복될 수 없습니다."
-                    );
+            } else {
+                NodeFieldValidation fieldValidation = validateNodeRequiredFields(node, fieldPath, errors);
+                if (!fieldValidation.hasNodeType() || !fieldValidation.hasClientNodeKey()) {
                     canValidateConnections = false;
-                    continue;
                 }
-                nodesByKey.put(nodeKey, node);
+                if (fieldValidation.hasClientNodeKey()) {
+                    String nodeKey = node.clientNodeKey();
+                    if (nodesByKey.putIfAbsent(nodeKey, node) != null) {
+                        addError(
+                                errors,
+                                NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
+                                nodeKey,
+                                fieldPath + ".clientNodeKey",
+                                "clientKey는 중복될 수 없습니다."
+                        );
+                        canValidateConnections = false;
+                    }
+                }
             }
         }
         return new NodeValidationResult(
@@ -101,8 +96,7 @@ public class NodeValidator {
                     "nodeType은 필수입니다."
             );
         }
-        boolean hasConfiguration = node.configuration() != null && !node.configuration().isNull();
-        if (!hasConfiguration) {
+        if (node.configuration() == null || node.configuration().isNull()) {
             addError(
                     errors,
                     NodeErrorCode.MISSING_NODE_CONFIGURATION,

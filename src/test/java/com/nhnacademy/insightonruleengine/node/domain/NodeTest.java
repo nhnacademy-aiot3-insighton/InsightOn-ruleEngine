@@ -53,7 +53,7 @@ class NodeTest {
                 .put("sensorId", 1L));
 
         assertNotEquals(source, target);
-        assertTrue(source.equals(source));
+        assertEquals(source, source);
     }
 
     @Test

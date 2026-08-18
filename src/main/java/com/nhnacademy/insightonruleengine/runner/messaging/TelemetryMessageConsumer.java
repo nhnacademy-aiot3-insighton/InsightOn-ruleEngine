@@ -34,21 +34,8 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
                 return;
             }
 
-            TelemetryEventMessage eventMessage;
-            try {
-                eventMessage = objectMapper.readValue(body, TelemetryEventMessage.class);
-            } catch (Exception exception) {
-                log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}",
-                        deliveryTag, exception);
-                channel.basicAck(deliveryTag, false);
-                return;
-            }
-
-            try {
-                eventMessage.validate();
-            } catch (IllegalArgumentException exception) {
-                log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
-                        exception.getMessage(), deliveryTag);
+            TelemetryEventMessage eventMessage = parseAndValidate(body, deliveryTag);
+            if (eventMessage == null) {
                 channel.basicAck(deliveryTag, false);
                 return;
             }
@@ -73,6 +60,22 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
                     "Unexpected error occurred while processing Telemetry message. Discarding message. deliveryTag={}",
                     deliveryTag, exception);
             channel.basicAck(deliveryTag, false);
+        }
+    }
+
+    private TelemetryEventMessage parseAndValidate(byte[] body, long deliveryTag) {
+        try {
+            TelemetryEventMessage eventMessage = objectMapper.readValue(body, TelemetryEventMessage.class);
+            eventMessage.validate();
+            return eventMessage;
+        } catch (IllegalArgumentException exception) {
+            log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
+                    exception.getMessage(), deliveryTag);
+            return null;
+        } catch (Exception exception) {
+            log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}",
+                    deliveryTag, exception);
+            return null;
         }
     }
 }

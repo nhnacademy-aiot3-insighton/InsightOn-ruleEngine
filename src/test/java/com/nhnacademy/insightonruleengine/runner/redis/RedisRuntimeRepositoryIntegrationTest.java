@@ -133,23 +133,17 @@ class RedisRuntimeRepositoryIntegrationTest {
     // heartbeat가 실제 TTL을 가지며 만료 후 상대 생존 조회에서 사라지는지 검증합니다.
     @Test
     @DisplayName("heartbeat는 TTL과 함께 저장되고 만료 후 존재하지 않습니다.")
-    void heartbeatExpirationTest() throws InterruptedException {
+    void heartbeatExpirationTest() {
         heartbeatRepository.refresh("engine-a", Duration.ofMillis(300));
 
         Long ttl = redisTemplate.getExpire("heartbeat:engine-a", TimeUnit.MILLISECONDS);
 
         assertTrue(heartbeatRepository.isHeartbeat("engine-a"));
         assertTrue(ttl != null && ttl > 0L && ttl <= 300L);
-        waitUntilHeartbeatExpires();
+        org.testcontainers.shaded.org.awaitility.Awaitility.await()
+                .atMost(Duration.ofSeconds(2))
+                .until(() -> !heartbeatRepository.isHeartbeat("engine-a"));
         assertFalse(heartbeatRepository.isHeartbeat("engine-a"));
-    }
-
-    // Redis 만료 시점의 작은 차이로 테스트가 흔들리지 않도록 제한 시간 안에서 확인합니다.
-    private void waitUntilHeartbeatExpires() throws InterruptedException {
-        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
-        while (heartbeatRepository.isHeartbeat("engine-a") && System.nanoTime() < deadline) {
-            Thread.sleep(25L);
-        }
     }
 
     @Test

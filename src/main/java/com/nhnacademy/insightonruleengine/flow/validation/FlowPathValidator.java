@@ -166,10 +166,8 @@ public class FlowPathValidator {
         Set<String> visited = new HashSet<>();
 
         for (String nodeKey : nodeKeys) {
-            if (!visited.contains(nodeKey)) {
-                if (dfsHasCycle(nodeKey, outgoing, visiting, visited)) {
-                    return true;
-                }
+            if (!visited.contains(nodeKey) && dfsHasCycle(nodeKey, outgoing, visiting, visited)) {
+                return true;
             }
         }
         return false;
@@ -187,10 +185,8 @@ public class FlowPathValidator {
             if (visiting.contains(target)) {
                 return true;
             }
-            if (!visited.contains(target)) {
-                if (dfsHasCycle(target, outgoing, visiting, visited)) {
-                    return true;
-                }
+            if (!visited.contains(target) && dfsHasCycle(target, outgoing, visiting, visited)) {
+                return true;
             }
         }
         visiting.remove(current);

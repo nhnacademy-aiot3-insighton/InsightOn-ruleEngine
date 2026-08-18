@@ -18,9 +18,9 @@ public enum NodeType {
     SENSOR(Category.TRIGGER, SensorParams.class, PortSchema.fixed("out")),
     SCHEDULE(Category.TRIGGER, ScheduleParams.class, PortSchema.fixed("out")),
 
-    THRESHOLD(Category.FILTER, ThresholdParams.class, PortSchema.fixed("true", "false")),
-    TIME_WINDOW(Category.FILTER, TimeWindowParams.class, PortSchema.fixed("true", "false")),
-    TIMER(Category.FILTER, TimerParams.class, PortSchema.fixed("true", "false")),
+    THRESHOLD(Category.FILTER, ThresholdParams.class, PortSchema.booleanPorts()),
+    TIME_WINDOW(Category.FILTER, TimeWindowParams.class, PortSchema.booleanPorts()),
+    TIMER(Category.FILTER, TimerParams.class, PortSchema.booleanPorts()),
 
     ACTUATOR_CONTROL(Category.ACTION, ActuatorControlParams.class, PortSchema.terminal()),
     ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal()),

@@ -31,16 +31,12 @@ public class TelemetryFailoverCoordinator {
         }
         try{
             EngineStatus engineStatus = engineHeartbeatService.getEngineStatus();
-            if(engineStatus == EngineStatus.DOWN){
-                if(!listenerContainerManager.isTakingOver()){
-                    log.warn("상대 엔진이 DOWN 상태입니다.");
-                    listenerContainerManager.takeover();
-                }
-            }else if(engineStatus == EngineStatus.UP){
-                if(listenerContainerManager.isTakingOver()){
-                    log.info("상대 엔진이 회복됐습니다.");
-                    listenerContainerManager.handback();
-                }
+            if (engineStatus == EngineStatus.DOWN && !listenerContainerManager.isTakingOver()) {
+                log.warn("상대 엔진이 DOWN 상태입니다.");
+                listenerContainerManager.takeover();
+            } else if (engineStatus == EngineStatus.UP && listenerContainerManager.isTakingOver()) {
+                log.info("상대 엔진이 회복됐습니다.");
+                listenerContainerManager.handback();
             }
         }catch (Exception e){
             log.warn("상대 엔진의 heartbeat 체크에 실패했습니다.",e);

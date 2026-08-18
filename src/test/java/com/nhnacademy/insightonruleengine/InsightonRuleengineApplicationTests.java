@@ -8,6 +8,7 @@ class InsightonRuleengineApplicationTests {
 
     @Test
     void contextLoads() {
+        // Spring application context loads successfully.
     }
 
 }

@@ -1,4 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.validation.domain;
 
-public interface FlowValidationErrorReason {
+import java.io.Serializable;
+
+public interface FlowValidationErrorReason extends Serializable {
 }
