@@ -8,7 +8,7 @@ import java.util.Map;
 public record TelemetryEventMessage(
         Long groupId,
         Long locationId,
-        String devName,
+        String sensorId,
         Map<String, Object> metrics,
         OffsetDateTime time
 ) {
@@ -21,7 +21,7 @@ public record TelemetryEventMessage(
         if (time == null) {
             throw new IllegalArgumentException("time은 필수입니다.");
         }
-        if (devName == null || devName.isBlank()) {
+        if (sensorId == null || sensorId.isBlank()) {
             throw new IllegalArgumentException("devName은 필수입니다.");
         }
         if (groupId == null) {
@@ -40,7 +40,7 @@ public record TelemetryEventMessage(
         validate();
         return new SensorEvent(
                 null,
-                devName,
+                sensorId,
                 locationId,
                 time,
                 objectMapper.valueToTree(metrics)
