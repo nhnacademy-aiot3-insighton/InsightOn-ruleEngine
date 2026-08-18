@@ -5,7 +5,6 @@ import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionIndex;
 import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.exception.LinkNotFoundException;
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
@@ -75,15 +74,13 @@ public class FlowRunner {
                 return null;
             }
 
-            LinkDefinition nextLink;
-            try {
+            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort());
+            if (nextLink == null && "false".equals(result.outputPort())) {
+                executionLogger.flowFinished(logContext, current.nodeId(), false);
+                return null;
+            }
+            if (nextLink == null) {
                 nextLink = index.requireLink(current.nodeId(), result.outputPort());
-            } catch (LinkNotFoundException exception) {
-                if ("false".equals(result.outputPort())) {
-                    executionLogger.flowFinished(logContext, current.nodeId(), false);
-                    return null;
-                }
-                throw exception;
             }
             return index.requireNode(nextLink.targetNodeId());
         } catch (RuntimeException exception) {

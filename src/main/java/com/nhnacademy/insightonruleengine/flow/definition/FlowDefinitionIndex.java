@@ -39,15 +39,20 @@ public class FlowDefinitionIndex {
             Long sourceNodeId,
             String sourcePort
     ) {
-        LinkDefinition link = linkDefinitionMap.get(
-                new SourcePortKey(sourceNodeId, sourcePort)
-        );
+        LinkDefinition link = findLink(sourceNodeId, sourcePort);
 
         if (link == null) {
             throw new LinkNotFoundException(sourceNodeId, sourcePort);
         }
 
         return link;
+    }
+
+    public LinkDefinition findLink(
+            Long sourceNodeId,
+            String sourcePort
+    ) {
+        return linkDefinitionMap.get(new SourcePortKey(sourceNodeId, sourcePort));
     }
 
     // 인덱스 노드: 노드 조회를 위함 DB 저장이 끝난 FlowDefinition을 실행할 때 사용하는 메서드

@@ -34,4 +34,5 @@ public class AlertNodeExecutor implements NodeExecutor {
         );
         return NodeExecutionResult.complete();
     }
+    // 여기에서 eventID uuid를 만들어야할수도. 또는 alert 노드에서
 }

@@ -3,19 +3,17 @@ package com.nhnacademy.insightonruleengine.flow.service;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
-import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
@@ -27,16 +25,10 @@ import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,8 +44,6 @@ public class FlowService {
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
-    private final NodeConfigurationValidator nodeConfigurationValidator;
-    private final ApplicationEventPublisher eventPublisher;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
@@ -62,7 +52,7 @@ public class FlowService {
     @Transactional
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
-        validateConfiguration(request.nodes(), request.links());
+        validateRequest(request);
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -71,8 +61,7 @@ public class FlowService {
                 FlowStatus.INACTIVE);
         validate(flow);
         Flow savedFlow = flowRepository.save(flow);
-        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
-        saveLinks(savedFlow.getId(), request.links(), nodeIds);
+        activeFlowDefinitionProvider.refreshAfterCommit(savedFlow.getGroupId(), savedFlow.getLocationId());
         return toResponse(savedFlow);
     }
 
@@ -130,24 +119,19 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
         Flow flow = getFlow(groupId, flowId);
-        if (request.status().equals(FlowStatus.ACTIVE)) {
-            List<FlowStructureValidationError> executableErrors = flowActivationValidator.validate(
+        if (request.status() == FlowStatus.ACTIVE) {
+            List<FlowStructureValidationError> errors = flowActivationValidator.validate(
                     flowDefinitionAssembler.assemble(groupId, flowId));
-            if (!executableErrors.isEmpty()) {
-                throw new InvalidFlowStructureException(executableErrors);
+            if (!errors.isEmpty()) {
+                throw new InvalidFlowStructureException(errors);
             }
         }
         flow.changeActivationStatus(request.status());
-        if (flow.getStatus().equals(FlowStatus.ACTIVE)) {
-            eventPublisher.publishEvent(FlowRuntimeChangeEvent.activate(
-                    groupId,
-                    flow.getLocationId(),
-                    flowId
-            ));
+        if (request.status() == FlowStatus.ACTIVE) {
+            activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
         } else {
-            publishRuntimeRemoval(flow, flowId);
+            activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
         }
-        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -157,8 +141,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
-        publishRuntimeRemoval(flow, flowId);
-        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
+        activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -170,12 +153,10 @@ public class FlowService {
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
         }
-        FlowRuntimeChangeEvent runtimeRemovalEvent = runtimeRemovalEvent(flow, flowId);
         linkRepository.deleteByFlowId(flowId);
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
-        eventPublisher.publishEvent(runtimeRemovalEvent);
-        activeFlowDefinitionProvider.refreshAfterCommit(groupId, flow.getLocationId());
+        activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -187,7 +168,12 @@ public class FlowService {
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
-        validateConfiguration(request.nodes(), request.links());
+        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
+                request.links());
+        if (!validationErrors.isEmpty()) {
+            throw new InvalidFlowStructureException(validationErrors);
+        }
+
         Flow updateFlow = new Flow(
                 groupId,
                 currentFlow.getLocationId(),
@@ -199,8 +185,7 @@ public class FlowService {
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
-        publishRuntimeRemoval(currentFlow, flowId);
-        activeFlowDefinitionProvider.refreshAfterCommit(groupId, currentFlow.getLocationId());
+        activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
         return toResponse(savedFlow);
     }
 
@@ -210,8 +195,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
-        publishRuntimeRemoval(archivedFlow, archivedFlowId);
-        activeFlowDefinitionProvider.refreshAfterCommit(groupId, archivedFlow.getLocationId());
+        activeFlowDefinitionProvider.refreshAfterCommit(archivedFlow.getGroupId(), archivedFlow.getLocationId());
         return toResponse(archivedFlow);
     }
 
@@ -231,36 +215,6 @@ public class FlowService {
         if (request == null) {
             throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
         }
-    }
-
-    // 연결 구조와 노드 타입별 configuration 오류를 한 응답에서 함께 반환합니다.
-    private void validateConfiguration(
-            List<FlowNodeRequest> nodes,
-            List<FlowLinkRequest> links
-    ) {
-        List<FlowStructureValidationError> errors = new ArrayList<>();
-        errors.addAll(flowStructureValidator.validate(nodes, links));
-        errors.addAll(nodeConfigurationValidator.validate(nodes));
-        if (!errors.isEmpty()) {
-            throw new InvalidFlowStructureException(errors);
-        }
-    }
-
-    private void publishRuntimeRemoval(Flow flow, Long flowId) {
-        eventPublisher.publishEvent(runtimeRemovalEvent(flow, flowId));
-    }
-
-    private FlowRuntimeChangeEvent runtimeRemovalEvent(Flow flow, Long flowId) {
-        Set<Long> runtimeNodeIds = nodeRepository.findByFlowId(flowId).stream()
-                .filter(node -> node.getNodeType() == NodeType.ALERT)
-                .map(Node::getId)
-                .collect(Collectors.toUnmodifiableSet());
-        return FlowRuntimeChangeEvent.remove(
-                flow.getGroupId(),
-                flow.getLocationId(),
-                flowId,
-                runtimeNodeIds
-        );
     }
 
     private Map<String, Long> saveNodes(Long flowId, List<FlowNodeRequest> requests) {

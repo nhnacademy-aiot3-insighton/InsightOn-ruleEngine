@@ -15,6 +15,9 @@ public record FlowExecutionContext(
         if (event == null) {
             throw new IllegalArgumentException("event는 필수입니다.");
         }
+        if (event.metrics() == null || event.metrics().isEmpty()) {
+            throw new IllegalArgumentException("event metrics는 필수입니다.");
+        }
     }
 
     public Map<String, Object> metrics() {
@@ -31,4 +34,5 @@ public record FlowExecutionContext(
     public Instant timestamp() {
         return event.timestamp();
     }
+
 }

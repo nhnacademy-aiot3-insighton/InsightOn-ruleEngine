@@ -18,7 +18,8 @@ public class SensorEventConsumer {
 
     private final FlowRunner flowRunner;
 
-    @RabbitListener(queues = "${rule-engine.sensor-event.queue}")
+    // 실시간 우선 정책에 따라 broker ACK 후 처리하며 실패 메시지를 재전달하지 않습니다.
+    @RabbitListener(queues = "${rule-engine.sensor-event.queue}", ackMode = "NONE")
     public void consume(SensorEvent event) {
         flowRunner.run(event);
     }

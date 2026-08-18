@@ -25,7 +25,7 @@ public class ThresholdNodeExecutor implements NodeExecutor {
     @Override
     public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
         ThresholdParams params = nodeParamsParser.parse(NodeType.THRESHOLD, node.configuration());
-        boolean matched = thresholdEvaluator.evaluate(params.expression(), context.event());
+        boolean matched = thresholdEvaluator.evaluate(params.expression(), context);
         return NodeExecutionResult.next(matched ? "true" : "false");
     }
 }
