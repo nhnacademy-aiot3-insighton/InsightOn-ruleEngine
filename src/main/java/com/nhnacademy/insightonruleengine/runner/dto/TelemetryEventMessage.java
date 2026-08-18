@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 
 //Core가 x-consistent-hash Exchange로 발행하는 외부 Telemetry 원본 메시지 모델입니다.
+// FixMe TelemetryEventMessage = sensorEvent
 public record TelemetryEventMessage(
         Long groupId,
         Long locationId,
