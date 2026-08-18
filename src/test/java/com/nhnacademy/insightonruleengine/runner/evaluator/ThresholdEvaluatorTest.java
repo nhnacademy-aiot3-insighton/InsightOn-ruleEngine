@@ -1,5 +1,8 @@
 package com.nhnacademy.insightonruleengine.runner.evaluator;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
@@ -18,23 +21,96 @@ class ThresholdEvaluatorTest {
     private final ThresholdEvaluator evaluator = new ThresholdEvaluator();
 
     @Test
-    @DisplayName("ThresholdEvaluator는 FlowExecutionContext가 보유한 현재 패킷 metrics를 평가한다")
-    void evaluateCurrentPacketMetrics() {
-        FlowExecutionContext context = new FlowExecutionContext(
-                new FlowDefinition(
-                        1L,
-                        1L,
-                        10L,
-                        "location flow",
-                        null,
-                        FlowStatus.ACTIVE,
-                        OffsetDateTime.now(),
-                        List.of(),
-                        List.of()
-                ),
-                new SensorEvent(1L, 10L, 100L, Map.of("temperature", 30), Instant.now())
-        );
+    @DisplayName("metrics 값을 변수로 바인딩해 true를 반환한다")
+    void evaluateTrueExpression() {
+        FlowExecutionContext context = context(Map.of("temperature", 31.2, "humidity", 60));
 
-        assertTrue(evaluator.evaluate("#metrics['temperature'] > 25", context));
+        assertTrue(evaluator.evaluate("#metrics['temperature'] > 30", context));
+    }
+
+    @Test
+    @DisplayName("metrics 값을 변수로 바인딩해 false를 반환한다")
+    void evaluateFalseExpression() {
+        FlowExecutionContext context = context(Map.of("temperature", 20.0, "humidity", 60));
+
+        assertFalse(evaluator.evaluate("#metrics['temperature'] > 30", context));
+    }
+
+    @Test
+    @DisplayName("event 필드를 expression에서 참조할 수 있다")
+    void evaluateExpressionUsingEventVariable() {
+        FlowExecutionContext context = context(Map.of("temperature", 31.2));
+
+        assertTrue(evaluator.evaluate("#event.sensorId == 100", context));
+    }
+
+    @Test
+    @DisplayName("event의 metrics 필드를 expression에서 참조할 수 있다")
+    void evaluateExpressionUsingEventMetrics() {
+        FlowExecutionContext context = context(Map.of("temperature", 31.2));
+
+        assertTrue(evaluator.evaluate("#event.metrics['temperature'] > 30", context));
+    }
+
+    @Test
+    @DisplayName("boolean이 아닌 expression 결과는 거부한다")
+    void rejectNonBooleanExpression() {
+        FlowExecutionContext context = context(Map.of("temperature", 20.0));
+
+        assertThrows(RuntimeException.class, () -> evaluator.evaluate("#metrics['temperature']", context));
+    }
+
+    @Test
+    @DisplayName("빈 expression은 거부한다")
+    void rejectBlankExpression() {
+        FlowExecutionContext context = context(Map.of("temperature", 20.0));
+
+        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluate(" ", context));
+    }
+
+    @Test
+    @DisplayName("null FlowExecutionContext는 거부한다")
+    void rejectNullFlowContext() {
+        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluate("#metrics['temperature'] > 30", null));
+    }
+
+    @Test
+    @DisplayName("올바른 expression은 검증을 통과한다")
+    void validateValidExpression() {
+        assertDoesNotThrow(() -> evaluator.validateExpression("#metrics['temperature'] > 30"));
+    }
+
+    @Test
+    @DisplayName("문법이 잘못된 expression은 검증 중 거부한다")
+    void rejectInvalidExpressionSyntax() {
+        assertThrows(RuntimeException.class, () -> evaluator.validateExpression("#metrics['temperature'] >"));
+    }
+
+    private FlowExecutionContext context(Map<String, Object> metrics) {
+        return new FlowExecutionContext(flow(), event(metrics));
+    }
+
+    private FlowDefinition flow() {
+        return new FlowDefinition(
+                1L,
+                1L,
+                10L,
+                "threshold flow",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(),
+                List.of()
+        );
+    }
+
+    private SensorEvent event(Map<String, Object> metrics) {
+        return new SensorEvent(
+                1L,
+                10L,
+                100L,
+                metrics,
+                Instant.parse("2026-08-03T00:00:00Z")
+        );
     }
 }
