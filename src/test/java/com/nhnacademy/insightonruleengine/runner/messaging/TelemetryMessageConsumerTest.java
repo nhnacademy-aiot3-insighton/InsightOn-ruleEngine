@@ -55,7 +55,7 @@ class TelemetryMessageConsumerTest {
         TelemetryEventMessage eventMessage = new TelemetryEventMessage(
                 1L,
                 100L,
-                "sensor-01",
+                "101",
                 Map.of("temperature", 25.0),
                 now
         );
@@ -86,7 +86,7 @@ class TelemetryMessageConsumerTest {
         String missingLocationJson = """
                 {
                     "time": "2026-08-17T12:00:00Z",
-                    "sensorId": "sensor-01",
+                    "sensorId": "101",
                     "groupId": 1,
                     "metrics": { "temperature": 25.0 }
                 }
@@ -105,7 +105,7 @@ class TelemetryMessageConsumerTest {
         TelemetryEventMessage eventMessage = new TelemetryEventMessage(
                 1L,
                 100L,
-                "sensor-01",
+                "101",
                 Map.of("temperature", 25.0),
                 now
         );
@@ -125,7 +125,7 @@ class TelemetryMessageConsumerTest {
         TelemetryEventMessage eventMessage = new TelemetryEventMessage(
                 1L,
                 100L,
-                "sensor-01",
+                "101",
                 Map.of("temperature", 25.0),
                 now
         );

@@ -40,11 +40,11 @@ public record TelemetryEventMessage(
     public SensorEvent toSensorEvent(ObjectMapper objectMapper) {
         validate();
         return new SensorEvent(
-                null,
-                sensorId,
+                groupId,
                 locationId,
-                time,
-                objectMapper.valueToTree(metrics)
+                Long.parseLong(sensorId),
+                metrics,
+                time.toInstant()
         );
     }
 }
