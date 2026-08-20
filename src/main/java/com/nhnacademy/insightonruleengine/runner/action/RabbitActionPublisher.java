@@ -34,6 +34,7 @@ public class RabbitActionPublisher implements ActionPublisher {
         } catch (Exception exception) {
             log.error("Failed to publish ALERT action event. flowId={}, locationId={}",
                     event.flowId(), event.locationId(), exception);
+            throw new IllegalArgumentException("publish ALERT action event가 실패 했습니다.", exception);
         }
     }
 
