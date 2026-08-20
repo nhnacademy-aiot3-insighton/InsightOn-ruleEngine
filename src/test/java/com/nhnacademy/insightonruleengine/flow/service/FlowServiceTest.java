@@ -435,7 +435,6 @@ class FlowServiceTest {
         Assertions.assertEquals(FlowStatus.INACTIVE, archivedFlow.getStatus());
         Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test

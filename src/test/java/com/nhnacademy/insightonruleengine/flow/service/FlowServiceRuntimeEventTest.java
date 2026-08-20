@@ -2,8 +2,8 @@ package com.nhnacademy.insightonruleengine.flow.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
@@ -120,7 +120,7 @@ class FlowServiceRuntimeEventTest {
 
         flowService.restore(1L, 100L, 10L);
 
-        verify(eventPublisher, never()).publishEvent(any());
+        verifyNoInteractions(activeFlowDefinitionProvider);
     }
 
     private Flow flow(Long flowId, FlowStatus flowStatus) {
