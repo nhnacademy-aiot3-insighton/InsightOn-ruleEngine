@@ -40,13 +40,11 @@ public class LinkValidator {
                         "링크는 null일 수 없습니다."
                 );
                 canValidateConnections = false;
-                continue;
-            }
-            if (!validateLinkRequiredFields(link, fieldPath, errors)) {
+            } else if (!validateLinkRequiredFields(link, fieldPath, errors)) {
                 canValidateConnections = false;
-                continue;
+            } else {
+                indexedLinks.add(new IndexedLink(i, link));
             }
-            indexedLinks.add(new IndexedLink(i, link));
         }
         return new LinkValidationResult(
                 List.copyOf(indexedLinks),

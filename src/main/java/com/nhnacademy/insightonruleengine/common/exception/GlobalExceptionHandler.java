@@ -32,8 +32,7 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class,
             MissingRequestHeaderException.class,
             MissingServletRequestParameterException.class,
-            MethodArgumentTypeMismatchException.class,
-            IllegalArgumentException.class
+            MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

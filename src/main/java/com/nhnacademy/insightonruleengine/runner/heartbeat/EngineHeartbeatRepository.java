@@ -23,6 +23,6 @@ public class EngineHeartbeatRepository {
     }
     //heartbeat key가 있으면 true 없으면 false
     public boolean isHeartbeat(String engineId) {
-        return redisTemplate.hasKey(redisKeyFactory.heartbeat(engineId));
+        return Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.heartbeat(engineId)));
     }
 }

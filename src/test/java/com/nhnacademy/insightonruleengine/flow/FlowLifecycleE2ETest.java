@@ -1,6 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -90,14 +91,7 @@ class FlowLifecycleE2ETest {
         assertEquals(FlowStatus.INACTIVE, createResponse.status());
 
         // DB 저장 상태 직접 검증 (Flow 1건, Node 3건, Link 2건)
-        Flow v1Flow = flowRepository.findById(v1FlowId).orElseThrow();
-        assertEquals(FlowStatus.INACTIVE, v1Flow.getStatus());
-
-        List<Node> v1Nodes = nodeRepository.findByFlowId(v1FlowId);
-        assertEquals(3, v1Nodes.size());
-
-        List<Link> v1Links = linkRepository.findByFlowId(v1FlowId);
-        assertEquals(2, v1Links.size());
+        verifyFlowPersisted(v1FlowId, FlowStatus.INACTIVE, 3, 2);
 
         // Step 2: FlowDefinitionAssembler를 통한 저장된 플로우 실행 모델 조립 검증
         FlowDefinition v1Definition = flowDefinitionAssembler.assemble(GROUP_ID, v1FlowId);
@@ -121,20 +115,14 @@ class FlowLifecycleE2ETest {
 
         Long v2FlowId = v2Response.flowId();
         assertNotNull(v2FlowId);
-        assertTrue(!v2FlowId.equals(v1FlowId), "수정 시 새 flowId가 발급되어야 함");
+        assertNotEquals(v1FlowId, v2FlowId, "수정 시 새 flowId가 발급되어야 함");
         assertEquals(FlowStatus.INACTIVE, v2Response.status());
 
         // DB 이력 보존 검증: 이전 v1 Flow는 ARCHIVED 상태로 유지되고 노드/링크도 보존됨
-        Flow archivedV1Flow = flowRepository.findById(v1FlowId).orElseThrow();
-        assertEquals(FlowStatus.ARCHIVED, archivedV1Flow.getStatus());
-        assertEquals(3, nodeRepository.findByFlowId(v1FlowId).size());
-        assertEquals(2, linkRepository.findByFlowId(v1FlowId).size());
+        verifyFlowPersisted(v1FlowId, FlowStatus.ARCHIVED, 3, 2);
 
         // 새 v2 Flow는 INACTIVE 상태로 신규 노드/링크를 가짐 (createValidNodes: 2개, createValidLinks: 1개)
-        Flow v2Flow = flowRepository.findById(v2FlowId).orElseThrow();
-        assertEquals(FlowStatus.INACTIVE, v2Flow.getStatus());
-        assertEquals(2, nodeRepository.findByFlowId(v2FlowId).size());
-        assertEquals(1, linkRepository.findByFlowId(v2FlowId).size());
+        verifyFlowPersisted(v2FlowId, FlowStatus.INACTIVE, 2, 1);
 
         // Step 5: 보관 및 영구 삭제 (v2 플로우 보관 후 영구 삭제)
         flowService.archive(GROUP_ID, USER_ID, v2FlowId);
@@ -149,9 +137,14 @@ class FlowLifecycleE2ETest {
         assertTrue(nodeRepository.findByFlowId(v2FlowId).isEmpty());
         assertTrue(linkRepository.findByFlowId(v2FlowId).isEmpty());
 
-        // 이력으로 보관된 이전 v1 Flow는 DB에 그대로 남아있는지 확인
-        assertTrue(flowRepository.findById(v1FlowId).isPresent());
-        assertEquals(3, nodeRepository.findByFlowId(v1FlowId).size());
-        assertEquals(2, linkRepository.findByFlowId(v1FlowId).size());
+        // v1 Flow(ARCHIVED)는 여전히 온전히 보존되어 있어야 함
+        verifyFlowPersisted(v1FlowId, FlowStatus.ARCHIVED, 3, 2);
+    }
+
+    private void verifyFlowPersisted(Long flowId, FlowStatus status, int nodeCount, int linkCount) {
+        Flow flow = flowRepository.findById(flowId).orElseThrow();
+        assertEquals(status, flow.getStatus());
+        assertEquals(nodeCount, nodeRepository.findByFlowId(flowId).size());
+        assertEquals(linkCount, linkRepository.findByFlowId(flowId).size());
     }
 }

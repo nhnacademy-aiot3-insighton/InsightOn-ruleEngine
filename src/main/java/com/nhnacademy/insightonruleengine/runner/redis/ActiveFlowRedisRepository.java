@@ -61,7 +61,7 @@ public class ActiveFlowRedisRepository {
     //Json 전체를 읽지 않고 특정 ACTIVE Flow Key가 있는지 확인합니다.
     public boolean exists(Long groupId, Long flowId) {
         String key = redisKeyFactory.activeFlow(groupId, flowId);
-        return redisTemplate.hasKey(key);
+        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
     //Flow가 비활성화나 아카이브, 변경 및 삭제 시 해당 그룹과 장소의 Route 목록을 제거합니다.

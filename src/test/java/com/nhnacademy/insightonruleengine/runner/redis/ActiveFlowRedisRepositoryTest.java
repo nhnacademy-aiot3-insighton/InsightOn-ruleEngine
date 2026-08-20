@@ -70,13 +70,15 @@ class ActiveFlowRedisRepositoryTest {
     @DisplayName("null 또는 ACTIVE가 아닌 FlowDefinition은 저장하지 않는다")
     void invalidActiveFlowTest() {
         assertThrows(IllegalArgumentException.class, () -> repository.save(null));
+        FlowDefinition inactiveDef = definition(FLOW_ID, GROUP_ID, FlowStatus.INACTIVE);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> repository.save(definition(FLOW_ID, GROUP_ID, FlowStatus.INACTIVE))
+                () -> repository.save(inactiveDef)
         );
+        FlowDefinition archivedDef = definition(FLOW_ID, GROUP_ID, FlowStatus.ARCHIVED);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> repository.save(definition(FLOW_ID, GROUP_ID, FlowStatus.ARCHIVED))
+                () -> repository.save(archivedDef)
         );
         verifyNoInteractions(redisTemplate, objectMapper, redisKeyFactory);
     }

@@ -14,17 +14,22 @@ public class RedisKeyFactory {
     private static final String COUNT_KEY_FORMAT = "count:%d:%d";
     private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
 
+    private static final String FIELD_GROUP_ID = "groupId";
+    private static final String FIELD_LOCATION_ID = "locationId";
+    private static final String FIELD_FLOW_ID = "flowId";
+    private static final String FIELD_ACTION_NODE_ID = "actionNodeId";
+
     //특정 그룹과 특정 장소를 하나의 active flow id 집합 키로 고정합니다.
     public String route(Long groupId, Long locationId) {
-        validateId(groupId, "groupId");
-        validateId(locationId, "locationId");
+        validateId(groupId, FIELD_GROUP_ID);
+        validateId(locationId, FIELD_LOCATION_ID);
         return ROUTE_KEY_FORMAT.formatted(groupId, locationId);
     }
 
     //특정 그룹의 ACTIVE Flow 실행 정보를 저장할 key를 만듭니다.
     public String activeFlow(Long groupId, Long flowId) {
-        validateId(groupId, "groupId");
-        validateId(flowId, "flowId");
+        validateId(groupId, FIELD_GROUP_ID);
+        validateId(flowId, FIELD_FLOW_ID);
         return ACTIVE_FLOW_KEY_FORMAT.formatted(groupId, flowId);
     }
 
@@ -36,15 +41,15 @@ public class RedisKeyFactory {
 
     //특정 Flow의 ALERT Action Node에 도달한 횟수를 저장할 Key를 만듭니다.
     public String count(Long flowId, Long actionNodeId) {
-        validateId(flowId, "flowId");
-        validateId(actionNodeId, "actionNodeId");
+        validateId(flowId, FIELD_FLOW_ID);
+        validateId(actionNodeId, FIELD_ACTION_NODE_ID);
         return COUNT_KEY_FORMAT.formatted(flowId, actionNodeId);
     }
 
     //특정 Flow의 ALERT Action Node가 연속적으로 알람을 보내진 않게 하기 위해 쿨다운 키를 만듭니다.
     public String cooldown(Long flowId, Long actionNodeId) {
-        validateId(flowId, "flowId");
-        validateId(actionNodeId, "actionNodeId");
+        validateId(flowId, FIELD_FLOW_ID);
+        validateId(actionNodeId, FIELD_ACTION_NODE_ID);
         return COOLDOWN_KEY_FORMAT.formatted(flowId, actionNodeId);
     }
 

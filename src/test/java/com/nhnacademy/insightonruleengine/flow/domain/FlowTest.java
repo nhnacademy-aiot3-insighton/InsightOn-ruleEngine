@@ -28,8 +28,9 @@ class FlowTest {
     void flowNameTest() {
         Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, 1L, "", "테스트", FlowStatus.ACTIVE));
+        String longName = "가".repeat(101);
         Assertions.assertThrows(IllegalArgumentException.class, () ->
-                new Flow(1L, 1L, "가".repeat(101), "테스트", FlowStatus.ACTIVE));
+                new Flow(1L, 1L, longName, "테스트", FlowStatus.ACTIVE));
         Flow testFlow = new Flow(1L, 1L, " 테스트 ", "테스트", FlowStatus.ACTIVE);
         Assertions.assertEquals("테스트", testFlow.getName());
     }

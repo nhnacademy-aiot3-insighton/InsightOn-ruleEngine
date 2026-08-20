@@ -76,7 +76,6 @@ public class AlertCountRedisRepository {
             return;
         }
         List<String> keys = actionNodeIds.stream()
-                .sorted()
                 .flatMap(actionNodeId -> Stream.of(
                         redisKeyFactory.count(flowId, actionNodeId),
                         redisKeyFactory.cooldown(flowId, actionNodeId)

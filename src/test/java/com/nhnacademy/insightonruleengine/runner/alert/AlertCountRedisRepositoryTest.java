@@ -1,16 +1,18 @@
 package com.nhnacademy.insightonruleengine.runner.alert;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
-import java.util.List;
+import java.util.Collection;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,12 +44,16 @@ class AlertCountRedisRepositoryTest {
 
         repository.deleteStates(10L, Set.of(100L, 200L));
 
-        verify(redisTemplate).delete(List.of(
-                "count:10:100",
-                "cooldown:10:100",
-                "count:10:200",
-                "cooldown:10:200"
-        ));
+        ArgumentCaptor<Collection<String>> captor = ArgumentCaptor.forClass(Collection.class);
+        verify(redisTemplate).delete(captor.capture());
+
+        assertThat(captor.getValue())
+                .containsExactlyInAnyOrder(
+                        "count:10:100",
+                        "cooldown:10:100",
+                        "count:10:200",
+                        "cooldown:10:200"
+                );
     }
 
     @Test

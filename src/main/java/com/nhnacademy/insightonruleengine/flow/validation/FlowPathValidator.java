@@ -9,8 +9,8 @@ import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationE
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,7 +63,7 @@ public class FlowPathValidator {
 
     //Link가 없는 Node도 탐색 Map에 남도록 모든 Node Key를 먼저 등록한다.
     private Map<String, List<String>> emptyAdjacency(Set<String> nodeKeys) {
-        Map<String, List<String>> adjacency = new LinkedHashMap<>();
+        Map<String, List<String>> adjacency = new HashMap<>();
         nodeKeys.forEach(key -> adjacency.put(key, new ArrayList<>()));
         return adjacency;
     }
@@ -72,7 +72,7 @@ public class FlowPathValidator {
     private Map<String, List<String>> immutableAdjacency(
             Map<String, List<String>> adjacency
     ) {
-        Map<String, List<String>> copy = new LinkedHashMap<>();
+        Map<String, List<String>> copy = new HashMap<>();
         adjacency.forEach((key, targets) -> copy.put(key, List.copyOf(targets)));
         return Collections.unmodifiableMap(copy);
     }
@@ -89,7 +89,7 @@ public class FlowPathValidator {
 
     //역방향 탐색을 시작할 Action Key를 중복 없이 모은다.
     private Set<String> findActionKeys(Map<String, FlowNodeRequest> nodesByKey) {
-        Set<String> actionKeys = new LinkedHashSet<>();
+        Set<String> actionKeys = new HashSet<>();
         for (FlowNodeRequest node : nodesByKey.values()) {
             if (node.nodeType().getCategory() == NodeType.Category.ACTION) {
                 actionKeys.add(node.clientNodeKey());
@@ -146,7 +146,7 @@ public class FlowPathValidator {
             Set<String> startKeys,
             Map<String, List<String>> adjacency
     ) {
-        Set<String> visited = new LinkedHashSet<>();
+        Set<String> visited = new HashSet<>();
         ArrayDeque<String> pending = new ArrayDeque<>(startKeys);
         while (!pending.isEmpty()) {
             String current = pending.removeFirst();
@@ -162,14 +162,12 @@ public class FlowPathValidator {
             Set<String> nodeKeys,
             Map<String, List<String>> outgoing
     ) {
-        Set<String> visiting = new LinkedHashSet<>();
-        Set<String> visited = new LinkedHashSet<>();
+        Set<String> visiting = new HashSet<>();
+        Set<String> visited = new HashSet<>();
 
         for (String nodeKey : nodeKeys) {
-            if (!visited.contains(nodeKey)) {
-                if (dfsHasCycle(nodeKey, outgoing, visiting, visited)) {
-                    return true;
-                }
+            if (!visited.contains(nodeKey) && dfsHasCycle(nodeKey, outgoing, visiting, visited)) {
+                return true;
             }
         }
         return false;
@@ -187,10 +185,8 @@ public class FlowPathValidator {
             if (visiting.contains(target)) {
                 return true;
             }
-            if (!visited.contains(target)) {
-                if (dfsHasCycle(target, outgoing, visiting, visited)) {
-                    return true;
-                }
+            if (!visited.contains(target) && dfsHasCycle(target, outgoing, visiting, visited)) {
+                return true;
             }
         }
         visiting.remove(current);

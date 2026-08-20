@@ -61,9 +61,10 @@ class EngineHeartbeatRepositoryTest {
     void invalidTtlTest() {
         assertThrows(IllegalArgumentException.class, () -> heartbeatRepository.refresh(ENGINE_ID, null));
         assertThrows(IllegalArgumentException.class, () -> heartbeatRepository.refresh(ENGINE_ID, Duration.ZERO));
+        Duration negativeTtl = Duration.ofSeconds(-1);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> heartbeatRepository.refresh(ENGINE_ID, Duration.ofSeconds(-1))
+                () -> heartbeatRepository.refresh(ENGINE_ID, negativeTtl)
         );
         verifyNoInteractions(redisTemplate, redisKeyFactory);
     }

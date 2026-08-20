@@ -62,11 +62,10 @@ class NodeLinkConstraintTest {
                 new Link(flow.getId(), source.getId(), "out", firstTarget.getId(), "in")
         );
 
+        Link duplicateLink = new Link(flow.getId(), source.getId(), "out", secondTarget.getId(), "in");
         assertThrows(
                 DataIntegrityViolationException.class,
-                () -> linkRepository.saveAndFlush(
-                        new Link(flow.getId(), source.getId(), "out", secondTarget.getId(), "in")
-                )
+                () -> linkRepository.saveAndFlush(duplicateLink)
         );
     }
 

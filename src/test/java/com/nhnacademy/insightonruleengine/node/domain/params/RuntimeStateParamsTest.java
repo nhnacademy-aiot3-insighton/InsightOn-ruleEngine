@@ -10,7 +10,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertPa
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-public class RuntimeStateParamsTest {
+class RuntimeStateParamsTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 

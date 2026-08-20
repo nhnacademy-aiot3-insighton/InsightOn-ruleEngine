@@ -192,7 +192,6 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
-        publishRuntimeRemoval(archivedFlow, archivedFlowId);
         return toResponse(archivedFlow);
     }
 

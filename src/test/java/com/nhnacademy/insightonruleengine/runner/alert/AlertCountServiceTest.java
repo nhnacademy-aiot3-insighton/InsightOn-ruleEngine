@@ -18,7 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class AlertCountServiceTest {
+class AlertCountServiceTest {
 
     @Mock
     private AlertCountRedisRepository alertCountRedisRepository;
@@ -26,7 +26,7 @@ public class AlertCountServiceTest {
     private AlertCountService alertCountService;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         alertCountService = new AlertCountService(alertCountRedisRepository);
     }
 

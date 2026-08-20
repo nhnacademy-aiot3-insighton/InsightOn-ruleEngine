@@ -78,7 +78,7 @@ class AlertRuntimeStateRedisIntegrationTest {
         Long firstTtl = redisTemplate.getExpire(countKey, MILLISECONDS);
         assertTrue(firstTtl > 0L);
 
-        Thread.sleep(300L);
+        await().pollDelay(Duration.ofMillis(300)).until(() -> true);
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 3, 3, 0));
         Long secondTtl = redisTemplate.getExpire(countKey, MILLISECONDS);
 
@@ -86,7 +86,7 @@ class AlertRuntimeStateRedisIntegrationTest {
         assertTrue(secondTtl <= firstTtl);
 
         assertTrue(alertCountRedisRepository.incrementAndCheck(100L, 20L, 3, 3, 0));
-        assertFalse(Boolean.TRUE.equals(redisTemplate.hasKey(countKey)));
+        assertFalse(redisTemplate.hasKey(countKey));
     }
 
     @Test
@@ -97,8 +97,8 @@ class AlertRuntimeStateRedisIntegrationTest {
         assertTrue(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
 
-        assertFalse(Boolean.TRUE.equals(redisTemplate.hasKey(countKey)));
-        assertTrue(Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 20L))));
+        assertFalse(redisTemplate.hasKey(countKey));
+        assertTrue(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 20L)));
 
         await().atMost(Duration.ofSeconds(3))
                 .until(() -> !Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 20L))));
@@ -122,8 +122,8 @@ class AlertRuntimeStateRedisIntegrationTest {
 
             assertEquals(1L, publishCount);
         }
-        assertTrue(Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 10L))));
-        assertFalse(Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.count(100L, 10L))));
+        assertTrue(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 10L)));
+        assertFalse(redisTemplate.hasKey(redisKeyFactory.count(100L, 10L)));
     }
 
     //동시 실행 중 발생한 예외를 숨기지 않고 테스트 실패로 전달합니다.

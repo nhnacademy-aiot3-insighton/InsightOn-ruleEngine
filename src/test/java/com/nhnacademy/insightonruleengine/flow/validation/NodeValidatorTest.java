@@ -14,6 +14,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationE
 import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -111,10 +112,13 @@ class NodeValidatorTest {
                 List.of(node("trigger", NodeType.SENSOR))
         );
 
-        assertThrows(UnsupportedOperationException.class,
-                () -> actual.nodesByKey().put("other", node("other", NodeType.SENSOR)));
-        assertThrows(UnsupportedOperationException.class,
-                () -> actual.errors().add(validationError()));
+        Map<String, FlowNodeRequest> nodesByKey = actual.nodesByKey();
+        FlowNodeRequest otherNode = node("other", NodeType.SENSOR);
+        assertThrows(UnsupportedOperationException.class, () -> nodesByKey.put("other", otherNode));
+
+        List<FlowStructureValidationError> errors = actual.errors();
+        FlowStructureValidationError error = validationError();
+        assertThrows(UnsupportedOperationException.class, () -> errors.add(error));
     }
 
     private FlowNodeRequest node(String clientNodeKey, NodeType nodeType) {

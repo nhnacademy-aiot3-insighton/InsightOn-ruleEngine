@@ -81,13 +81,15 @@ class FlowRouteRedisRepositoryTest {
     @DisplayName("Route의 Flow ID 집합은 null이 아니고 모든 값이 양수여야 한다")
     void invalidFlowIdsTest() {
         assertThrows(IllegalArgumentException.class, () -> repository.replace(GROUP_ID, LOCATION_ID, null));
+        Set<Long> zeroSet = Set.of(0L);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> repository.replace(GROUP_ID, LOCATION_ID, Set.of(0L))
+                () -> repository.replace(GROUP_ID, LOCATION_ID, zeroSet)
         );
+        Set<Long> negativeSet = Set.of(-1L);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> repository.replace(GROUP_ID, LOCATION_ID, Set.of(-1L))
+                () -> repository.replace(GROUP_ID, LOCATION_ID, negativeSet)
         );
         verifyNoInteractions(redisTemplate, redisKeyFactory);
     }

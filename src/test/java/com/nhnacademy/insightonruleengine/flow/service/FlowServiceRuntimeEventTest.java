@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.flow.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,6 +115,17 @@ class FlowServiceRuntimeEventTest {
         order.verify(eventPublisher).publishEvent(
                 FlowRuntimeChangeEvent.remove(1L, 2L, 10L, Set.of(100L))
         );
+    }
+
+    @Test
+    @DisplayName("복구는 Flow를 INACTIVE로 전환하므로 런타임 이벤트를 발행하지 않습니다.")
+    void restoreEventTest() {
+        Flow archivedFlow = flow(10L, FlowStatus.ARCHIVED);
+        when(flowRepository.findById(10L)).thenReturn(Optional.of(archivedFlow));
+
+        flowService.restore(1L, 100L, 10L);
+
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     private Flow flow(Long flowId, FlowStatus flowStatus) {

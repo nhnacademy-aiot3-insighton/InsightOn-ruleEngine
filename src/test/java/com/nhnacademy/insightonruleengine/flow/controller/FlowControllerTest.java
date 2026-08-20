@@ -172,20 +172,15 @@ class FlowControllerTest {
                 .andExpect(jsonPath("$.status").value(400));
     }
 
-    @Test
-    @DisplayName("Flow 생성 요청 시 nodes 필드가 null이면 Validation 400으로 거부한다")
-    void nullNodes400Test() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.MethodSource("invalidCreatePayloads")
+    @DisplayName("유효하지 않은 Flow 생성 요청은 Service 호출 전에 400으로 거부한다")
+    void invalidCreateRequestPayloads400Test(String displayName, String payload) throws Exception {
         mockMvc.perform(post(BASE_PATH)
                         .header(USER_ID_HEADER, USER_ID)
                         .queryParam("groupId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "locationId": 10,
-                                  "name": "노드 누락 플로우",
-                                  "links": []
-                                }
-                                """))
+                        .content(payload))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
@@ -193,86 +188,43 @@ class FlowControllerTest {
         verifyNoInteractions(flowService);
     }
 
-    @Test
-    @DisplayName("Flow 생성 요청 시 links 필드가 null이면 Validation 400으로 거부한다")
-    void nullLinks400Test() throws Exception {
-        mockMvc.perform(post(BASE_PATH)
-                        .header(USER_ID_HEADER, USER_ID)
-                        .queryParam("groupId", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "locationId": 10,
-                                  "name": "링크 누락 플로우",
-                                  "nodes": []
-                                }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
-
-        verifyNoInteractions(flowService);
-    }
-
-    @Test
-    @DisplayName("Flow 생성 요청의 NodeType이 누락되면 Service 호출 전에 400으로 거부한다")
-    void missingCreateNodeType400Test() throws Exception {
-        mockMvc.perform(post(BASE_PATH)
-                        .header(USER_ID_HEADER, USER_ID)
-                        .queryParam("groupId", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "locationId": 10,
-                                  "name": "노드 타입 누락 플로우",
-                                  "nodes": [
-                                    {
-                                      "clientNodeKey": "sensor",
-                                      "configuration": {}
-                                    },
-                                    {
-                                      "clientNodeKey": "alert",
-                                      "nodeType": "ALERT",
-                                      "configuration": {}
-                                    }
-                                  ],
-                                  "links": [
-                                    {
-                                      "sourceClientNodeKey": "sensor",
-                                      "targetClientNodeKey": "alert",
-                                      "sourcePort": "out",
-                                      "targetPort": "in"
-                                    }
-                                  ]
-                                }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
-
-        verifyNoInteractions(flowService);
-    }
-
-    @Test
-    @DisplayName("Flow 생성 요청 시 name 필드가 공백이면 Validation 400으로 거부한다")
-    void blankName400Test() throws Exception {
-        mockMvc.perform(post(BASE_PATH)
-                        .header(USER_ID_HEADER, USER_ID)
-                        .queryParam("groupId", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "locationId": 10,
-                                  "name": "   ",
-                                  "nodes": [],
-                                  "links": []
-                                }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("요청값이 올바르지 않습니다."));
-
-        verifyNoInteractions(flowService);
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> invalidCreatePayloads() {
+        return java.util.stream.Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "nodes 필드 누락",
+                        """
+                        {"locationId": 10, "name": "노드 누락 플로우", "links": []}
+                        """
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "links 필드 누락",
+                        """
+                        {"locationId": 10, "name": "링크 누락 플로우", "nodes": []}
+                        """
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "NodeType 누락",
+                        """
+                        {
+                          "locationId": 10,
+                          "name": "노드 타입 누락 플로우",
+                          "nodes": [
+                            {"clientNodeKey": "sensor", "configuration": {}},
+                            {"clientNodeKey": "alert", "nodeType": "ALERT", "configuration": {}}
+                          ],
+                          "links": [
+                            {"sourceClientNodeKey": "sensor", "targetClientNodeKey": "alert", "sourcePort": "out", "targetPort": "in"}
+                          ]
+                        }
+                        """
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "name 공백",
+                        """
+                        {"locationId": 10, "name": "   ", "nodes": [], "links": []}
+                        """
+                )
+        );
     }
 
 

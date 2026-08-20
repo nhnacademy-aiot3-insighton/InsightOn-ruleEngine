@@ -1,11 +1,13 @@
 package com.nhnacademy.insightonruleengine.flow.validation.domain;
 
+import java.io.Serializable;
+
 public record FlowStructureValidationError(
         FlowValidationErrorReason code,
         String clientNodeKey,
         String fieldPath,
         String message
-) {
+) implements Serializable {
     public FlowStructureValidationError {
         if (code == null) {
             throw new IllegalArgumentException("검증 오류 코드는 필수입니다.");
