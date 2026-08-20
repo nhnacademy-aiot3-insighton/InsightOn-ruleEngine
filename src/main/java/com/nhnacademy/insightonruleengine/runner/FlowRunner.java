@@ -30,14 +30,14 @@ public class FlowRunner {
         }
 
         List<FlowDefinition> flows = flowRouter.route(event);
-        log.info("Prototype rule event received. flowCount={}, deviceId={}, deviceEui={}",
-                flows.size(), event.deviceId(), event.deviceEui());
+        log.info("Prototype rule event received. flowCount={}, groupId={}, sensorId={}",
+                flows.size(), event.groupId(), event.sensorId());
         for (FlowDefinition flow : flows) {
             try {
                 runFlow(flow, event);
             } catch (RuntimeException exception) {
-                log.warn("Prototype flow execution failed. flowId={}, deviceId={}, deviceEui={}",
-                        flow.flowId(), event.deviceId(), event.deviceEui(), exception);
+                log.warn("Prototype flow execution failed. flowId={}, groupId={}, sensorId={}",
+                        flow.flowId(), event.groupId(), event.sensorId(), exception);
             }
         }
     }

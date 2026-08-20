@@ -1,8 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,19 +22,18 @@ class TelemetryEventMessageTest {
         TelemetryEventMessage message = new TelemetryEventMessage(
                 1L,
                 100L,
-                "sensor-node-01",
+                "1001",
                 Map.of("temperature", 25.5, "humidity", 60),
                 now
         );
         message.validate();
         SensorEvent event = message.toSensorEvent(objectMapper);
-        assertNull(event.deviceId());
-        assertEquals("sensor-node-01", event.deviceEui());
+        assertEquals(1L, event.groupId());
         assertEquals(100L, event.locationId());
-        assertEquals(now, event.occurredAt());
-        assertNotNull(event.payload());
-        assertEquals(25.5, event.payload().get("temperature").asDouble());
-        assertEquals(60, event.payload().get("humidity").asDouble());
+        assertEquals(1001L, event.sensorId());
+        assertEquals(now.toInstant(), event.timestamp());
+        assertEquals(25.5, event.metrics().get("temperature"));
+        assertEquals(60, event.metrics().get("humidity"));
     }
 
     @Test
