@@ -102,17 +102,17 @@ class GroupAuthorizationServiceTest {
         verify(coreGroupClient).getGroupMemberByUserId(GROUP_ID, USER_ID);
     }
 
-    // Core 5xx가 권한 부족으로 바뀌지 않고 의존성 실패로 유지되는지 확인합니다.
+    // Core 5xx가 권한 부족으로 오인되지 않고 의존성 실패로 전달되는지 확인합니다.
     @Test
-    @DisplayName("Core 5xx는 ForbiddenException으로 변환하지 않는다")
+    @DisplayName("Core 5xx는 CoreDependencyException으로 변환한다")
     void exceptionTest() {
         FeignException.InternalServerError coreFailure = mock(FeignException.InternalServerError.class);
         when(coreGroupClient.getGroupMemberByUserId(GROUP_ID, USER_ID)).thenThrow(coreFailure);
 
-        FeignException thrown = assertThrows(
-                FeignException.class,
+        CoreDependencyException thrown = assertThrows(
+                CoreDependencyException.class,
                 () -> groupAuthorizationService.requireMembership(GROUP_ID, USER_ID));
 
-        assertSame(coreFailure, thrown);
+        assertSame(coreFailure, thrown.getCause());
     }
 }

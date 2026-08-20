@@ -58,15 +58,14 @@ class FlowTest {
         Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
     }
 
-    // 실행 또는 대기 상태가 아닌 Flow가 휴지통으로 이동하지 않는지 확인합니다.
     @Test
-    @DisplayName("ACTIVE와 INACTIVE가 아닌 Flow는 보관할 수 없다")
-    void rejectUnsupportedFlowArchiveTest() {
+    @DisplayName("ERROR Flow는 수정을 위해 보관할 수 있다")
+    void errorFlowCanBeArchived() {
         Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ERROR);
 
-        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+        flow.archive();
 
-        Assertions.assertEquals(FlowStatus.ERROR, flow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
     }
 
     @Test

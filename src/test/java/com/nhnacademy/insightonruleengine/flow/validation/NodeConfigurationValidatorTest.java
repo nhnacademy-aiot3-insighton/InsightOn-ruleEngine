@@ -29,7 +29,7 @@ class NodeConfigurationValidatorTest {
     void validConfigurationTest() {
         List<FlowNodeRequest> nodes = List.of(
                 node("sensor", NodeType.SENSOR, JsonNodeFactory.instance.objectNode()
-                        .put("devName", "temperature-sensor")),
+                        .put("sensorId", 100L)),
                 node("alert", NodeType.ALERT, JsonNodeFactory.instance.objectNode()
                         .put("title", "온도 경고")
                         .put("severity", "WARNING")
@@ -44,13 +44,13 @@ class NodeConfigurationValidatorTest {
         FlowNodeRequest sensor = node(
                 "sensor",
                 NodeType.SENSOR,
-                JsonNodeFactory.instance.objectNode().put("devName", " ")
+                JsonNodeFactory.instance.objectNode().put("sensorId", 0)
         );
         FlowStructureValidationError error = validator.validate(List.of(sensor)).getFirst();
 
         assertEquals(NodeErrorCode.INVALID_NODE_CONFIGURATION, error.code());
         assertEquals("sensor", error.clientNodeKey());
-        assertEquals("nodes[0].configuration.devName", error.fieldPath());
+        assertEquals("nodes[0].configuration.sensorId", error.fieldPath());
     }
 
     @Test

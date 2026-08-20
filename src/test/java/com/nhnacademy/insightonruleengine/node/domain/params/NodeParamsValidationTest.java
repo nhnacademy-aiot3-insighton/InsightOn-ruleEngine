@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
@@ -74,6 +75,15 @@ class NodeParamsValidationTest {
         assertTrue(validator.validate(new TimerParams(1)).isEmpty());
         assertFalse(validator.validate(new TimerParams(0)).isEmpty());
         assertFalse(validator.validate(new TimerParams(-1)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("SensorParams sensorId는 양수여야 한다.")
+    void validateSensorId() {
+        assertTrue(validator.validate(new SensorParams(1L)).isEmpty());
+        assertFalse(validator.validate(new SensorParams(null)).isEmpty());
+        assertFalse(validator.validate(new SensorParams(0L)).isEmpty());
+        assertFalse(validator.validate(new SensorParams(-1L)).isEmpty());
     }
 
     @Test

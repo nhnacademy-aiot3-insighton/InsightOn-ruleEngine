@@ -6,23 +6,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.domain.Node;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowStatusChangeRequest;
-import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +29,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,69 +50,66 @@ class FlowServiceRuntimeEventTest {
     private FlowStructureValidator flowStructureValidator;
 
     @Mock
-    private NodeConfigurationValidator nodeConfigurationValidator;
+    private FlowDefinitionAssembler flowDefinitionAssembler;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private FlowActivationValidator flowActivationValidator;
+
+    @Mock
+    private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
 
     @InjectMocks
     private FlowService flowService;
 
     @Test
-    @DisplayName("활성화와 비활성화는 서로 다른 Redis 동기화 이벤트를 발행합니다.")
-    void statusEventTest() {
+    @DisplayName("활성화와 비활성화는 장소의 ACTIVE Flow 목록을 다시 캐싱합니다.")
+    void statusCacheSynchronizationTest() {
         Flow flow = flow(10L, FlowStatus.INACTIVE);
-        Node alertNode = alertNode(10L, 100L);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(flow));
-        when(nodeRepository.findByFlowId(10L)).thenReturn(List.of(alertNode));
+        when(flowDefinitionAssembler.assemble(1L, 10L)).thenReturn(definition(10L));
+        when(flowActivationValidator.validate(any(FlowDefinition.class))).thenReturn(List.of());
 
-        flowService.changeActivationStatus(1L, 100L, 10L, new FlowStatusChangeRequest(FlowStatus.ACTIVE));
-        flowService.changeActivationStatus(1L, 100L, 10L, new FlowStatusChangeRequest(FlowStatus.INACTIVE));
+        flowService.changeActivationStatus(1L, 100L, 10L,
+                new FlowStatusChangeRequest(FlowStatus.ACTIVE));
+        flowService.changeActivationStatus(1L, 100L, 10L,
+                new FlowStatusChangeRequest(FlowStatus.INACTIVE));
 
-        verify(eventPublisher).publishEvent(FlowRuntimeChangeEvent.activate(1L, 2L, 10L));
-        verify(eventPublisher).publishEvent(FlowRuntimeChangeEvent.remove(1L, 2L, 10L, Set.of(100L)));
+        verify(activeFlowDefinitionProvider, org.mockito.Mockito.times(2))
+                .refreshAfterCommit(1L, 2L);
     }
 
     @Test
-    @DisplayName("Flow 수정은 이전 Flow를 Archive 상태로 만들고 새 Inactive Flow는 이벤트는 발행하지 않고 실행은 하지 않습니다.")
-    void updateEventTest() {
+    @DisplayName("Flow 수정은 이전 Flow를 Archive 상태로 만들고 새 Inactive Flow를 캐시에 반영합니다.")
+    void updateCacheSynchronizationTest() {
         Flow currentFlow = flow(10L, FlowStatus.ACTIVE);
-        Node oldAlertNode = alertNode(10L, 100L);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(currentFlow));
-        when(flowRepository.save(any(Flow.class))).thenReturn(flow(20L, FlowStatus.INACTIVE));
-        when(nodeRepository.save(any(Node.class))).thenReturn(alertNode(20L, 200L));
-        when(nodeRepository.findByFlowId(10L)).thenReturn(List.of(oldAlertNode));
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 2L, "수정 Flow"))
+                .thenReturn(false);
+        when(flowStructureValidator.validate(any(), any())).thenReturn(List.of());
+        when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        flowService.update(
-                1L,
-                100L,
-                10L,
-                FlowTestData.createValidUpdateRequest("수정 Flow", null)
-        );
+        flowService.update(1L, 100L, 10L,
+                FlowTestData.createValidUpdateRequest("수정 Flow", null));
 
-        verify(eventPublisher).publishEvent(
-                FlowRuntimeChangeEvent.remove(1L, 2L, 10L, Set.of(100L))
-        );
+        verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
     }
 
     @Test
-    @DisplayName("영구 삭제는 Node 삭제 전 id를 제거 이벤트에 보존합니다.")
-    void deleteEventTest() {
+    @DisplayName("영구 삭제는 자식 Node와 Link 삭제 후 장소 캐시를 갱신합니다.")
+    void deleteCacheSynchronizationTest() {
         Flow archivedFlow = flow(10L, FlowStatus.ARCHIVED);
-        Node alertNode = alertNode(10L, 100L);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(archivedFlow));
-        when(nodeRepository.findByFlowId(10L)).thenReturn(List.of(alertNode));
 
         flowService.delete(1L, 100L, 10L);
 
-        InOrder order = inOrder(nodeRepository, linkRepository, flowRepository, eventPublisher);
-        order.verify(nodeRepository).findByFlowId(10L);
+        InOrder order = inOrder(nodeRepository, linkRepository, flowRepository,
+                activeFlowDefinitionProvider);
         order.verify(linkRepository).deleteByFlowId(10L);
         order.verify(nodeRepository).deleteByFlowId(10L);
         order.verify(flowRepository).delete(archivedFlow);
-        order.verify(eventPublisher).publishEvent(
-                FlowRuntimeChangeEvent.remove(1L, 2L, 10L, Set.of(100L))
-        );
+        order.verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
     }
 
     @Test
@@ -134,13 +129,16 @@ class FlowServiceRuntimeEventTest {
         return flow;
     }
 
-    private Node alertNode(Long flowId, Long nodeId) {
-        Node node = new Node(
+    private FlowDefinition definition(Long flowId) {
+        return new FlowDefinition(
                 flowId,
-                NodeType.ALERT,
-                JsonNodeFactory.instance.objectNode()
-        );
-        ReflectionTestUtils.setField(node, "id", nodeId);
-        return node;
+                1L,
+                2L,
+                "Flow " + flowId,
+                null,
+                FlowStatus.INACTIVE,
+                OffsetDateTime.now(),
+                List.of(),
+                List.of());
     }
 }
