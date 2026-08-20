@@ -15,10 +15,12 @@ import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class FlowRunner {
 
     private final FlowRouter flowRouter;
@@ -30,7 +32,18 @@ public class FlowRunner {
             throw new IllegalArgumentException("event는 필수입니다.");
         }
 
-        List<FlowDefinition> flows = flowRouter.route(event);
+        List<FlowDefinition> flows;
+        try {
+            flows = flowRouter.route(event);
+        } catch (RuntimeException exception) {
+            log.error(
+                    "센서 이벤트 라우팅에 실패했습니다. groupId={}, locationId={}, sensorId={}",
+                    event.groupId(),
+                    event.locationId(),
+                    event.sensorId(),
+                    exception);
+            return;
+        }
         executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
             ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);

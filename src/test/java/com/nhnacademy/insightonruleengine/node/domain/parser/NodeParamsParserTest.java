@@ -48,7 +48,7 @@ class NodeParamsParserTest {
     @DisplayName("Params validation 실패 시 예외가 발생한다")
     void rejectInvalidParams() {
         ObjectNode configuration = new ObjectMapper().createObjectNode()
-                .put("severity", "WARN")
+                .put("severity", "WARNING")
                 .put("message", " ");
 
         assertThrows(

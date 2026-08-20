@@ -11,6 +11,7 @@ import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.runner.evaluator.ThresholdEvaluator;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
