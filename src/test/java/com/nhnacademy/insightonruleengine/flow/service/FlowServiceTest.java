@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -34,11 +35,11 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureExc
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -85,8 +86,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("INACTIVE 상태 플로우 생성 테스트")
     void createInactiveFlowTest() {
-        FlowCreateRequest flowCreateRequest =
-                new FlowCreateRequest(2L, " 온도 알람 ", "온도가 너무 높아요");
+        FlowCreateRequest flowCreateRequest = FlowCreateRequest.builder()
+                .locationId(2L)
+                .name(" 온도 알람 ")
+                .description("온도가 너무 높아요")
+                .nodes(List.of())
+                .links(List.of())
+                .build();
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
                 2L,
@@ -105,9 +111,36 @@ class FlowServiceTest {
     }
 
     @Test
+    @DisplayName("Flow 생성 시 요청의 Node와 Link를 함께 저장한다")
+    void createFlowGraphTest() {
+        FlowCreateRequest request = FlowCreateRequest.builder()
+                .locationId(2L)
+                .name("온도 알람")
+                .description("온도 알람 그래프")
+                .nodes(FlowTestData.createValidNodes())
+                .links(FlowTestData.createValidLinks())
+                .build();
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        flowService.create(GROUP_ID, USER_ID, request);
+
+        verify(flowRepository).save(any(Flow.class));
+        verify(nodeRepository, times(2)).save(any(Node.class));
+        verify(linkRepository).save(any(Link.class));
+    }
+
+    @Test
     @DisplayName("동일 플로우 이름 중복 테스트")
     void sameFlowNameTest() {
-        FlowCreateRequest flowCreateRequest = new FlowCreateRequest(1L, "온도", "온도");
+        FlowCreateRequest flowCreateRequest = FlowCreateRequest.builder()
+                .locationId(1L)
+                .name("온도")
+                .description("온도")
+                .nodes(List.of())
+                .links(List.of())
+                .build();
         when(flowRepository.existsByGroupIdAndLocationIdAndName(
                 1L,
                 1L,
@@ -122,7 +155,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("MEMBER의 생성 요청이 거부되면 Repository를 호출하지 않는다")
     void repositoryTest() {
-        FlowCreateRequest request = new FlowCreateRequest(1L, "온도", null);
+        FlowCreateRequest request = FlowCreateRequest.builder()
+                .locationId(1L)
+                .name("온도")
+                .description(null)
+                .nodes(List.of())
+                .links(List.of())
+                .build();
         ForbiddenException exception = new ForbiddenException("MANAGER 이상 권한이 필요합니다.");
         doThrow(exception)
                 .when(groupAuthorizationService)

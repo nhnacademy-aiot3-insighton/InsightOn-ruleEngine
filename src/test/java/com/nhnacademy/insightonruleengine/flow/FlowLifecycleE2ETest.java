@@ -3,8 +3,11 @@ package com.nhnacademy.insightonruleengine.flow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
@@ -24,8 +27,8 @@ import com.nhnacademy.insightonruleengine.flow.validation.FlowNodeValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -73,7 +76,10 @@ class FlowLifecycleE2ETest {
     private GroupAuthorizationService groupAuthorizationService;
 
     @MockitoBean
-    private NodeConfigurationValidator nodeConfigurationValidator;
+    private FlowActivationValidator flowActivationValidator;
+
+    @MockitoBean
+    private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
 
     @Autowired
     private EntityManager entityManager;
@@ -81,6 +87,8 @@ class FlowLifecycleE2ETest {
     @Test
     @DisplayName("최초 생성(INACTIVE) -> 모델 조립 -> 활성화(ACTIVE) -> 수정본 저장(v2) -> 영구 삭제까지 전 라이프사이클 E2E 검증")
     void fullFlowLifecycleE2ETest() {
+        when(flowActivationValidator.validate(any())).thenReturn(List.of());
+
         // Step 1: 최초 Flow 생성 요청 (온도 30도 경보 플로우: Sensor -> Threshold 30 -> Alert)
         FlowCreateRequest createRequest = FlowTestData.createTemperatureThreshold30FlowRequest(LOCATION_ID);
         FlowResponse createResponse = flowService.create(GROUP_ID, USER_ID, createRequest);

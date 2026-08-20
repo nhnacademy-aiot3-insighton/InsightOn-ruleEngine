@@ -22,9 +22,9 @@ import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureExc
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +53,7 @@ public class FlowService {
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
+        validateStructure(request.nodes(), request.links());
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -61,6 +62,8 @@ public class FlowService {
                 FlowStatus.INACTIVE);
         validate(flow);
         Flow savedFlow = flowRepository.save(flow);
+        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
+        saveLinks(savedFlow.getId(), request.links(), nodeIds);
         activeFlowDefinitionProvider.refreshAfterCommit(savedFlow.getGroupId(), savedFlow.getLocationId());
         return toResponse(savedFlow);
     }
@@ -122,7 +125,7 @@ public class FlowService {
         if (request.status() == FlowStatus.ACTIVE) {
             List<FlowStructureValidationError> errors = flowActivationValidator.validate(
                     flowDefinitionAssembler.assemble(groupId, flowId));
-            if (!errors.isEmpty()) {
+            if (errors != null && !errors.isEmpty()) {
                 throw new InvalidFlowStructureException(errors);
             }
         }
@@ -168,11 +171,7 @@ public class FlowService {
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
         }
-        List<FlowStructureValidationError> validationErrors = flowStructureValidator.validate(request.nodes(),
-                request.links());
-        if (!validationErrors.isEmpty()) {
-            throw new InvalidFlowStructureException(validationErrors);
-        }
+        validateStructure(request.nodes(), request.links());
 
         Flow updateFlow = new Flow(
                 groupId,
@@ -214,6 +213,13 @@ public class FlowService {
     private void validateRequest(Object request) {
         if (request == null) {
             throw new IllegalArgumentException("입력값은 null이면 안됩니다.");
+        }
+    }
+
+    private void validateStructure(List<FlowNodeRequest> nodes, List<FlowLinkRequest> links) {
+        List<FlowStructureValidationError> errors = flowStructureValidator.validate(nodes, links);
+        if (errors != null && !errors.isEmpty()) {
+            throw new InvalidFlowStructureException(errors);
         }
     }
 

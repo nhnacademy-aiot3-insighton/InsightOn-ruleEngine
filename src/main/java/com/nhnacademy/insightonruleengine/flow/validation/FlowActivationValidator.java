@@ -9,6 +9,8 @@ import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.runner.evaluator.ThresholdEvaluator;
 import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

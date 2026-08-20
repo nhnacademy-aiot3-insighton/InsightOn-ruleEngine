@@ -18,6 +18,15 @@ public record SensorEvent(
 ) {
 
     public SensorEvent {
-        metrics = metrics == null ? null : Map.copyOf(metrics);
+        if (groupId == null || locationId == null || sensorId == null || timestamp == null) {
+            throw new IllegalArgumentException("센서 이벤트의 식별자와 timestamp는 필수입니다.");
+        }
+        if (metrics == null || metrics.isEmpty()) {
+            throw new IllegalArgumentException("센서 이벤트 metrics는 비어 있을 수 없습니다.");
+        }
+        if (metrics.keySet().stream().anyMatch(key -> key == null || key.isBlank())) {
+            throw new IllegalArgumentException("센서 이벤트 metric key는 비어 있을 수 없습니다.");
+        }
+        metrics = Map.copyOf(metrics);
     }
 }
