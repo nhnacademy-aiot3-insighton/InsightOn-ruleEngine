@@ -14,7 +14,7 @@ public interface NodeRepository extends JpaRepository<Node, Long> {
     /**
      * Flow 전체 교체(delete+insert) 방식에서 사용하는 delete Node가 Flow와 JPA 연관관계(@OneToMany)를 갖지 않으므로 orphanRemoval로 지울 수 없음
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from Node n where n.flowId = :flowId")
-    void deleteByFlowId(@Param("flowId") Long flowId);
+    int deleteByFlowId(@Param("flowId") Long flowId);
 }

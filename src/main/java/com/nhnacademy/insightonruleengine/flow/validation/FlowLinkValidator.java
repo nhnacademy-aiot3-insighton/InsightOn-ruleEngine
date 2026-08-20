@@ -198,7 +198,8 @@ public class FlowLinkValidator {
         return valid;
     }
 
-    //액션이 아닌 노드에 출력 링크가 있는지 확인하는 검증
+    //Trigger는 출력 링크가 필요하고, Filter는 true 경로가 필요합니다.
+    //Filter의 false 경로는 실행기에서 링크 없이 정상 종료할 수 있습니다.
     public List<FlowStructureValidationError> validateMissingOutputLinks(
             NodeValidationResult nodeResult,
             LinkReferenceResult linkRefResult,
@@ -209,14 +210,26 @@ public class FlowLinkValidator {
         }
         List<FlowStructureValidationError> errors = new ArrayList<>();
         for (FlowNodeRequest node : nodeResult.nodesByKey().values()) {
-            if (node.nodeType().getCategory() != Category.ACTION
-                    && !sourceNodeKeys.contains(node.clientNodeKey())) {
+            Category category = node.nodeType().getCategory();
+            if (category == Category.ACTION) {
+                continue;
+            }
+            boolean hasRequiredOutput = sourceNodeKeys.contains(node.clientNodeKey());
+            if (category == Category.FILTER) {
+                hasRequiredOutput = linkRefResult.validIndexedLinks().stream()
+                        .anyMatch(indexedLink -> indexedLink.link().sourceClientNodeKey()
+                                .equals(node.clientNodeKey())
+                                && "true".equals(indexedLink.link().sourcePort()));
+            }
+            if (!hasRequiredOutput) {
                 addError(
                         errors,
                         FlowStructureErrorCode.MISSING_OUTPUT_LINK,
                         node.clientNodeKey(),
                         "nodes",
-                        "액션이 아닌 노드는 출력 링크를 1 이상 가져야 합니다."
+                        category == Category.FILTER
+                                ? "Filter는 true 출력 링크를 가져야 합니다."
+                                : "Trigger는 출력 링크를 가져야 합니다."
                 );
             }
         }

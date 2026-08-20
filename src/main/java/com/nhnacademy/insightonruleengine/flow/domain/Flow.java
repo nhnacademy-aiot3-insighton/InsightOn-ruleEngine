@@ -95,7 +95,9 @@ public class Flow {
     }
 
     public void archive() {
-        if (!status.equals(FlowStatus.ACTIVE) && !status.equals(FlowStatus.INACTIVE)) {
+        if (!status.equals(FlowStatus.ACTIVE)
+                && !status.equals(FlowStatus.INACTIVE)
+                && !status.equals(FlowStatus.ERROR)) {
             throw new InvalidFlowStatusTransitionException(status, FlowStatus.ARCHIVED);
         }
         status = FlowStatus.ARCHIVED;

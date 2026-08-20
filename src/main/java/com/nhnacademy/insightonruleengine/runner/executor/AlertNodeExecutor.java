@@ -4,6 +4,7 @@ import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
+import com.nhnacademy.insightonruleengine.runner.alert.AlertCountService;
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class AlertNodeExecutor implements NodeExecutor {
 
     private final NodeParamsParser nodeParamsParser;
+    private final AlertCountService alertCountService;
 
     @Override
     public NodeType supports() {
@@ -25,8 +27,11 @@ public class AlertNodeExecutor implements NodeExecutor {
     @Override
     public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
         AlertParams params = nodeParamsParser.parse(NodeType.ALERT, node.configuration());
+        if (!alertCountService.shouldPublish(context.flow().flowId(), node.nodeId(), params)) {
+            return NodeExecutionResult.complete();
+        }
         log.info(
-                "Prototype alert executed. flowId={}, nodeId={}, severity={}, message={}",
+                "Alert condition matched. flowId={}, nodeId={}, severity={}, message={}",
                 context.flow().flowId(),
                 node.nodeId(),
                 params.severity(),
