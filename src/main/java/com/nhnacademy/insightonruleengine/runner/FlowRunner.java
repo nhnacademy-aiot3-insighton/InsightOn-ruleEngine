@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class FlowRunner {
 
     private final FlowRouter flowRouter;

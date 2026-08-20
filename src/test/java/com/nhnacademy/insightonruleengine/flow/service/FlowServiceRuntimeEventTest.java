@@ -61,7 +61,7 @@ class FlowServiceRuntimeEventTest {
     private FlowService flowService;
 
     @Test
-    @DisplayName("활성화와 비활성화는 캐시 제공자에 서로 다른 동기화 작업을 요청합니다.")
+    @DisplayName("활성화와 비활성화는 장소의 ACTIVE Flow 목록을 다시 캐싱합니다.")
     void statusCacheSynchronizationTest() {
         Flow flow = flow(10L, FlowStatus.INACTIVE);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(flow));
@@ -73,8 +73,8 @@ class FlowServiceRuntimeEventTest {
         flowService.changeActivationStatus(1L, 100L, 10L,
                 new FlowStatusChangeRequest(FlowStatus.INACTIVE));
 
-        verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
-        verify(activeFlowDefinitionProvider).evictAfterCommit(1L, 2L);
+        verify(activeFlowDefinitionProvider, org.mockito.Mockito.times(2))
+                .refreshAfterCommit(1L, 2L);
     }
 
     @Test
@@ -96,7 +96,7 @@ class FlowServiceRuntimeEventTest {
     }
 
     @Test
-    @DisplayName("영구 삭제는 자식 Node와 Link 삭제 후 캐시 제거를 요청합니다.")
+    @DisplayName("영구 삭제는 자식 Node와 Link 삭제 후 장소 캐시를 갱신합니다.")
     void deleteCacheSynchronizationTest() {
         Flow archivedFlow = flow(10L, FlowStatus.ARCHIVED);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(archivedFlow));
@@ -108,7 +108,7 @@ class FlowServiceRuntimeEventTest {
         order.verify(linkRepository).deleteByFlowId(10L);
         order.verify(nodeRepository).deleteByFlowId(10L);
         order.verify(flowRepository).delete(archivedFlow);
-        order.verify(activeFlowDefinitionProvider).evictAfterCommit(1L, 2L);
+        order.verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
     }
 
     private Flow flow(Long flowId, FlowStatus flowStatus) {

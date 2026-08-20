@@ -30,6 +30,8 @@ public class GroupAuthorizationService {
             return member.groupRole();
         } catch (FeignException.NotFound e) {
             throw new ForbiddenException("groupId:" + groupId + "의 멤버가 아닙니다. userId:" + userId);
+        } catch (FeignException e) {
+            throw new CoreDependencyException("Core 그룹 권한 조회에 실패했습니다.", e);
         }
     }
 

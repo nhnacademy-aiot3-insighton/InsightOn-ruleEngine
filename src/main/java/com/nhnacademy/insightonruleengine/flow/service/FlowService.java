@@ -64,7 +64,6 @@ public class FlowService {
         Flow savedFlow = flowRepository.save(flow);
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
-        activeFlowDefinitionProvider.refreshAfterCommit(savedFlow.getGroupId(), savedFlow.getLocationId());
         return toResponse(savedFlow);
     }
 
@@ -130,11 +129,7 @@ public class FlowService {
             }
         }
         flow.changeActivationStatus(request.status());
-        if (request.status() == FlowStatus.ACTIVE) {
-            activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
-        } else {
-            activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
-        }
+        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -144,7 +139,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
-        activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
+        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
         return toResponse(flow);
     }
 
@@ -159,7 +154,7 @@ public class FlowService {
         linkRepository.deleteByFlowId(flowId);
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
-        activeFlowDefinitionProvider.evictAfterCommit(flow.getGroupId(), flow.getLocationId());
+        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -194,7 +189,6 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         archivedFlow.restore();
-        activeFlowDefinitionProvider.refreshAfterCommit(archivedFlow.getGroupId(), archivedFlow.getLocationId());
         return toResponse(archivedFlow);
     }
 
