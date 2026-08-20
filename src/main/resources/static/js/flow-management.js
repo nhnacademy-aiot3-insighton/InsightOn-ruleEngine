@@ -5,6 +5,7 @@
     const STORAGE_KEY = "insighton.flow.connection";
     const NODE_TYPES = [
         "SENSOR",
+        "LOCATION",
         "SCHEDULE",
         "THRESHOLD",
         "TIME_WINDOW",
@@ -14,7 +15,7 @@
         "EXTERNAL_NOTIFICATION"
     ];
     const ACTION_TYPES = new Set(["ACTUATOR_CONTROL", "ALERT", "EXTERNAL_NOTIFICATION"]);
-    const TRIGGER_TYPES = new Set(["SENSOR", "SCHEDULE"]);
+    const TRIGGER_TYPES = new Set(["SENSOR", "LOCATION", "SCHEDULE"]);
 
     const state = {
         groupId: null,
@@ -528,7 +529,7 @@
         state.draftNodes.push({
             clientNodeKey: uniqueNodeKey(nodeType.toLowerCase()),
             nodeType,
-            configuration: "{}"
+            configuration: defaultConfiguration(nodeType)
         });
         renderNodes();
         renderLinks();
@@ -880,6 +881,16 @@
             return "out";
         }
         return "true";
+    }
+
+    function defaultConfiguration(nodeType) {
+        if (nodeType === "SENSOR") {
+            return JSON.stringify({sensorId: 1});
+        }
+        if (nodeType === "LOCATION") {
+            return "{}";
+        }
+        return "{}";
     }
 
     function suggestUpdatedName(name) {

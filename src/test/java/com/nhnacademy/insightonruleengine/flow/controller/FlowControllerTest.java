@@ -94,13 +94,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -149,13 +153,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -397,13 +405,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -593,13 +605,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -646,13 +662,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -697,13 +717,17 @@ class FlowControllerTest {
                                   "nodes": [
                                     {
                                       "clientNodeKey": "sensor",
-                                      "nodeType": "SENSOR",
+                                      "nodeType": "LOCATION",
                                       "configuration": {}
                                     },
                                     {
                                       "clientNodeKey": "alert",
                                       "nodeType": "ALERT",
-                                      "configuration": {}
+                                      "configuration": {
+                                        "title": "테스트 알림",
+                                        "severity": "WARNING",
+                                        "message": "테스트 알림 메시지"
+                                      }
                                     }
                                   ],
                                   "links": [
@@ -796,13 +820,16 @@ class FlowControllerTest {
                 .nodes(List.of(
                         FlowNodeRequest.builder()
                                 .clientNodeKey("sensor")
-                                .nodeType(NodeType.SENSOR)
+                                .nodeType(NodeType.LOCATION)
                                 .configuration(JsonNodeFactory.instance.objectNode())
                                 .build(),
                         FlowNodeRequest.builder()
                                 .clientNodeKey("alert")
                                 .nodeType(NodeType.ALERT)
-                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .configuration(JsonNodeFactory.instance.objectNode()
+                                        .put("title", "테스트 알림")
+                                        .put("severity", "WARNING")
+                                        .put("message", "테스트 알림 메시지"))
                                 .build()))
                 .links(List.of(FlowLinkRequest.builder()
                         .sourceClientNodeKey("sensor")

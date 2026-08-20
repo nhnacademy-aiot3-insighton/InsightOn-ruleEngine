@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.evaluator;
 
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
-import java.util.Map;
+import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -13,19 +12,18 @@ public class ThresholdEvaluator {
 
     private final ExpressionParser expressionParser = new SpelExpressionParser();
 
-    public boolean evaluate(String expressionText, SensorEvent event) {
+    public boolean evaluate(String expressionText, FlowExecutionContext flowContext) {
         if (expressionText == null || expressionText.isBlank()) {
             throw new IllegalArgumentException("Threshold expression은 필수입니다.");
         }
-        if (event == null) {
-            throw new IllegalArgumentException("event는 필수입니다.");
+        if (flowContext == null) {
+            throw new IllegalArgumentException("flowContext는 필수입니다.");
         }
 
         Expression expression = expressionParser.parseExpression(expressionText);
         SimpleEvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
-        context.setVariable("event", event);
-        context.setVariable("metrics", event.metrics());
-        bindMetricsVariables(context, event.metrics());
+        context.setVariable("event", flowContext.event());
+        context.setVariable("metrics", flowContext.metrics());
 
         Boolean result = expression.getValue(context, Boolean.class);
         if (result == null) {
@@ -34,10 +32,11 @@ public class ThresholdEvaluator {
         return result;
     }
 
-    private void bindMetricsVariables(SimpleEvaluationContext context, Map<String, Object> metrics) {
-        if (metrics == null) {
-            return;
+    public void validateExpression(String expressionText) {
+        if (expressionText == null || expressionText.isBlank()) {
+            throw new IllegalArgumentException("Threshold expression은 필수입니다.");
         }
-        metrics.forEach(context::setVariable);
+        expressionParser.parseExpression(expressionText);
     }
+
 }

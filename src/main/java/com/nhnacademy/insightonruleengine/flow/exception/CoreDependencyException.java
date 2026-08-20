@@ -6,4 +6,8 @@ public class CoreDependencyException extends RuntimeException {
     public CoreDependencyException(String message) {
         super(message);
     }
+
+    public CoreDependencyException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

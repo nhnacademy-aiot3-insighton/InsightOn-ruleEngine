@@ -126,6 +126,27 @@ class FlowStructureValidatorTest {
     }
 
     @Test
+    @DisplayName("Filter의 false 링크는 생략할 수 있지만 true 링크는 필요하다")
+    void filterRequiresTrueOutputTest() {
+        List<FlowNodeRequest> nodes = List.of(
+                node("trigger", NodeType.LOCATION),
+                node("filter", NodeType.THRESHOLD),
+                node("action", NodeType.ALERT)
+        );
+        List<FlowLinkRequest> links = List.of(
+                link("trigger", "filter", "out"),
+                link("filter", "action", "false")
+        );
+
+        List<FlowStructureValidationError> errors = validator.validate(nodes, links);
+
+        assertTrue(errors.stream().anyMatch(error ->
+                        error.code() == FlowStructureErrorCode.MISSING_OUTPUT_LINK
+                                && "filter".equals(error.clientNodeKey())),
+                "Filter의 true 링크가 없으면 검증 오류가 있어야 합니다: " + errors);
+    }
+
+    @Test
     @DisplayName("사전 구성 2: 정기 환기 장치 구동 플로우가 구조 검증을 통과한다")
     void scheduledActuatorFlowTest() {
         var request = FlowTestData.createScheduledActuatorFlowRequest(10L);
