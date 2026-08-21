@@ -29,6 +29,9 @@
     <properties>
         <java.version>21</java.version>
         <spring-cloud.version>2025.0.3</spring-cloud.version>
+        <!-- Boot 3.5.16의 기본 버전에 공개된 보안 취약점이 있어 수정 버전으로 고정합니다. -->
+        <tomcat.version>10.1.57</tomcat.version>
+        <postgresql.version>42.7.12</postgresql.version>
     </properties>
     <dependencies>
         <dependency>
