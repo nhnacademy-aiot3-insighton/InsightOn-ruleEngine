@@ -14,6 +14,8 @@ import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -63,9 +65,15 @@ public class FlowRunner {
         FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
         NodeDefinition current = findTriggerNode(flow);
         FlowExecutionContext context = new FlowExecutionContext(flow, event);
+        Set<Long> visitedNodeIds = new HashSet<>();
 
         executionLogger.flowStarted(logContext, current.nodeId());
         while (current != null) {
+            if (!visitedNodeIds.add(current.nodeId())) {
+                throw new IllegalStateException(
+                        "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
+                                + ", nodeId=" + current.nodeId());
+            }
             current = executeNode(index, current, context, logContext);
         }
     }
@@ -81,6 +89,7 @@ public class FlowRunner {
             executionLogger.nodeStarted(logContext, current);
 
             NodeExecutionResult result = executor.execute(current, context);
+            validateExecutionResult(current, result);
             executionLogger.nodeFinished(logContext, current, result);
             if (result.terminal()) {
                 executionLogger.flowFinished(logContext, current.nodeId(), true);
@@ -88,7 +97,9 @@ public class FlowRunner {
             }
 
             LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort());
-            if (nextLink == null && "false".equals(result.outputPort())) {
+            if (nextLink == null
+                    && current.nodeType().getCategory() == NodeType.Category.FILTER
+                    && "false".equals(result.outputPort())) {
                 executionLogger.flowFinished(logContext, current.nodeId(), false);
                 return null;
             }
@@ -99,6 +110,24 @@ public class FlowRunner {
         } catch (RuntimeException exception) {
             executionLogger.nodeFailed(logContext, current, exception);
             throw exception;
+        }
+    }
+
+    private void validateExecutionResult(NodeDefinition node, NodeExecutionResult result) {
+        if (result == null) {
+            throw new IllegalStateException("NodeExecutor가 실행 결과를 반환하지 않았습니다. nodeId=" + node.nodeId());
+        }
+        boolean action = node.nodeType().getCategory() == NodeType.Category.ACTION;
+        if (result.terminal() != action) {
+            throw new IllegalStateException(
+                    "NodeExecutor 종료 계약이 NodeType과 일치하지 않습니다. nodeId=" + node.nodeId()
+                            + ", nodeType=" + node.nodeType());
+        }
+        if (!result.terminal()
+                && !node.nodeType().getPortSchema().outputPorts(null).contains(result.outputPort())) {
+            throw new IllegalStateException(
+                    "NodeExecutor 출력 포트가 NodeType 계약과 일치하지 않습니다. nodeId=" + node.nodeId()
+                            + ", nodeType=" + node.nodeType() + ", outputPort=" + result.outputPort());
         }
     }
 
