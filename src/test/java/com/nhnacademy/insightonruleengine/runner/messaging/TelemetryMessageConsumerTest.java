@@ -4,20 +4,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.insightonruleengine.runner.FlowRunner;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
-import com.nhnacademy.insightonruleengine.runner.dto.TelemetryEventMessage;
-import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
 import com.rabbitmq.client.Channel;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,9 +26,6 @@ class TelemetryMessageConsumerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Mock
-    private FlowRouteRedisRepository flowRouteRedisRepository;
-
-    @Mock
     private FlowRunner flowRunner;
 
     @Mock
@@ -45,24 +35,15 @@ class TelemetryMessageConsumerTest {
 
     @BeforeEach
     void setUp() {
-        consumer = new TelemetryMessageConsumer(objectMapper, flowRouteRedisRepository, flowRunner);
+        consumer = new TelemetryMessageConsumer(objectMapper, flowRunner);
     }
 
     @Test
     @DisplayName("정상 메시지 수신 및 활성 Flow가 존재하면 FlowRunner를 실행하고 수동 ACK를 수행합니다.")
     void messageReceivedTest() throws Exception {
-        OffsetDateTime now = OffsetDateTime.of(2026, 8, 17, 12, 0, 0, 0, ZoneOffset.UTC);
-        TelemetryEventMessage eventMessage = new TelemetryEventMessage(
-                1L,
-                100L,
-                "101",
-                Map.of("temperature", 25.0),
-                now
-        );
-        byte[] body = objectMapper.writeValueAsBytes(eventMessage);
+        byte[] body = validBody();
         Message message = createMessage(101L, body);
 
-        when(flowRouteRedisRepository.findFlowIds(1L, 100L)).thenReturn(Set.of(10L, 20L));
         consumer.onMessage(message, channel);
 
         verify(flowRunner).run(any(SensorEvent.class));
@@ -99,42 +80,37 @@ class TelemetryMessageConsumerTest {
     }
 
     @Test
-    @DisplayName("해당 그룹 및 장소에 ACTIVE Flow가 없으면 FlowRunner를 실행하지 않고 정상 ACK 처리합니다.")
-    void emptyFlowTest() throws Exception {
-        OffsetDateTime now = OffsetDateTime.of(2026, 8, 17, 12, 0, 0, 0, ZoneOffset.UTC);
-        TelemetryEventMessage eventMessage = new TelemetryEventMessage(
-                1L,
-                100L,
-                "101",
-                Map.of("temperature", 25.0),
-                now
-        );
-        byte[] body = objectMapper.writeValueAsBytes(eventMessage);
-        Message message = createMessage(105L, body);
-        when(flowRouteRedisRepository.findFlowIds(1L, 100L)).thenReturn(Set.of());
+    @DisplayName("FlowRunner 실행 중 예외가 발생하면 메시지를 재큐잉합니다.")
+    void runnerExceptionTest() throws Exception {
+        byte[] body = validBody();
+        Message message = createMessage(106L, body);
+        doThrow(new RuntimeException("Execution failed")).when(flowRunner).run(any(SensorEvent.class));
         consumer.onMessage(message, channel);
-
-        verify(flowRunner, never()).run(any());
-        verify(channel).basicAck(105L, false);
+        verify(channel).basicNack(106L, false, true);
+        verify(channel, never()).basicAck(106L, false);
     }
 
     @Test
-    @DisplayName("FlowRunner 실행 중 예외가 발생해도 로그를 남긴 후 ACK 폐기합니다.")
-    void runnerExceptionTest() throws Exception {
-        OffsetDateTime now = OffsetDateTime.of(2026, 8, 17, 12, 0, 0, 0, ZoneOffset.UTC);
-        TelemetryEventMessage eventMessage = new TelemetryEventMessage(
-                1L,
-                100L,
-                "101",
-                Map.of("temperature", 25.0),
-                now
-        );
-        byte[] body = objectMapper.writeValueAsBytes(eventMessage);
-        Message message = createMessage(106L, body);
-        when(flowRouteRedisRepository.findFlowIds(1L, 100L)).thenReturn(Set.of(10L));
-        doThrow(new RuntimeException("Execution failed")).when(flowRunner).run(any(SensorEvent.class));
+    @DisplayName("과도하게 큰 메시지는 역직렬화하지 않고 폐기합니다.")
+    void oversizedMessageTest() throws Exception {
+        Message message = createMessage(107L, new byte[256 * 1024 + 1]);
+
         consumer.onMessage(message, channel);
-        verify(channel).basicAck(106L, false);
+
+        verify(flowRunner, never()).run(any());
+        verify(channel).basicAck(107L, false);
+    }
+
+    private byte[] validBody() {
+        return """
+                {
+                    "time": "2026-08-17T12:00:00Z",
+                    "sensorId": "101",
+                    "groupId": 1,
+                    "locationId": 100,
+                    "metrics": {"temperature": 25.0}
+                }
+                """.getBytes(StandardCharsets.UTF_8);
     }
 
     private Message createMessage(long deliveryTag, byte[] body) {
