@@ -20,7 +20,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * 이벤트 실행 경로에서 ACTIVE Flow를 제공한다.
- * 정상 경로는 Redis이며, Redis 장애 시 같은 인스턴스의 최근 값을 제한적으로 사용한다.
+ * 정상 경로는 Redis이며, Redis 장애 시 DB 원본을 먼저 확인하고 DB도 실패할 때만
+ * 같은 인스턴스의 최근 값을 제한적으로 사용한다.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,15 +40,20 @@ public class ActiveFlowDefinitionProvider {
                     .map(definitions -> remember(routeKey, definitions))
                     .orElseGet(() -> rebuild(routeKey));
         } catch (RuntimeException cacheException) {
-            List<FlowDefinition> fallback = localFallback.get(routeKey);
-            if (fallback != null) {
-                log.warn("Flow 캐시 조회에 실패하여 로컬 캐시를 사용합니다. groupId={}, locationId={}",
-                        groupId, locationId, cacheException);
-                return fallback;
-            }
-            log.warn("Flow 캐시 조회에 실패하여 DB에서 Flow를 재구성합니다. groupId={}, locationId={}",
+            log.warn("Flow 캐시 조회에 실패하여 DB 원본에서 다시 확인합니다. groupId={}, locationId={}",
                     groupId, locationId, cacheException);
-            return rebuild(routeKey);
+            try {
+                return rebuild(routeKey);
+            } catch (RuntimeException databaseException) {
+                List<FlowDefinition> fallback = localFallback.get(routeKey);
+                if (fallback != null) {
+                    log.warn("Redis와 DB 조회가 모두 실패하여 로컬 캐시를 사용합니다. groupId={}, locationId={}",
+                            groupId, locationId, databaseException);
+                    return fallback;
+                }
+                databaseException.addSuppressed(cacheException);
+                throw databaseException;
+            }
         }
     }
 
@@ -75,14 +81,17 @@ public class ActiveFlowDefinitionProvider {
 
     public void evictAfterCommit(Long groupId, Long locationId) {
         afterCommit(() -> {
-            RouteKey routeKey = new RouteKey(groupId, locationId);
-            localFallback.remove(routeKey);
             try {
-                flowDefinitionCache.evict(groupId, locationId);
+                evictNow(groupId, locationId);
             } catch (RuntimeException exception) {
                 log.warn("Flow 캐시 삭제에 실패했습니다. groupId={}, locationId={}", groupId, locationId, exception);
             }
         });
+    }
+
+    public void evictNow(Long groupId, Long locationId) {
+        localFallback.remove(new RouteKey(groupId, locationId));
+        flowDefinitionCache.evict(groupId, locationId);
     }
 
     private List<FlowDefinition> rebuild(RouteKey routeKey) {

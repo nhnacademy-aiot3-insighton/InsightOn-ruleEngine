@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class ActiveFlowDefinitionProviderTest {
@@ -68,6 +69,37 @@ class ActiveFlowDefinitionProviderTest {
         assertEquals(List.of(definition), provider.find(1L, 10L));
 
         verify(flowDefinitionCache).replace(1L, 10L, List.of(definition));
+    }
+
+    @Test
+    void evictNowRemovesRedisCacheAndLocalFallback() {
+        FlowDefinition definition = definition();
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"));
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        provider.evictNow(1L, 10L);
+        assertEquals(List.of(), provider.find(1L, 10L));
+
+        verify(flowDefinitionCache).evict(1L, 10L);
+    }
+
+    @Test
+    void redisFailureOnAnotherInstanceRechecksDatabaseBeforeUsingLocalFallback() {
+        FlowDefinition definition = definition();
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"));
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        assertEquals(List.of(), provider.find(1L, 10L));
+
+        verify(flowDefinitionCache).replace(1L, 10L, List.of());
     }
 
     private FlowDefinition definition() {
