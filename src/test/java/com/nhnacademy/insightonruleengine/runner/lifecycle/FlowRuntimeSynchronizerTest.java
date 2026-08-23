@@ -4,12 +4,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.runner.application.lifecycle.FlowRuntimeSynchronizer;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
-import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.domain.event.FlowRuntimeChangeEvent;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
 import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;

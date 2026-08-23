@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.messaging;
 
-import com.nhnacademy.insightonruleengine.common.config.TelemetryRoutingProperties;
+import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.List;

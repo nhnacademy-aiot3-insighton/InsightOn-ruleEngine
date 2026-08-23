@@ -6,6 +6,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+
+import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineStatus;
+import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

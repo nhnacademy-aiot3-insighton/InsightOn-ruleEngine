@@ -7,11 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator.NodeValidationResult;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator.NodeValidationResult;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

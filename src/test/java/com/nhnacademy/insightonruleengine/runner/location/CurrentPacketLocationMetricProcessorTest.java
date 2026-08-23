@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.runner.execution.location.CurrentPacketLocationMetricProcessor;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;

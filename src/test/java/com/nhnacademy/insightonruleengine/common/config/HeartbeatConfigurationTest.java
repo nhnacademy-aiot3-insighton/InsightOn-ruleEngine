@@ -5,10 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.nhnacademy.insightonruleengine.runner.heartbeat.EngineHeartbeatRepository;
-import com.nhnacademy.insightonruleengine.runner.heartbeat.EngineHeartbeatService;
-import com.nhnacademy.insightonruleengine.runner.heartbeat.HeartbeatProperties;
-import com.nhnacademy.insightonruleengine.runner.heartbeat.HeartbeatScheduler;
+import com.nhnacademy.insightonruleengine.config.HeartbeatConfiguration;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
+import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
+import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatScheduler;
 import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;

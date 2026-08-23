@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.runner.application.router.BypassFlowRouter;
+import com.nhnacademy.insightonruleengine.runner.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;

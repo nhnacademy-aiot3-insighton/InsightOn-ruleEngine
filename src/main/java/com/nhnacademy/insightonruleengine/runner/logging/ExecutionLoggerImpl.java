@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.logging;
 
-import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
 import java.time.Instant;

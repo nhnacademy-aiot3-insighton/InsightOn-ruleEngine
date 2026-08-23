@@ -1,2 +1,2 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-com.nhnacademy.insightonruleengine.common.config.RuleEngineInstanceEnvironmentPostProcessor
+com.nhnacademy.insightonruleengine.config.RuleEngineInstanceEnvironmentPostProcessor

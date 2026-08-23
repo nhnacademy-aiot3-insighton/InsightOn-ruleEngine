@@ -6,12 +6,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.runner.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.cache.FlowDefinitionCache;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -57,8 +60,8 @@ class ActiveFlowDefinitionProviderTest {
     @Test
     void cacheMissRebuildsDefinitionFromDatabase() {
         FlowDefinition definition = definition();
-        com.nhnacademy.insightonruleengine.flow.domain.Flow flow =
-                org.mockito.Mockito.mock(com.nhnacademy.insightonruleengine.flow.domain.Flow.class);
+        Flow flow =
+                org.mockito.Mockito.mock(Flow.class);
         when(flow.getGroupId()).thenReturn(1L);
         when(flow.getId()).thenReturn(100L);
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))

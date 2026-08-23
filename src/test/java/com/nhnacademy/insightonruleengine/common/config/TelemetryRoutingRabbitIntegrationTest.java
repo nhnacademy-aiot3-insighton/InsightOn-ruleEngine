@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.IntStream;
+
+import com.nhnacademy.insightonruleengine.config.TelemetryRoutingConfiguration;
+import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;

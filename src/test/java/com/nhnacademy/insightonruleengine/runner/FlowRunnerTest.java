@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
-import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
@@ -17,11 +17,11 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsPars
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
-import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutor;
-import com.nhnacademy.insightonruleengine.runner.executor.NodeExecutorRegistry;
+import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
+import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
 import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
-import com.nhnacademy.insightonruleengine.runner.router.FlowRouter;
+import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;

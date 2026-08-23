@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import com.nhnacademy.insightonruleengine.common.config.TelemetryRoutingProperties;
+import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

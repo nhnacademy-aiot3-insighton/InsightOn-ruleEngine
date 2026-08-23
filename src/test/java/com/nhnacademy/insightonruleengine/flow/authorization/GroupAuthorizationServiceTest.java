@@ -7,8 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
-import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.CoreGroupClient;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupMemberResponse;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import feign.FeignException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

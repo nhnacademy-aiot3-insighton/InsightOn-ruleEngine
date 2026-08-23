@@ -4,11 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionIndex;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowDefinitionKeyException;
-import com.nhnacademy.insightonruleengine.flow.exception.LinkNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.exception.NodeNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowDefinitionKeyException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.LinkNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.NodeNotFoundException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

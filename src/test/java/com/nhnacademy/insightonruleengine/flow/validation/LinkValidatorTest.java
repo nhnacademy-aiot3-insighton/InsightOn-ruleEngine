@@ -4,11 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator.LinkValidationResult;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowValidationErrorReason;
-import com.nhnacademy.insightonruleengine.flow.validation.domain.LinkErrorCode;
+import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator.LinkValidationResult;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.domain.LinkErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
