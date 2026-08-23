@@ -13,6 +13,7 @@ import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,14 @@ class GroupDeletionDatabaseCleanupServiceIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @AfterEach
+    void cleanUpDatabase() {
+        jdbcTemplate.execute("drop trigger if exists reject_group_flow_delete_trigger on flows");
+        jdbcTemplate.execute("drop function if exists reject_group_flow_delete()");
+        cleanupService.deleteByGroupId(TARGET_GROUP_ID);
+        cleanupService.deleteByGroupId(OTHER_GROUP_ID);
+    }
+
     @Test
     @DisplayName("ACTIVE, INACTIVE, ARCHIVED Flow의 Link, Node, Flow를 그룹 단위로 삭제합니다")
     void deleteAllStatusesByGroupTest() {
@@ -61,8 +70,6 @@ class GroupDeletionDatabaseCleanupServiceIntegrationTest {
         assertEquals(1, flowRepository.findAllByGroupId(OTHER_GROUP_ID).size());
         assertEquals(2, nodeRepository.findByFlowId(other.getId()).size());
         assertEquals(1, linkRepository.findByFlowId(other.getId()).size());
-
-        cleanupService.deleteByGroupId(OTHER_GROUP_ID);
     }
 
     @Test
@@ -82,8 +89,6 @@ class GroupDeletionDatabaseCleanupServiceIntegrationTest {
         assertEquals(1, flowRepository.findAllByLocationId(60L).size());
         assertEquals(2, nodeRepository.findByFlowId(untouched.getId()).size());
         assertEquals(1, linkRepository.findByFlowId(untouched.getId()).size());
-
-        cleanupService.deleteByGroupId(TARGET_GROUP_ID);
     }
 
     @Test
@@ -100,23 +105,19 @@ class GroupDeletionDatabaseCleanupServiceIntegrationTest {
                 end;
                 $$ language plpgsql
                 """);
+        //위 SQL에서 테스트 실행 중 동적으로 생성하는 PostgreSQL 함수입니다.
+        //noinspection SqlResolve
         jdbcTemplate.execute("""
                 create trigger reject_group_flow_delete_trigger
                 before delete on flows
                 for each row execute function reject_group_flow_delete()
                 """);
 
-        try {
-            assertThrows(RuntimeException.class, () -> cleanupService.deleteByGroupId(TARGET_GROUP_ID));
+        assertThrows(RuntimeException.class, () -> cleanupService.deleteByGroupId(TARGET_GROUP_ID));
 
-            assertEquals(1, flowRepository.findAllByGroupId(TARGET_GROUP_ID).size());
-            assertEquals(2, nodeRepository.findByFlowId(flow.getId()).size());
-            assertEquals(1, linkRepository.findByFlowId(flow.getId()).size());
-        } finally {
-            jdbcTemplate.execute("drop trigger if exists reject_group_flow_delete_trigger on flows");
-            jdbcTemplate.execute("drop function if exists reject_group_flow_delete()");
-            cleanupService.deleteByGroupId(TARGET_GROUP_ID);
-        }
+        assertEquals(1, flowRepository.findAllByGroupId(TARGET_GROUP_ID).size());
+        assertEquals(2, nodeRepository.findByFlowId(flow.getId()).size());
+        assertEquals(1, linkRepository.findByFlowId(flow.getId()).size());
     }
 
     private Flow saveConfiguration(Long groupId, Long locationId, String name, FlowStatus status) {

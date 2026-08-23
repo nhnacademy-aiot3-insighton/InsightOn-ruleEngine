@@ -1,8 +1,8 @@
 package com.nhnacademy.insightonruleengine.runner.messaging;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.nhnacademy.insightonruleengine.flow.cleanup.GroupDeletionCleanupService;
 import com.nhnacademy.insightonruleengine.runner.dto.GroupDeletedEvent;
@@ -43,7 +43,7 @@ class GroupDeletionListenerTest {
         GroupDeletedEvent event = new GroupDeletedEvent(0L, List.of());
 
         assertThrows(IllegalArgumentException.class, () -> listener.consume(event));
-        verify(cleanupService, never()).cleanup(10L, List.of());
+        verifyNoInteractions(cleanupService);
     }
 
 }
