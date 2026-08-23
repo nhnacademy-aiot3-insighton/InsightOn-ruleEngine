@@ -20,8 +20,12 @@ class GroupDeletedEventTest {
     @Test
     @DisplayName("그룹 ID 또는 장소 ID 목록이 계약과 다르면 거부합니다")
     void invalidContractTest() {
-        assertThrows(IllegalArgumentException.class, () -> new GroupDeletedEvent(0L, List.of()).validate());
-        assertThrows(IllegalArgumentException.class, () -> new GroupDeletedEvent(10L, null).validate());
-        assertThrows(IllegalArgumentException.class, () -> new GroupDeletedEvent(10L, List.of(0L)).validate());
+        GroupDeletedEvent invalidGroupId = new GroupDeletedEvent(0L, List.of());
+        GroupDeletedEvent missingLocations = new GroupDeletedEvent(10L, null);
+        GroupDeletedEvent invalidLocationId = new GroupDeletedEvent(10L, List.of(0L));
+
+        assertThrows(IllegalArgumentException.class, invalidGroupId::validate);
+        assertThrows(IllegalArgumentException.class, missingLocations::validate);
+        assertThrows(IllegalArgumentException.class, invalidLocationId::validate);
     }
 }

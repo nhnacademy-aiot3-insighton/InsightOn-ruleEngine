@@ -19,6 +19,7 @@ import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
 import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,9 +70,9 @@ class GroupDeletionCleanupServiceTest {
         Flow first = flow(100L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 10L, FlowStatus.INACTIVE);
         Flow third = flow(300L, 20L, FlowStatus.ARCHIVED);
-        Node countAndCooldown = alertNode(1001L, 100L, 2, 30);
-        Node cooldownOnly = alertNode(1002L, 100L, 1, 30);
-        Node nonAlert = node(2001L, 200L, NodeType.THRESHOLD);
+        Node countAndCooldown = alertNode(1001L, 2);
+        Node cooldownOnly = alertNode(1002L, 1);
+        Node nonAlert = thresholdNode();
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of(third, first, second));
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L, 300L)))
                 .thenReturn(List.of(countAndCooldown, cooldownOnly, nonAlert));
@@ -133,8 +134,9 @@ class GroupDeletionCleanupServiceTest {
         when(nodeRepository.findByFlowIdIn(List.of(100L))).thenReturn(List.of());
         org.mockito.Mockito.doThrow(new RedisConnectionFailureException("Redis unavailable"))
                 .when(flowRouteRedisRepository).delete(1L, 10L);
+        List<Long> locationIds = List.of(10L);
 
-        assertThrows(RedisConnectionFailureException.class, () -> cleanupService.cleanup(1L, List.of(10L)));
+        assertThrows(RedisConnectionFailureException.class, () -> cleanupService.cleanup(1L, locationIds));
 
         verify(databaseCleanupService, never()).deleteByGroupId(1L);
     }
@@ -162,10 +164,11 @@ class GroupDeletionCleanupServiceTest {
         doThrow(new IllegalStateException("DB unavailable"))
                 .doNothing()
                 .when(databaseCleanupService).deleteByGroupId(1L);
+        List<Long> locationIds = List.of(10L);
 
         assertThrows(
                 IllegalStateException.class,
-                () -> cleanupService.cleanup(1L, List.of(10L))
+                () -> cleanupService.cleanup(1L, locationIds)
         );
         cleanupService.cleanup(1L, List.of(10L));
 
@@ -187,6 +190,35 @@ class GroupDeletionCleanupServiceTest {
         verify(databaseCleanupService, times(2)).deleteByLocationId(10L);
     }
 
+    @Test
+    @DisplayName("그룹 삭제는 양수가 아닌 그룹 ID와 잘못된 장소 목록을 거부합니다")
+    void invalidGroupDeletionIdsTest() {
+        List<Long> emptyLocationIds = List.of();
+        List<Long> zeroLocationId = List.of(0L);
+        List<Long> negativeLocationId = List.of(-1L);
+
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(null, emptyLocationIds));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(0L, emptyLocationIds));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, null));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, zeroLocationId));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, negativeLocationId));
+
+        List<Long> locationIdsWithNull = new ArrayList<>();
+        locationIdsWithNull.add(null);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> cleanupService.cleanup(1L, locationIdsWithNull)
+        );
+    }
+
+    @Test
+    @DisplayName("장소 삭제는 양수인 Location ID만 허용합니다")
+    void invalidLocationDeletionIdTest() {
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(null));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(0L));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(-1L));
+    }
+
     private Flow flow(Long flowId, Long locationId, FlowStatus status) {
         return flow(flowId, 1L, locationId, status);
     }
@@ -197,21 +229,21 @@ class GroupDeletionCleanupServiceTest {
         return flow;
     }
 
-    private Node alertNode(Long nodeId, Long flowId, int requiredCount, int cooldownSeconds) {
+    private Node alertNode(Long nodeId, int requiredCount) {
         Node node = new Node(
-                flowId,
+                100L,
                 NodeType.ALERT,
                 JsonNodeFactory.instance.objectNode()
                         .put("requiredCount", requiredCount)
-                        .put("cooldownSeconds", cooldownSeconds)
+                        .put("cooldownSeconds", 30)
         );
         ReflectionTestUtils.setField(node, "id", nodeId);
         return node;
     }
 
-    private Node node(Long nodeId, Long flowId, NodeType nodeType) {
-        Node node = new Node(flowId, nodeType, JsonNodeFactory.instance.objectNode());
-        ReflectionTestUtils.setField(node, "id", nodeId);
+    private Node thresholdNode() {
+        Node node = new Node(200L, NodeType.THRESHOLD, JsonNodeFactory.instance.objectNode());
+        ReflectionTestUtils.setField(node, "id", 2001L);
         return node;
     }
 }

@@ -17,7 +17,10 @@ class LocationDeletedEventTest {
     @Test
     @DisplayName("비어 있거나 양수가 아닌 locationId는 거부합니다")
     void invalidEventTest() {
-        assertThrows(IllegalArgumentException.class, () -> new LocationDeletedEvent(null).validate());
-        assertThrows(IllegalArgumentException.class, () -> new LocationDeletedEvent(0L).validate());
+        LocationDeletedEvent missingLocationId = new LocationDeletedEvent(null);
+        LocationDeletedEvent invalidLocationId = new LocationDeletedEvent(0L);
+
+        assertThrows(IllegalArgumentException.class, missingLocationId::validate);
+        assertThrows(IllegalArgumentException.class, invalidLocationId::validate);
     }
 }

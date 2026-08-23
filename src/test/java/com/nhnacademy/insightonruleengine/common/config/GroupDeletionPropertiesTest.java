@@ -12,7 +12,7 @@ class GroupDeletionPropertiesTest {
     @Test
     @DisplayName("활성 설정은 공유 RabbitMQ 계약과 재시도 값을 모두 검증합니다")
     void enabledConfigurationTest() {
-        GroupDeletionProperties properties = properties(true, "insighton.core-events", 3);
+        GroupDeletionProperties properties = properties("insighton.core-events", 3);
 
         assertDoesNotThrow(properties::validateEnabledConfiguration);
     }
@@ -20,14 +20,38 @@ class GroupDeletionPropertiesTest {
     @Test
     @DisplayName("활성 상태에서 Exchange가 없거나 재시도 횟수가 잘못되면 거부합니다")
     void invalidEnabledConfigurationTest() {
+        GroupDeletionProperties missingExchange = properties(" ", 3);
+        GroupDeletionProperties invalidAttempts = properties("insighton.core-events", 0);
+
         assertThrows(
                 IllegalArgumentException.class,
-                () -> properties(true, " ", 3).validateEnabledConfiguration()
+                missingExchange::validateEnabledConfiguration
         );
         assertThrows(
                 IllegalStateException.class,
-                () -> properties(true, "insighton.core-events", 0).validateEnabledConfiguration()
+                invalidAttempts::validateEnabledConfiguration
         );
+    }
+
+    @Test
+    @DisplayName("활성 상태에서는 모든 RabbitMQ 이름이 필요합니다")
+    void missingRabbitNamesTest() {
+        assertInvalidNames(properties(null, "group.deleted", "queue", "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", null, "queue", "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "group.deleted", null, "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "group.deleted", "queue", null, "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "group.deleted", "queue", "dlx", null, "dlq"));
+        assertInvalidNames(properties("exchange", "group.deleted", "queue", "dlx", "dlq", null));
+    }
+
+    @Test
+    @DisplayName("활성 상태에서는 올바른 재시도 간격과 배수가 필요합니다")
+    void invalidRetrySettingsTest() {
+        assertInvalidRetry(properties(null, 2.0, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(Duration.ofSeconds(-1), 2.0, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(Duration.ofSeconds(1), 0.5, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(Duration.ofSeconds(1), 2.0, null));
+        assertInvalidRetry(properties(Duration.ofSeconds(2), 2.0, Duration.ofSeconds(1)));
     }
 
     @Test
@@ -40,9 +64,9 @@ class GroupDeletionPropertiesTest {
         assertDoesNotThrow(properties::validateEnabledConfiguration);
     }
 
-    private GroupDeletionProperties properties(boolean enabled, String exchange, int maxAttempts) {
+    private GroupDeletionProperties properties(String exchange, int maxAttempts) {
         return new GroupDeletionProperties(
-                enabled,
+                true,
                 exchange,
                 "group.deleted",
                 "rule-engine.group-deleted",
@@ -54,5 +78,56 @@ class GroupDeletionPropertiesTest {
                 2.0,
                 Duration.ofSeconds(5)
         );
+    }
+
+    private GroupDeletionProperties properties(
+            String exchange,
+            String routingKey,
+            String queue,
+            String deadLetterExchange,
+            String deadLetterRoutingKey,
+            String deadLetterQueue
+    ) {
+        return new GroupDeletionProperties(
+                true,
+                exchange,
+                routingKey,
+                queue,
+                deadLetterExchange,
+                deadLetterRoutingKey,
+                deadLetterQueue,
+                3,
+                Duration.ofSeconds(1),
+                2.0,
+                Duration.ofSeconds(10)
+        );
+    }
+
+    private GroupDeletionProperties properties(
+            Duration initialInterval,
+            double multiplier,
+            Duration maxInterval
+    ) {
+        return new GroupDeletionProperties(
+                true,
+                "exchange",
+                "group.deleted",
+                "queue",
+                "dlx",
+                "dlq",
+                "dlq",
+                3,
+                initialInterval,
+                multiplier,
+                maxInterval
+        );
+    }
+
+    private void assertInvalidNames(GroupDeletionProperties properties) {
+        assertThrows(IllegalArgumentException.class, properties::validateEnabledConfiguration);
+    }
+
+    private void assertInvalidRetry(GroupDeletionProperties properties) {
+        assertThrows(IllegalStateException.class, properties::validateEnabledConfiguration);
     }
 }

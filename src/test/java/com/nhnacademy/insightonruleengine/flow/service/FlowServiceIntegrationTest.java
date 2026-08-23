@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -95,7 +95,7 @@ class FlowServiceIntegrationTest {
         Flow archivedFlow = flowRepository.findById(currentFlowId).orElseThrow();
         Flow updatedFlow = flowRepository.findById(response.flowId()).orElseThrow();
 
-        assertFalse(currentFlowId.equals(response.flowId()));
+        assertNotEquals(currentFlowId, response.flowId());
         assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
         assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
         assertEquals(10L, updatedFlow.getLocationId());
@@ -134,6 +134,7 @@ class FlowServiceIntegrationTest {
                 new Flow(1L, 10L, "온도 경고 v2", null, FlowStatus.ARCHIVED)
         );
         Long currentFlowId = currentFlow.getId();
+        FlowUpdateRequest duplicateNameRequest = updateRequest("온도 경고 v2", null);
 
         assertThrows(
                 DuplicateFlowNameException.class,
@@ -141,7 +142,7 @@ class FlowServiceIntegrationTest {
                         1L,
                         100L,
                         currentFlowId,
-                        updateRequest("온도 경고 v2", null)
+                        duplicateNameRequest
                 )
         );
         entityManager.flush();

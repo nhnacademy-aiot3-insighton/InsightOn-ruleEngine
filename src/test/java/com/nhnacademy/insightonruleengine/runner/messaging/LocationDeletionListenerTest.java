@@ -37,7 +37,9 @@ class LocationDeletionListenerTest {
     @Test
     @DisplayName("잘못된 장소 삭제 이벤트는 정리하지 않고 예외를 전파합니다")
     void rejectInvalidEventTest() {
-        assertThrows(IllegalArgumentException.class, () -> listener.consume(new LocationDeletedEvent(0L)));
+        LocationDeletedEvent invalidEvent = new LocationDeletedEvent(0L);
+
+        assertThrows(IllegalArgumentException.class, () -> listener.consume(invalidEvent));
 
         verify(cleanupService, never()).cleanupLocation(0L);
     }

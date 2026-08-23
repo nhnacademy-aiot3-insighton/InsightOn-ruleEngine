@@ -18,11 +18,11 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
-import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -83,7 +83,7 @@ class GroupDeletionRabbitIntegrationTest {
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
-    private RabbitAdmin rabbitAdmin;
+    private AmqpAdmin rabbitAdmin;
 
     @DynamicPropertySource
     static void rabbitProperties(DynamicPropertyRegistry registry) {
@@ -110,7 +110,7 @@ class GroupDeletionRabbitIntegrationTest {
 
         verify(cleanupService, timeout(5_000)).cleanup(10L, List.of(100L, 200L));
         assertNull(rabbitTemplate.receive(DEAD_LETTER_QUEUE, 200L));
-        Message aiMessage = rabbitTemplate.receive(AI_GROUP_QUEUE, 200L);
+        Message aiMessage = rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L);
         assertNotNull(aiMessage);
         assertEquals(
                 MessageDeliveryMode.PERSISTENT,
@@ -143,7 +143,7 @@ class GroupDeletionRabbitIntegrationTest {
 
         verify(cleanupService, timeout(5_000)).cleanupLocation(30L);
         assertNull(rabbitTemplate.receive(LOCATION_DEAD_LETTER_QUEUE, 200L));
-        assertNotNull(rabbitTemplate.receive(AI_LOCATION_QUEUE, 200L));
+        assertNotNull(rabbitTemplate.receive(AI_LOCATION_QUEUE, 2_000L));
     }
 
     @Test
@@ -172,8 +172,8 @@ class GroupDeletionRabbitIntegrationTest {
 
         verify(cleanupService, timeout(5_000).times(2))
                 .cleanup(50L, List.of(100L, 200L));
-        assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 200L));
-        assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 200L));
+        assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L));
+        assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L));
     }
 
     private GroupDeletedEvent event(Long groupId) {

@@ -31,6 +31,27 @@ class LocationDeletionPropertiesTest {
         assertThrows(IllegalStateException.class, invalidBackoff::validateEnabledConfiguration);
     }
 
+    @Test
+    @DisplayName("활성 상태에서는 모든 RabbitMQ 이름이 필요합니다")
+    void missingRabbitNamesTest() {
+        assertInvalidNames(properties(null, "location.deleted", "queue", "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", null, "queue", "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "location.deleted", null, "dlx", "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "location.deleted", "queue", null, "dlq", "dlq"));
+        assertInvalidNames(properties("exchange", "location.deleted", "queue", "dlx", null, "dlq"));
+        assertInvalidNames(properties("exchange", "location.deleted", "queue", "dlx", "dlq", null));
+    }
+
+    @Test
+    @DisplayName("활성 상태에서는 올바른 재시도 간격과 배수가 필요합니다")
+    void invalidRetrySettingsTest() {
+        assertInvalidRetry(properties(3, null, 2, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(3, Duration.ofSeconds(-1), 2, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(3, Duration.ofSeconds(1), 0.5, Duration.ofSeconds(10)));
+        assertInvalidRetry(properties(3, Duration.ofSeconds(1), 2, null));
+        assertInvalidRetry(properties(3, Duration.ofSeconds(2), 2, Duration.ofSeconds(1)));
+    }
+
     private LocationDeletionProperties properties(
             int maxAttempts,
             Duration initialInterval,
@@ -50,5 +71,36 @@ class LocationDeletionPropertiesTest {
                 multiplier,
                 maxInterval
         );
+    }
+
+    private LocationDeletionProperties properties(
+            String exchange,
+            String routingKey,
+            String queue,
+            String deadLetterExchange,
+            String deadLetterRoutingKey,
+            String deadLetterQueue
+    ) {
+        return new LocationDeletionProperties(
+                true,
+                exchange,
+                routingKey,
+                queue,
+                deadLetterExchange,
+                deadLetterRoutingKey,
+                deadLetterQueue,
+                3,
+                Duration.ofSeconds(1),
+                2,
+                Duration.ofSeconds(10)
+        );
+    }
+
+    private void assertInvalidNames(LocationDeletionProperties properties) {
+        assertThrows(IllegalArgumentException.class, properties::validateEnabledConfiguration);
+    }
+
+    private void assertInvalidRetry(LocationDeletionProperties properties) {
+        assertThrows(IllegalStateException.class, properties::validateEnabledConfiguration);
     }
 }

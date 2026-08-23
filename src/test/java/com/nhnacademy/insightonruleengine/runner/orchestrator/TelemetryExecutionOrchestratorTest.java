@@ -7,7 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.runner.FlowRunner;
@@ -36,17 +35,15 @@ class TelemetryExecutionOrchestratorTest {
     @Mock
     private FlowRunner flowRunner;
 
-    private StaleTelemetryDetector staleTelemetryDetector;
     private TelemetryExecutionOrchestrator orchestrator;
 
     @BeforeEach
     void setUp() {
-        staleTelemetryDetector = new StaleTelemetryDetector();
+        StaleTelemetryDetector staleTelemetryDetector = new StaleTelemetryDetector();
         orchestrator = new TelemetryExecutionOrchestrator(
                 staleTelemetryDetector,
                 flowRuntimeRecoveryService,
-                flowRunner,
-                new ObjectMapper()
+                flowRunner
         );
     }
 
