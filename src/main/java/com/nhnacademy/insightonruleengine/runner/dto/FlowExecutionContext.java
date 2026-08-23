@@ -4,12 +4,12 @@ import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import java.time.Instant;
 import java.util.Map;
 
-public record FlowExecutionContext(
-        FlowDefinition flow,
-        SensorEvent event
-) {
+public final class FlowExecutionContext {
 
-    public FlowExecutionContext {
+    private final FlowDefinition flow;
+    private SensorEvent event;
+
+    public FlowExecutionContext(FlowDefinition flow, SensorEvent event) {
         if (flow == null) {
             throw new IllegalArgumentException("flow는 필수입니다.");
         }
@@ -19,6 +19,16 @@ public record FlowExecutionContext(
         if (event.metrics() == null || event.metrics().isEmpty()) {
             throw new IllegalArgumentException("event metrics는 필수입니다.");
         }
+        this.flow = flow;
+        this.event = event;
+    }
+
+    public FlowDefinition flow() {
+        return flow;
+    }
+
+    public SensorEvent event() {
+        return event;
     }
 
     public Map<String, Object> metrics() {
@@ -36,4 +46,14 @@ public record FlowExecutionContext(
         return event.timestamp();
     }
 
+    /** LOCATION trigger가 만든 최신 location metric snapshot을 이후 노드에 전달합니다. */
+    public void replaceMetrics(Map<String, Object> metrics) {
+        event = new SensorEvent(
+                event.groupId(),
+                event.locationId(),
+                event.sensorId(),
+                metrics,
+                event.timestamp()
+        );
+    }
 }
