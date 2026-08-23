@@ -65,7 +65,7 @@ class GroupDeletionCleanupServiceTest {
     }
 
     @Test
-    @DisplayName("정확한 ID로 Redis를 먼저 정리한 뒤 그룹 DB 데이터를 삭제합니다")
+    @DisplayName("그룹 DB 삭제 전·후에 동일한 ID로 Redis를 정리합니다")
     void redisThenDatabaseCleanupTest() {
         Flow first = flow(100L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 10L, FlowStatus.INACTIVE);
@@ -91,21 +91,25 @@ class GroupDeletionCleanupServiceTest {
 
         cleanupService.cleanup(1L, List.of(10L, 20L, 30L));
 
-        verify(flowRouteRedisRepository).delete(1L, 10L);
-        verify(flowRouteRedisRepository).delete(1L, 20L);
-        verify(flowRouteRedisRepository).delete(1L, 30L);
-        verify(activeFlowRedisRepository).delete(1L, 100L);
-        verify(activeFlowRedisRepository).delete(1L, 200L);
-        verify(activeFlowRedisRepository).delete(1L, 300L);
-        verify(alertCountRedisRepository).deleteStates(100L, Set.of(1001L), Set.of(1001L, 1002L));
-        verify(alertCountRedisRepository).deleteStates(200L, Set.of(), Set.of());
-        verify(alertCountRedisRepository).deleteStates(300L, Set.of(), Set.of());
+        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
+        verify(flowRouteRedisRepository, times(2)).delete(1L, 20L);
+        verify(flowRouteRedisRepository, times(2)).delete(1L, 30L);
+        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
+        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 20L);
+        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 30L);
+        verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
+        verify(activeFlowRedisRepository, times(2)).delete(1L, 200L);
+        verify(activeFlowRedisRepository, times(2)).delete(1L, 300L);
+        verify(alertCountRedisRepository, times(2))
+                .deleteStates(100L, Set.of(1001L), Set.of(1001L, 1002L));
+        verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
+        verify(alertCountRedisRepository, times(2)).deleteStates(300L, Set.of(), Set.of());
 
         verify(databaseCleanupService).deleteByGroupId(1L);
     }
 
     @Test
-    @DisplayName("장소 삭제는 조회한 Flow의 그룹별 Route와 실행 상태를 먼저 정리합니다")
+    @DisplayName("장소 DB 삭제 전·후에 조회한 Flow의 Route와 실행 상태를 정리합니다")
     void locationCleanupTest() {
         Flow first = flow(100L, 1L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 2L, 10L, FlowStatus.ARCHIVED);
@@ -123,6 +127,14 @@ class GroupDeletionCleanupServiceTest {
 
         cleanupService.cleanupLocation(10L);
 
+        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
+        verify(flowRouteRedisRepository, times(2)).delete(2L, 10L);
+        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
+        verify(activeFlowDefinitionProvider, times(2)).evictNow(2L, 10L);
+        verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
+        verify(activeFlowRedisRepository, times(2)).delete(2L, 200L);
+        verify(alertCountRedisRepository, times(2)).deleteStates(100L, Set.of(), Set.of());
+        verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
         verify(databaseCleanupService).deleteByLocationId(10L);
     }
 
@@ -150,8 +162,8 @@ class GroupDeletionCleanupServiceTest {
         cleanupService.cleanup(1L, List.of(10L));
 
         verify(nodeRepository, never()).findByFlowIdIn(org.mockito.ArgumentMatchers.anyList());
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
+        verify(flowRouteRedisRepository, times(4)).delete(1L, 10L);
+        verify(activeFlowDefinitionProvider, times(4)).evictNow(1L, 10L);
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
     }
 
@@ -172,9 +184,10 @@ class GroupDeletionCleanupServiceTest {
         );
         cleanupService.cleanup(1L, List.of(10L));
 
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
-        verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
+        verify(flowRouteRedisRepository, times(3)).delete(1L, 10L);
+        verify(activeFlowDefinitionProvider, times(3)).evictNow(1L, 10L);
+        verify(activeFlowRedisRepository, times(3)).delete(1L, 100L);
+        verify(alertCountRedisRepository, times(3)).deleteStates(100L, Set.of(), Set.of());
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
     }
 

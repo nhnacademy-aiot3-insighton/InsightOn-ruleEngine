@@ -49,6 +49,7 @@ public class GroupDeletionCleanupService {
         locationIds.forEach(locationId -> eventRouteKeys.add(new RouteKey(groupId, locationId)));
         cleanupRuntime(flows, nodes, eventRouteKeys);
         databaseCleanupService.deleteByGroupId(groupId);
+        cleanupRuntime(flows, nodes, eventRouteKeys);
     }
 
     public void cleanupLocation(Long locationId) {
@@ -63,6 +64,7 @@ public class GroupDeletionCleanupService {
         List<Node> nodes = flowIds.isEmpty() ? List.of() : nodeRepository.findByFlowIdIn(flowIds);
         cleanupRuntime(flows, nodes, Set.of());
         databaseCleanupService.deleteByLocationId(locationId);
+        cleanupRuntime(flows, nodes, Set.of());
     }
 
     private void cleanupRuntime(List<Flow> flows, List<Node> nodes, Set<RouteKey> additionalRouteKeys) {
