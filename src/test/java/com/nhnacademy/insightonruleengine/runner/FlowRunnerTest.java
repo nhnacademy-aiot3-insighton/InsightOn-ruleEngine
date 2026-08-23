@@ -2,13 +2,18 @@ package com.nhnacademy.insightonruleengine.runner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
@@ -22,6 +27,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +67,59 @@ class FlowRunnerTest {
         assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD), executed);
         assertEquals(2L, logger.terminalNodeId);
         assertFalse(logger.terminalActionReached);
+    }
+
+    @Test
+    @DisplayName("Filter가 아닌 노드의 false 출력은 실행 계약 오류로 기록한다")
+    void nonFilterFalseWithoutLinkFails() {
+        List<NodeType> executed = new ArrayList<>();
+        FlowRouter router = event -> List.of(singleSensorFlowDefinition());
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("false"), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(router, registry, logger);
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(NodeType.SENSOR), executed);
+        assertNotNull(logger.failure);
+        assertInstanceOf(IllegalStateException.class, logger.failure);
+    }
+
+    @Test
+    @DisplayName("deviceId만 저장된 기존 Actuator 설정도 실행 경로에서 파싱된다")
+    void legacyActuatorConfigurationRuns() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeParamsParser parser = new NodeParamsParser(
+                new ObjectMapper(),
+                Validation.buildDefaultValidatorFactory().getValidator());
+        NodeExecutor legacyActuatorExecutor = new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return NodeType.ACTUATOR_CONTROL;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                ActuatorControlParams params = parser.parse(NodeType.ACTUATOR_CONTROL, node.configuration());
+                assertEquals(900L, params.deviceId());
+                executed.add(node.nodeType());
+                return NodeExecutionResult.complete();
+            }
+        };
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                legacyActuatorExecutor
+        ));
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(legacyActuatorFlowDefinition()),
+                registry,
+                new RecordingExecutionLogger());
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(NodeType.SENSOR, NodeType.ACTUATOR_CONTROL), executed);
     }
 
     private NodeExecutor executor(
@@ -122,6 +181,29 @@ class FlowRunnerTest {
         );
     }
 
+    private FlowDefinition singleSensorFlowDefinition() {
+        return new FlowDefinition(
+                2L, 1L, 10L, "잘못된 센서 출력", null, FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(node(1L, NodeType.SENSOR)),
+                List.of()
+        );
+    }
+
+    private FlowDefinition legacyActuatorFlowDefinition() {
+        return new FlowDefinition(
+                3L, 1L, 10L, "기존 액추에이터", null, FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        new NodeDefinition(1L, NodeType.SENSOR,
+                                JsonNodeFactory.instance.objectNode().put("sensorId", 100L)),
+                        new NodeDefinition(2L, NodeType.ACTUATOR_CONTROL,
+                                JsonNodeFactory.instance.objectNode().put("deviceId", 900L))
+                ),
+                List.of(new LinkDefinition(1L, 3L, 1L, 2L, "out", "in"))
+        );
+    }
+
     private NodeDefinition node(Long nodeId, NodeType nodeType) {
         return new NodeDefinition(nodeId, nodeType, JsonNodeFactory.instance.objectNode());
     }
@@ -140,6 +222,7 @@ class FlowRunnerTest {
 
         private Long terminalNodeId;
         private boolean terminalActionReached;
+        private RuntimeException failure;
 
         @Override
         public void eventRouted(SensorEvent event, int flowCount) {
@@ -169,6 +252,7 @@ class FlowRunnerTest {
 
         @Override
         public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
+            this.failure = exception;
         }
 
         @Override

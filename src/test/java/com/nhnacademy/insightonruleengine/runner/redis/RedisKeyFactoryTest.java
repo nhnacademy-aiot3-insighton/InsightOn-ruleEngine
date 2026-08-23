@@ -16,6 +16,8 @@ class RedisKeyFactoryTest {
     void runtimeKeyNamespaceTest() {
         assertEquals("route:1:2", keyFactory.route(1L, 2L));
         assertEquals("active-flow:1:3", keyFactory.activeFlow(1L, 3L));
+        assertEquals("location-metrics:1:2", keyFactory.locationMetrics(1L, 2L));
+        assertEquals("location-metric-timestamps:1:2", keyFactory.locationMetricTimestamps(1L, 2L));
     }
 
     // Engine별 heartbeat가 독립된 Key로 저장되는지 검증합니다.
@@ -34,6 +36,8 @@ class RedisKeyFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> keyFactory.route(1L, 0L));
         assertThrows(IllegalArgumentException.class, () -> keyFactory.activeFlow(-1L, 1L));
         assertThrows(IllegalArgumentException.class, () -> keyFactory.activeFlow(1L, null));
+        assertThrows(IllegalArgumentException.class, () -> keyFactory.locationMetrics(0L, 1L));
+        assertThrows(IllegalArgumentException.class, () -> keyFactory.locationMetricTimestamps(1L, -1L));
     }
 
     // 공백 Engine ID가 공용 heartbeat Key로 합쳐지는 것을 방지합니다.

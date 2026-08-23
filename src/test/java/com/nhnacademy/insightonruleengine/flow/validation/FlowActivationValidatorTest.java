@@ -64,6 +64,29 @@ class FlowActivationValidatorTest {
         assertEquals("플로우를 활성화할 수 없습니다.", errors.getFirst().message());
     }
 
+    @Test
+    void legacyActuatorConfigurationCanBeActivated() {
+        FlowStructureValidator structureValidator = mock(FlowStructureValidator.class);
+        NodeExecutor executor = mock(NodeExecutor.class);
+        when(executor.supports()).thenReturn(NodeType.ACTUATOR_CONTROL);
+        NodeParamsParser parser = new NodeParamsParser(
+                new ObjectMapper(),
+                Validation.buildDefaultValidatorFactory().getValidator());
+        FlowActivationValidator validator = new FlowActivationValidator(
+                structureValidator,
+                parser,
+                new NodeExecutorRegistry(List.of(executor)),
+                new ThresholdEvaluator());
+
+        List<FlowStructureValidationError> errors = validator.validate(flow(
+                new NodeDefinition(
+                        1L,
+                        NodeType.ACTUATOR_CONTROL,
+                        new ObjectMapper().createObjectNode().put("deviceId", 900L))));
+
+        assertTrue(errors.isEmpty());
+    }
+
     private FlowDefinition flow(NodeDefinition node) {
         return new FlowDefinition(
                 1L,

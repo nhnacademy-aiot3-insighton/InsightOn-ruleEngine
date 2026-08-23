@@ -14,10 +14,14 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.heartbeat.EngineHeartbeatRepository;
+import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.location.RedisLocationMetricStateRepository;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
@@ -46,6 +50,7 @@ class RedisRuntimeRepositoryIntegrationTest {
     private static ActiveFlowRedisRepository activeFlowRepository;
     private static EngineHeartbeatRepository heartbeatRepository;
     private static AlertCountRedisRepository alertCountRedisRepository;
+    private static RedisLocationMetricStateRepository locationMetricStateRepository;
 
     // 실제 Redis 명령과 JSON 변환을 함께 검증할 Repository들을 컨테이너에 연결합니다.
     @BeforeAll
@@ -65,6 +70,8 @@ class RedisRuntimeRepositoryIntegrationTest {
         activeFlowRepository = new ActiveFlowRedisRepository(redisTemplate, objectMapper, keyFactory);
         heartbeatRepository = new EngineHeartbeatRepository(redisTemplate, keyFactory);
         alertCountRedisRepository = new AlertCountRedisRepository(redisTemplate, keyFactory);
+        locationMetricStateRepository = new RedisLocationMetricStateRepository(
+                redisTemplate, objectMapper, keyFactory);
     }
 
     // 테스트 간 Redis Key가 남아 결과를 바꾸지 않도록 매번 현재 DB만 비워줍니다.
@@ -158,6 +165,21 @@ class RedisRuntimeRepositoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("Location metric은 센서가 달라도 metric별 최신 timestamp 값으로 병합됩니다")
+    void latestLocationMetricStateTest() {
+        locationMetricStateRepository.mergeAndGet(event(
+                1L, 10L, 100L, "2026-08-11T00:00:02Z", Map.of("temperature", 25.0)));
+        Map<String, Object> snapshot = locationMetricStateRepository.mergeAndGet(event(
+                1L, 10L, 200L, "2026-08-11T00:00:01Z", Map.of("humidity", 60)));
+
+        assertEquals(Map.of("temperature", 25.0, "humidity", 60), snapshot);
+
+        Map<String, Object> afterOlderPacket = locationMetricStateRepository.mergeAndGet(event(
+                1L, 10L, 200L, "2026-08-11T00:00:00Z", Map.of("temperature", 10.0)));
+        assertEquals(25.0, afterOlderPacket.get("temperature"));
+    }
+
+    @Test
     @DisplayName("Flow Runtime State 정리는 전달한 Node ID의 COUNT와 Cooldown만 삭제합니다")
     void deleteFlowRuntimeStateTest() {
         redisTemplate.opsForValue().set("count:1:10", "2");
@@ -194,5 +216,15 @@ class RedisRuntimeRepositoryIntegrationTest {
                 nodes,
                 links
         );
+    }
+
+    private SensorEvent event(
+            Long groupId,
+            Long locationId,
+            Long sensorId,
+            String timestamp,
+            Map<String, Object> metrics
+    ) {
+        return new SensorEvent(groupId, locationId, sensorId, metrics, Instant.parse(timestamp));
     }
 }

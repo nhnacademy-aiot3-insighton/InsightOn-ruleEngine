@@ -9,7 +9,7 @@ import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
 public interface LocationMetricProcessor {
 
     /**
-     * Flow 실행에 필요한 메트릭 데이터를 준비한다.
+     * 현재 이벤트를 location의 최신 metric 상태에 병합하고 실행 컨텍스트를 갱신한다.
      *
      * @param context Flow 실행 컨텍스트
      */

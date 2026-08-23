@@ -1,9 +1,5 @@
 package com.nhnacademy.insightonruleengine.flow.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
@@ -29,6 +25,8 @@ import com.nhnacademy.insightonruleengine.flow.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.validation.NodeValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,13 +93,13 @@ class FlowServiceIntegrationTest {
         Flow archivedFlow = flowRepository.findById(currentFlowId).orElseThrow();
         Flow updatedFlow = flowRepository.findById(response.flowId()).orElseThrow();
 
-        assertFalse(currentFlowId.equals(response.flowId()));
-        assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
-        assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
-        assertEquals(10L, updatedFlow.getLocationId());
-        assertEquals("온도 경고 v2", updatedFlow.getName());
-        assertEquals(2, nodeRepository.findByFlowId(response.flowId()).size());
-        assertEquals(1, linkRepository.findByFlowId(response.flowId()).size());
+        Assertions.assertNotEquals(currentFlowId, response.flowId());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
+        Assertions.assertEquals(10L, updatedFlow.getLocationId());
+        Assertions.assertEquals("온도 경고 v2", updatedFlow.getName());
+        Assertions.assertEquals(2, nodeRepository.findByFlowId(response.flowId()).size());
+        Assertions.assertEquals(1, linkRepository.findByFlowId(response.flowId()).size());
     }
 
     @Test
@@ -119,29 +117,35 @@ class FlowServiceIntegrationTest {
 
         Flow restoredFlow = flowRepository.findById(archivedFlowId).orElseThrow();
 
-        assertEquals(beforeCount, flowRepository.count());
-        assertEquals(archivedFlowId, response.flowId());
-        assertEquals(FlowStatus.INACTIVE, restoredFlow.getStatus());
+        Assertions.assertEquals(beforeCount, flowRepository.count());
+        Assertions.assertEquals(archivedFlowId, response.flowId());
+        Assertions.assertEquals(FlowStatus.INACTIVE, restoredFlow.getStatus());
     }
 
     @Test
     @DisplayName("Flow 수정 검증 실패 시 기존 Flow 상태를 유지한다")
     void failedUpdateKeepsCurrentFlow() {
+        long groupId = 1L;
+        long userId = 100L;
+        long locationId = 10L;
+        String currentFlowName = "온도 경고 v1";
+        String duplicateFlowName = "온도 경고 v2";
+
         Flow currentFlow = flowRepository.save(
-                new Flow(1L, 10L, "온도 경고 v1", null, FlowStatus.ACTIVE)
+                new Flow(groupId, locationId, currentFlowName, null, FlowStatus.ACTIVE)
         );
         flowRepository.saveAndFlush(
-                new Flow(1L, 10L, "온도 경고 v2", null, FlowStatus.ARCHIVED)
+                new Flow(groupId, locationId, duplicateFlowName, null, FlowStatus.ARCHIVED)
         );
         Long currentFlowId = currentFlow.getId();
 
-        assertThrows(
+        Assertions.assertThrows(
                 DuplicateFlowNameException.class,
                 () -> flowService.update(
-                        1L,
-                        100L,
+                        groupId,
+                        userId,
                         currentFlowId,
-                        updateRequest("온도 경고 v2", null)
+                        updateRequest(duplicateFlowName, null)
                 )
         );
         entityManager.flush();
@@ -149,8 +153,8 @@ class FlowServiceIntegrationTest {
 
         Flow unchangedFlow = flowRepository.findById(currentFlowId).orElseThrow();
 
-        assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
-        assertEquals(2L, flowRepository.count());
+        Assertions.assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
+        Assertions.assertEquals(2L, flowRepository.count());
     }
 
     // 실제 구조 검증기가 저장 전에 요청을 거부해 기존 Flow와 저장 데이터를 보호하는지 확인합니다.
@@ -182,7 +186,7 @@ class FlowServiceIntegrationTest {
                         .build()))
                 .build();
 
-        assertThrows(
+        Assertions.assertThrows(
                 InvalidFlowStructureException.class,
                 () -> flowService.update(1L, 100L, currentFlowId, invalidRequest)
         );
@@ -191,10 +195,10 @@ class FlowServiceIntegrationTest {
 
         Flow unchangedFlow = flowRepository.findById(currentFlowId).orElseThrow();
 
-        assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
-        assertEquals(1L, flowRepository.count());
-        assertEquals(0L, nodeRepository.count());
-        assertEquals(0L, linkRepository.count());
+        Assertions.assertEquals(FlowStatus.ACTIVE, unchangedFlow.getStatus());
+        Assertions.assertEquals(1L, flowRepository.count());
+        Assertions.assertEquals(0L, nodeRepository.count());
+        Assertions.assertEquals(0L, linkRepository.count());
     }
 
     private FlowUpdateRequest updateRequest(String name, String description) {

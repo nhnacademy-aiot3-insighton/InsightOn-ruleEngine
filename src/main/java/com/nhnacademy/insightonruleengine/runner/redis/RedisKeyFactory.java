@@ -13,6 +13,8 @@ public class RedisKeyFactory {
     private static final String ROUTE_KEY_FORMAT = "route:%d:%d";
     private static final String COUNT_KEY_FORMAT = "count:%d:%d";
     private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
+    private static final String LOCATION_METRICS_KEY_FORMAT = "location-metrics:%d:%d";
+    private static final String LOCATION_METRIC_TIMESTAMPS_KEY_FORMAT = "location-metric-timestamps:%d:%d";
 
     private static final String FIELD_GROUP_ID = "groupId";
     private static final String FIELD_LOCATION_ID = "locationId";
@@ -51,6 +53,18 @@ public class RedisKeyFactory {
         validateId(flowId, FIELD_FLOW_ID);
         validateId(actionNodeId, FIELD_ACTION_NODE_ID);
         return COOLDOWN_KEY_FORMAT.formatted(flowId, actionNodeId);
+    }
+
+    public String locationMetrics(Long groupId, Long locationId) {
+        validateId(groupId, FIELD_GROUP_ID);
+        validateId(locationId, FIELD_LOCATION_ID);
+        return LOCATION_METRICS_KEY_FORMAT.formatted(groupId, locationId);
+    }
+
+    public String locationMetricTimestamps(Long groupId, Long locationId) {
+        validateId(groupId, FIELD_GROUP_ID);
+        validateId(locationId, FIELD_LOCATION_ID);
+        return LOCATION_METRIC_TIMESTAMPS_KEY_FORMAT.formatted(groupId, locationId);
     }
 
     private void validateId(Long id, String fileName) {
