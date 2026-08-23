@@ -10,12 +10,13 @@ import lombok.Builder;
 @Builder
 public record FlowUpdateRequest(
         @NotBlank
-        @Size(max = 100)
-        String name,
-        String description,
-        @NotEmpty
-        List<@Valid FlowNodeRequest> nodes,
-        @NotEmpty
-        List<@Valid FlowLinkRequest> links
+    @Size(max = 100)
+    String name,
+    @Size(max = 2000)
+    String description,
+    @NotEmpty @Size(max = 500)
+    List<@Valid FlowNodeRequest> nodes,
+    @NotEmpty @Size(max = 1000)
+    List<@Valid FlowLinkRequest> links
 ) {
 }

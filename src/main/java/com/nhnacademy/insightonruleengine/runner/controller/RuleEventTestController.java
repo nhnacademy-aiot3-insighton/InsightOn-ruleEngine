@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.runner.controller;
 
 import com.nhnacademy.insightonruleengine.runner.FlowRunner;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class RuleEventTestController {
     private final FlowRunner flowRunner;
 
     @PostMapping("/test")
-    public ResponseEntity<Void> run(@RequestBody SensorEvent event) {
+    public ResponseEntity<Void> run(@Valid @RequestBody SensorEvent event) {
         flowRunner.run(event);
         return ResponseEntity.accepted().build();
     }
