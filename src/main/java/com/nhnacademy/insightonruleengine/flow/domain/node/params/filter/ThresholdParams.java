@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.flow.domain.node.params.filter;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * node_type = THRESHOLD.
@@ -10,6 +11,6 @@ import jakarta.validation.constraints.NotBlank;
  * 여러 조건의 AND 결합은 이 타입을 Link로 직렬 연결하는 것으로 표현한다.
  */
 public record ThresholdParams(
-        @NotBlank String expression
+        @NotBlank @Size(max = 1000) String expression
 ) implements NodeParams {
 }
