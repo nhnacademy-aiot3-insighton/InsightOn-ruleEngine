@@ -38,28 +38,29 @@ public class FlowRunner {
         } catch (RuntimeException exception) {
             log.error(
                     "센서 이벤트 라우팅에 실패했습니다. groupId={}, locationId={}, sensorId={}",
-                    event.groupId(),
-                    event.locationId(),
-                    event.sensorId(),
-                    exception);
+                    event.groupId(), event.locationId(), event.sensorId(), exception);
             return;
         }
         executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
             ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
             try {
-                runFlow(flow, event, logContext);
+                executeFlow(flow, event, logContext);
             } catch (RuntimeException exception) {
                 executionLogger.flowFailed(logContext, exception);
             }
         }
     }
 
-    void runFlow(FlowDefinition flow, SensorEvent event) {
-        runFlow(flow, event, ExecutionLogContext.create(flow, event));
+    public void runFlow(FlowDefinition flow, SensorEvent event) {
+        if (flow == null || event == null) {
+            throw new IllegalArgumentException("flow와 event는 필수입니다.");
+        }
+        ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
+        executeFlow(flow, event, logContext);
     }
 
-    private void runFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
+    private void executeFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
         FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
         NodeDefinition current = findTriggerNode(flow);
         FlowExecutionContext context = new FlowExecutionContext(flow, event);
@@ -87,7 +88,7 @@ public class FlowRunner {
                 return null;
             }
 
-            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort());
+            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
             if (nextLink == null && "false".equals(result.outputPort())) {
                 executionLogger.flowFinished(logContext, current.nodeId(), false);
                 return null;

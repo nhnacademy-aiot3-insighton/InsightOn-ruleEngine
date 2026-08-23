@@ -5,6 +5,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.LinkNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.NodeNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class FlowDefinitionIndex {
 
@@ -39,7 +40,9 @@ public class FlowDefinitionIndex {
             Long sourceNodeId,
             String sourcePort
     ) {
-        LinkDefinition link = findLink(sourceNodeId, sourcePort);
+        LinkDefinition link = linkDefinitionMap.get(
+                new SourcePortKey(sourceNodeId, sourcePort)
+        );
 
         if (link == null) {
             throw new LinkNotFoundException(sourceNodeId, sourcePort);
@@ -48,11 +51,12 @@ public class FlowDefinitionIndex {
         return link;
     }
 
-    public LinkDefinition findLink(
-            Long sourceNodeId,
-            String sourcePort
-    ) {
-        return linkDefinitionMap.get(new SourcePortKey(sourceNodeId, sourcePort));
+    //Source Node와 Port에 해당하는 다음 Link를 안전하게 조회합니다. FlowRunner에서 사용
+    public Optional<LinkDefinition> findLink(Long sourceNodeId, String sourcePort) {
+        if(sourceNodeId == null || sourcePort == null){
+            return Optional.empty();
+        }
+        return Optional.ofNullable(linkDefinitionMap.get(new SourcePortKey(sourceNodeId, sourcePort)));
     }
 
     // 인덱스 노드: 노드 조회를 위함 DB 저장이 끝난 FlowDefinition을 실행할 때 사용하는 메서드
