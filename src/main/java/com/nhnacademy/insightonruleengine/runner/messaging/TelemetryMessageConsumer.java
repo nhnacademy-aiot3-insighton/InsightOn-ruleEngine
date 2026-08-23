@@ -1,8 +1,8 @@
 package com.nhnacademy.insightonruleengine.runner.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.runner.dto.TelemetryEventMessage;
-import com.nhnacademy.insightonruleengine.runner.orchestrator.TelemetryExecutionOrchestrator;
+import com.nhnacademy.insightonruleengine.runner.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,58 +16,51 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
 
-    private final ObjectMapper objectMapper;
-    private final TelemetryExecutionOrchestrator telemetryExecutionOrchestrator;
+    private static final int MAX_MESSAGE_BYTES = 256 * 1024;
 
-    // RabbitMQ 큐로부터 메시지를 수신하여 검증 후 오케스트레이터를 실행하고 항상 수동 ACK합니다.
+    private final ObjectMapper objectMapper;
+    private final FlowRunner flowRunner;
+
     @Override
     public void onMessage(Message message, Channel channel) throws Exception {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
-        try {
-            byte[] body = message.getBody();
-            if (body == null || body.length == 0) {
-                log.warn("Telemetry message body is empty. Discarding message. deliveryTag={}", deliveryTag);
-                return;
-            }
-
-            TelemetryEventMessage eventMessage = deserialize(body, deliveryTag);
-            if (eventMessage == null) {
-                return;
-            }
-
-            if (!isValid(eventMessage, deliveryTag)) {
-                return;
-            }
-
-            telemetryExecutionOrchestrator.orchestrate(eventMessage);
-
-        } catch (Exception exception) {
-            log.error(
-                    "Unexpected error occurred while processing Telemetry message. Discarding message. deliveryTag={}",
-                    deliveryTag, exception);
-        } finally {
+        byte[] body = message.getBody();
+        if (body == null || body.length == 0 || body.length > MAX_MESSAGE_BYTES) {
+            log.warn("Telemetry message body size is invalid. Discarding message. deliveryTag={}, size={}",
+                    deliveryTag, body == null ? 0 : body.length);
             channel.basicAck(deliveryTag, false);
+            return;
         }
-    }
 
-    private TelemetryEventMessage deserialize(byte[] body, long deliveryTag) {
+        SensorEvent sensorEvent = parseAndValidate(body, deliveryTag);
+        if (sensorEvent == null) {
+            channel.basicAck(deliveryTag, false);
+            return;
+        }
+
         try {
-            return objectMapper.readValue(body, TelemetryEventMessage.class);
-        } catch (Exception exception) {
-            log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}",
+            flowRunner.run(sensorEvent);
+            channel.basicAck(deliveryTag, false);
+        } catch (RuntimeException exception) {
+            log.error(
+                    "Telemetry message processing failed. Requeueing message. deliveryTag={}",
                     deliveryTag, exception);
-            return null;
+            channel.basicNack(deliveryTag, false, true);
         }
     }
 
-    private boolean isValid(TelemetryEventMessage eventMessage, long deliveryTag) {
+    private SensorEvent parseAndValidate(byte[] body, long deliveryTag) {
         try {
-            eventMessage.validate();
-            return true;
+            return objectMapper.readValue(body, SensorEvent.class);
         } catch (IllegalArgumentException exception) {
             log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
                     exception.getMessage(), deliveryTag);
-            return false;
+            return null;
+        } catch (Exception exception) {
+            log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}, errorType={}",
+                    deliveryTag, exception.getClass().getSimpleName());
+            log.debug("Telemetry message deserialization failure. deliveryTag={}", deliveryTag, exception);
+            return null;
         }
     }
 }
