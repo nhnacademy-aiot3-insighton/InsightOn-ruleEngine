@@ -43,9 +43,9 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
             channel.basicAck(deliveryTag, false);
         } catch (RuntimeException exception) {
             log.error(
-                    "Telemetry message processing failed. Requeueing message. deliveryTag={}",
+                    "Telemetry message processing failed. Discarding message. deliveryTag={}",
                     deliveryTag, exception);
-            channel.basicNack(deliveryTag, false, true);
+            channel.basicAck(deliveryTag, false);
         }
     }
 

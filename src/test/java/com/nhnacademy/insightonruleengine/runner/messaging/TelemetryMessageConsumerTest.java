@@ -80,14 +80,14 @@ class TelemetryMessageConsumerTest {
     }
 
     @Test
-    @DisplayName("FlowRunner 실행 중 예외가 발생하면 메시지를 재큐잉합니다.")
+    @DisplayName("FlowRunner 실행 중 예외가 발생해도 실시간 우선 정책에 따라 폐기합니다.")
     void runnerExceptionTest() throws Exception {
         byte[] body = validBody();
         Message message = createMessage(106L, body);
         doThrow(new RuntimeException("Execution failed")).when(flowRunner).run(any(SensorEvent.class));
         consumer.onMessage(message, channel);
-        verify(channel).basicNack(106L, false, true);
-        verify(channel, never()).basicAck(106L, false);
+        verify(channel).basicAck(106L, false);
+        verify(channel, never()).basicNack(106L, false, true);
     }
 
     @Test

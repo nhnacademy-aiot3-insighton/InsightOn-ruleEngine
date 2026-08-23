@@ -81,6 +81,32 @@ class NodeConfigurationValidatorTest {
         assertTrue(validator.validate(List.of(missing)).isEmpty());
     }
 
+    @Test
+    @DisplayName("deviceId만 포함한 기존 Actuator configuration은 호환 검증을 통과합니다.")
+    void legacyActuatorConfigurationTest() {
+        FlowNodeRequest legacyActuator = node(
+                "actuator",
+                NodeType.ACTUATOR_CONTROL,
+                JsonNodeFactory.instance.objectNode().put("deviceId", 900L)
+        );
+
+        assertTrue(validator.validate(List.of(legacyActuator)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("일부만 입력한 신규 Actuator configuration은 거부합니다.")
+    void incompleteNewActuatorConfigurationTest() {
+        FlowNodeRequest actuator = node(
+                "actuator",
+                NodeType.ACTUATOR_CONTROL,
+                JsonNodeFactory.instance.objectNode()
+                        .put("actuatorType", "HVAC")
+                        .put("command", "SET")
+        );
+
+        assertEquals(1, validator.validate(List.of(actuator)).size());
+    }
+
     private FlowNodeRequest node(
             String clientNodeKey,
             NodeType nodeType,

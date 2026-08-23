@@ -51,8 +51,9 @@ public class FlowActivationValidator {
         try {
             nodeExecutorRegistry.get(node.nodeType());
         } catch (RuntimeException exception) {
-            log.error(
-                    "Flow 활성화 검증 중 Node Executor를 찾지 못했습니다. flowId={}, nodeId={}, nodeType={}", flowId, node.nodeId(), node.nodeType(), exception);
+            log.warn(
+                    "Flow 활성화 검증 중 Node Executor를 찾지 못했습니다. flowId={}, nodeId={}, nodeType={}",
+                    flowId, node.nodeId(), node.nodeType());
 
             errors.add(error(
                     FlowExecutableErrorCode.UNSUPPORTED_NODE_EXECUTOR,
