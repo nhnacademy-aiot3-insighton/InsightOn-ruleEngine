@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.exception;
+package com.nhnacademy.insightonruleengine.flow.domain.exception;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

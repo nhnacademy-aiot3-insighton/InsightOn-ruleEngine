@@ -2,7 +2,7 @@ package com.nhnacademy.insightonruleengine.flow.domain.exception;
 
 import com.nhnacademy.insightonruleengine.common.exception.EngineException;
 import com.nhnacademy.insightonruleengine.common.exception.ErrorCode;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import java.util.List;
 
 // 규칙 기반 플로우 구성에 기본 구조 오류가 있을 때 발생.

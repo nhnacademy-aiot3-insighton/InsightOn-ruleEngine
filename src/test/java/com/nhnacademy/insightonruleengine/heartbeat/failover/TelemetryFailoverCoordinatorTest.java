@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.heartbeat;
+package com.nhnacademy.insightonruleengine.heartbeat.failover;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -8,8 +8,8 @@ import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineStatus;
 import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
-import com.nhnacademy.insightonruleengine.heartbeat.TelemetryFailoverCoordinator;
-import com.nhnacademy.insightonruleengine.runner.messaging.TelemetryListenerContainerManager;
+import com.nhnacademy.insightonruleengine.heartbeat.failover.TelemetryFailoverCoordinator;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.TelemetryListenerContainerManager;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.service;
+package com.nhnacademy.insightonruleengine.flow.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -6,20 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
-import com.nhnacademy.insightonruleengine.runner.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowResponse;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.FlowService;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator;

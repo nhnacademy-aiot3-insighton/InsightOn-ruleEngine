@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
-import com.nhnacademy.insightonruleengine.runner.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

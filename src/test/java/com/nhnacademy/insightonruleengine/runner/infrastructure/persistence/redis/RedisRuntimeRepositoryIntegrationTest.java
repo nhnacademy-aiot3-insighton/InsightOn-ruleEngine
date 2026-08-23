@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -12,7 +12,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import java.time.Duration;
 import java.time.OffsetDateTime;

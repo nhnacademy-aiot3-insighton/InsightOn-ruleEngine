@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.dto;
+package com.nhnacademy.insightonruleengine.runner.model;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotEmpty;

@@ -1,13 +1,13 @@
 package com.nhnacademy.insightonruleengine.runner.application.lifecycle;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.event.FlowRuntimeChangeEvent;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;

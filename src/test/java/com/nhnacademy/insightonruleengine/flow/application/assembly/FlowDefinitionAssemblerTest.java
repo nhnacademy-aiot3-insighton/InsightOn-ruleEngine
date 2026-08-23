@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.definition;
+package com.nhnacademy.insightonruleengine.flow.application.assembly;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -16,9 +16,9 @@ import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotActiveException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

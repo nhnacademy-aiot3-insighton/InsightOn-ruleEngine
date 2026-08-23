@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.definition;
+package com.nhnacademy.insightonruleengine.flow.domain.definition;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

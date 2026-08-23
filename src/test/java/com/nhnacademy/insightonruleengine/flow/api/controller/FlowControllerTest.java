@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.controller;
+package com.nhnacademy.insightonruleengine.flow.api.controller;
 
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidLinks;
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidNodes;
@@ -19,17 +19,17 @@ import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAu
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.api.controller.FlowController;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowCreateRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowResponse;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowStatusChangeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
@@ -38,8 +38,8 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenExcepti
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.application.FlowService;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;

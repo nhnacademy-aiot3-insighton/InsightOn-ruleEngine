@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.validation;
+package com.nhnacademy.insightonruleengine.flow.application.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator.LinkReferenceResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator.LinkRulesResult;
@@ -15,9 +15,9 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValida
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator.LinkValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator.NodeValidationResult;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

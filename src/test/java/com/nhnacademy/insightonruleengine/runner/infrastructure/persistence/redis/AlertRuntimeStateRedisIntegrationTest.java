@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.alert;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Callable;

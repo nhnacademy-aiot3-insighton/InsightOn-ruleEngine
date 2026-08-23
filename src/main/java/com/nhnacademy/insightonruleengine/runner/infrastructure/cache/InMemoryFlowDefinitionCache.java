@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.cache;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import java.util.List;

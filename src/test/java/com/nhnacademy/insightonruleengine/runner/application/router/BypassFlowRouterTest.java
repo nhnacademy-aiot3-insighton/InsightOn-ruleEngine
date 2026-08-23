@@ -1,17 +1,17 @@
-package com.nhnacademy.insightonruleengine.runner.router;
+package com.nhnacademy.insightonruleengine.runner.application.router;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.runner.application.router.BypassFlowRouter;
-import com.nhnacademy.insightonruleengine.runner.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import jakarta.validation.Validation;
 import java.time.Instant;
 import java.time.OffsetDateTime;

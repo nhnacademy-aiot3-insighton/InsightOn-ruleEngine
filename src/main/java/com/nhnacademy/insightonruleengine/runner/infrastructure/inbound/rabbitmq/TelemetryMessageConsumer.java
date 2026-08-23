@@ -1,8 +1,8 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.runner.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.executor;
+package com.nhnacademy.insightonruleengine.runner.execution.executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,9 +11,9 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
-import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.execution.location.LocationMetricProcessor;
 import jakarta.validation.Validation;
 import java.time.Instant;

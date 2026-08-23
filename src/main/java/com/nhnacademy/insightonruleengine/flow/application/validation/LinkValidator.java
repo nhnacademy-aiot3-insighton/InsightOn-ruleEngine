@@ -1,9 +1,9 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
-import com.nhnacademy.insightonruleengine.flow.domain.LinkErrorCode;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.LinkErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;

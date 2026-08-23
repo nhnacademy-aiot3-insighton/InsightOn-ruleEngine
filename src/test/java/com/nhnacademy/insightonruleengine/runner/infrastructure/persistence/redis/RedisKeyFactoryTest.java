@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
 
 public enum FlowExecutableErrorCode implements FlowValidationErrorReason {
 

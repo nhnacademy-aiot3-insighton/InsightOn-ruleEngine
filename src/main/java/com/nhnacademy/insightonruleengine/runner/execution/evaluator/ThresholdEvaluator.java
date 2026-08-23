@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.execution.evaluator;
 
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;

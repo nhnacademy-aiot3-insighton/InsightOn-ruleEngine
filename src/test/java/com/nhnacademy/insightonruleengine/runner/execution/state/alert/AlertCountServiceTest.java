@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.alert;
+package com.nhnacademy.insightonruleengine.runner.execution.state.alert;
 
 import static com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

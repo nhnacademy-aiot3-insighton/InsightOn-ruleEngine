@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.heartbeat;
+package com.nhnacademy.insightonruleengine.heartbeat;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

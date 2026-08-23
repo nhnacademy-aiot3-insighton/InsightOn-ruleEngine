@@ -1,11 +1,11 @@
-package com.nhnacademy.insightonruleengine.runner.alert;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.util.Collection;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;

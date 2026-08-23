@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.logging;
+package com.nhnacademy.insightonruleengine.runner.observability;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;

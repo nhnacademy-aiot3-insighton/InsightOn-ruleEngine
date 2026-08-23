@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain.params.trigger;
+package com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.heartbeat;
 
-import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;

@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.execution.location;
 
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 
 /**
  * Location 기반 메트릭을 처리하는 프로세서 인터페이스.

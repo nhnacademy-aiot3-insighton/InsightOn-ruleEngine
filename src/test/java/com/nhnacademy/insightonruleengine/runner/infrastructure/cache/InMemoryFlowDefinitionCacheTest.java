@@ -1,10 +1,10 @@
-package com.nhnacademy.insightonruleengine.flow.cache;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.runner.cache.InMemoryFlowDefinitionCache;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.InMemoryFlowDefinitionCache;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;

@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.infrastructure;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.persistence;
 
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import java.util.List;

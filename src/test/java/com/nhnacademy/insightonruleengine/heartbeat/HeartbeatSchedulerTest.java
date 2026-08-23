@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.heartbeat;
+package com.nhnacademy.insightonruleengine.heartbeat;
 
 import static org.mockito.Mockito.verify;
 

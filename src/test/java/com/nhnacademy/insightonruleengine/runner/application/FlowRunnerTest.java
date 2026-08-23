@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner;
+package com.nhnacademy.insightonruleengine.runner.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,13 +14,13 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
-import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
-import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogContext;
-import com.nhnacademy.insightonruleengine.runner.logging.ExecutionLogger;
+import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogContext;
+import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
 import java.time.Instant;
 import java.time.OffsetDateTime;

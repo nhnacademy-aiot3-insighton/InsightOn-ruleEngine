@@ -1,15 +1,15 @@
-package com.nhnacademy.insightonruleengine.flow.validation;
+package com.nhnacademy.insightonruleengine.flow.application.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator.LinkValidationResult;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowValidationErrorReason;
-import com.nhnacademy.insightonruleengine.flow.domain.LinkErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.LinkErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

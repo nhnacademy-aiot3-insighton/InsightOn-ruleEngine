@@ -1,7 +1,10 @@
-package com.nhnacademy.insightonruleengine.heartbeat;
+package com.nhnacademy.insightonruleengine.heartbeat.failover;
 
 import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
-import com.nhnacademy.insightonruleengine.runner.messaging.TelemetryListenerContainerManager;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
+import com.nhnacademy.insightonruleengine.heartbeat.EngineStatus;
+import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.TelemetryListenerContainerManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;

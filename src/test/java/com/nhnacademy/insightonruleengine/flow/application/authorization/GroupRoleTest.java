@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.authorization;
+package com.nhnacademy.insightonruleengine.flow.application.authorization;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;

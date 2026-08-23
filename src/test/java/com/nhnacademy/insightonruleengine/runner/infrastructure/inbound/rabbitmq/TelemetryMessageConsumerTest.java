@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -7,8 +7,8 @@ import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.nhnacademy.insightonruleengine.runner.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.rabbitmq.client.Channel;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;

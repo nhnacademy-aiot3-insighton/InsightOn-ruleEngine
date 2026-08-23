@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.evaluator;
+package com.nhnacademy.insightonruleengine.runner.execution.evaluator;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.nhnacademy.insightonruleengine.runner.execution.evaluator.ThresholdEvaluator;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;

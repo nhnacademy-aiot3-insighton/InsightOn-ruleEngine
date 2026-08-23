@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;

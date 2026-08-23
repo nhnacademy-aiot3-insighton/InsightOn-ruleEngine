@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.dto;
+package com.nhnacademy.insightonruleengine.runner.model;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import java.time.Instant;

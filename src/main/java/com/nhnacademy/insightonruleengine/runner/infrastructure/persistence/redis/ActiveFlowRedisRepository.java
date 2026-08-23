@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

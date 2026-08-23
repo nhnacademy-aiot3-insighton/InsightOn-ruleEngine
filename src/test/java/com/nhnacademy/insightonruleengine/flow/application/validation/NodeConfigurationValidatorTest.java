@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.validation;
+package com.nhnacademy.insightonruleengine.flow.application.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,10 +8,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import java.util.List;

@@ -1,14 +1,17 @@
-package com.nhnacademy.insightonruleengine.flow.domain.definition;
+package com.nhnacademy.insightonruleengine.flow.application.assembly;
 
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotActiveException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

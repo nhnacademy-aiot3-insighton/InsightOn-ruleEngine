@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import jakarta.annotation.PostConstruct;

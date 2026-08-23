@@ -1,6 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.alert;
+package com.nhnacademy.insightonruleengine.runner.execution.state.alert;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

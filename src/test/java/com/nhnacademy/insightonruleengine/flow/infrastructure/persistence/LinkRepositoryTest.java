@@ -1,10 +1,10 @@
-package com.nhnacademy.insightonruleengine.node.repository;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

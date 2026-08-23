@@ -1,5 +1,7 @@
 package com.nhnacademy.insightonruleengine.flow.application.authorization;
 
+import com.nhnacademy.insightonruleengine.client.core.CoreGroupClient;
+import com.nhnacademy.insightonruleengine.client.core.GroupMemberResponse;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import feign.FeignException;

@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.dto;
+package com.nhnacademy.insightonruleengine.runner.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

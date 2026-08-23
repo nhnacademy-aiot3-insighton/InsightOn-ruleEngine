@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.domain;
+package com.nhnacademy.insightonruleengine.flow.application.validation.model;
 
 public enum FlowStructureErrorCode implements FlowValidationErrorReason {
 

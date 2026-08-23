@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.dto;
+package com.nhnacademy.insightonruleengine.runner.model;
 
 public record NodeExecutionResult(
         String outputPort,

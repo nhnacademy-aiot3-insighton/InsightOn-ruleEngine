@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import java.util.HashSet;
 import java.util.List;

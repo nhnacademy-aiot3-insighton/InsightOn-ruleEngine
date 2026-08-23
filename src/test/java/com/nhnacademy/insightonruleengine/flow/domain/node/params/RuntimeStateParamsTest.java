@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.domain.params;
+package com.nhnacademy.insightonruleengine.flow.domain.node.params;
 
 import static com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertEquals;

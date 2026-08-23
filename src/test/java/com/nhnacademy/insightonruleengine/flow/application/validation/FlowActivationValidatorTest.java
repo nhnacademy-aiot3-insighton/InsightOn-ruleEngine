@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.validation;
+package com.nhnacademy.insightonruleengine.flow.application.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,7 +14,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsPars
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowExecutableErrorCode;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.runner.execution.evaluator.ThresholdEvaluator;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;

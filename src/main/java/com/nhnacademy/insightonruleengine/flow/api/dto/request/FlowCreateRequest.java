@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.api.dto;
+package com.nhnacademy.insightonruleengine.flow.api.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

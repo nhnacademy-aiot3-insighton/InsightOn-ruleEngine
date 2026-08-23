@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.api.dto;
+package com.nhnacademy.insightonruleengine.flow.api.dto.response;
 
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import java.time.OffsetDateTime;

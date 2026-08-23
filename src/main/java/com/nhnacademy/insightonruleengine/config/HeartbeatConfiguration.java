@@ -4,7 +4,7 @@ import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
 import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
 import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatScheduler;
-import com.nhnacademy.insightonruleengine.runner.redis.RedisKeyFactory;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;

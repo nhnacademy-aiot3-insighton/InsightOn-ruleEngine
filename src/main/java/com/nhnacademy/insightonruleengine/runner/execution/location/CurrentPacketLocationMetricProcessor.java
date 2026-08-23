@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.runner.execution.location;
 
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 

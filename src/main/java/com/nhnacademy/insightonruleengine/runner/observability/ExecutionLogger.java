@@ -1,8 +1,8 @@
-package com.nhnacademy.insightonruleengine.runner.logging;
+package com.nhnacademy.insightonruleengine.runner.observability;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 
 public interface ExecutionLogger {
 

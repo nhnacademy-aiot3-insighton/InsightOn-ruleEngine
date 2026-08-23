@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.node.repository;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,9 +9,9 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

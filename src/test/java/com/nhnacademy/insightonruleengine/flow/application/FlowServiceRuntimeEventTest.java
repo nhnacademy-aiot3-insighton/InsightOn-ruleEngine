@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.flow.service;
+package com.nhnacademy.insightonruleengine.flow.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
@@ -8,15 +8,15 @@ import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
-import com.nhnacademy.insightonruleengine.runner.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowStatusChangeRequest;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.LinkRepository;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.NodeRepository;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.FlowService;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;

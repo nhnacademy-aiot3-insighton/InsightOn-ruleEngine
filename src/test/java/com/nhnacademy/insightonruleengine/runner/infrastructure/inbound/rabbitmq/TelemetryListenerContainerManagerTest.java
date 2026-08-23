@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

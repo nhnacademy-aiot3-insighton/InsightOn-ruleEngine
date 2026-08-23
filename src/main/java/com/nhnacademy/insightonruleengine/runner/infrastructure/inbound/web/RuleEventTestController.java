@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.controller;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.web;
 
-import com.nhnacademy.insightonruleengine.runner.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

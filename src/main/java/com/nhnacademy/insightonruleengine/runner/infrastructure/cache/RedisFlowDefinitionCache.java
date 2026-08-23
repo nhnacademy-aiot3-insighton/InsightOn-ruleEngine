@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.cache;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;

@@ -1,13 +1,13 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator.LinkReferenceResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator.LinkRulesResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeValidator.NodeRoleValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator.LinkValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator.NodeValidationResult;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

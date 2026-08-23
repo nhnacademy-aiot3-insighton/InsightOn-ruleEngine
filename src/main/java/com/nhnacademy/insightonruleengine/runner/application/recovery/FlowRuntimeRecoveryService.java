@@ -1,15 +1,15 @@
 package com.nhnacademy.insightonruleengine.runner.application.recovery;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotActiveException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.infrastructure.FlowRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.InvalidActiveFlowDataException;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.InvalidActiveFlowDataException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;

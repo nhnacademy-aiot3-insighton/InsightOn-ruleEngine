@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.redis;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
 import com.nhnacademy.insightonruleengine.common.exception.EngineException;
 import com.nhnacademy.insightonruleengine.common.exception.ErrorCode;
