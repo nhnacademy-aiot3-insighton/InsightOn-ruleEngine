@@ -95,12 +95,16 @@ class GroupDeletionRabbitIntegrationTest {
 
     @BeforeEach
     void purgeQueues() {
-        rabbitAdmin.purgeQueue(QUEUE, true);
-        rabbitAdmin.purgeQueue(DEAD_LETTER_QUEUE, true);
-        rabbitAdmin.purgeQueue(LOCATION_QUEUE, true);
-        rabbitAdmin.purgeQueue(LOCATION_DEAD_LETTER_QUEUE, true);
-        rabbitAdmin.purgeQueue(AI_GROUP_QUEUE, true);
-        rabbitAdmin.purgeQueue(AI_LOCATION_QUEUE, true);
+        purgeQueueAndWait(QUEUE);
+        purgeQueueAndWait(DEAD_LETTER_QUEUE);
+        purgeQueueAndWait(LOCATION_QUEUE);
+        purgeQueueAndWait(LOCATION_DEAD_LETTER_QUEUE);
+        purgeQueueAndWait(AI_GROUP_QUEUE);
+        purgeQueueAndWait(AI_LOCATION_QUEUE);
+    }
+
+    private void purgeQueueAndWait(String queueName) {
+        rabbitAdmin.purgeQueue(queueName, false);
     }
 
     @Test
