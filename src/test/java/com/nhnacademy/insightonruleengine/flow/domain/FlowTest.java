@@ -3,7 +3,7 @@ package com.nhnacademy.insightonruleengine.flow.domain;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

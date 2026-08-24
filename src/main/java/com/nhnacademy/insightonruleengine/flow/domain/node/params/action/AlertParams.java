@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
 public record AlertParams(
         @NotBlank @Size(max = 200) String title,
         @NotNull Severity severity,
-        @NotBlank String message,
+        @NotBlank @Size(max = 2000) String message,
         @Min(1) Integer requiredCount,
         @Min(1) Integer countTimeoutSeconds,
         @Min(0) Integer cooldownSeconds

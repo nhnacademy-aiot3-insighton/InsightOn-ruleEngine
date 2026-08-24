@@ -35,3 +35,4 @@ build/
 ### Local files ###
 .env
 /docs/
+.DS_Store
