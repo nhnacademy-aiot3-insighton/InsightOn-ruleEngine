@@ -2,11 +2,11 @@ package com.nhnacademy.insightonruleengine.flow.service;
 
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
@@ -19,6 +19,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowDeletionNotAllowedE
 import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
@@ -28,7 +29,10 @@ import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureVa
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,8 +41,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FlowService {
 
-    private static final String TARGET_PORT = "in";
-
     private final FlowRepository flowRepository;
     private final GroupAuthorizationService groupAuthorizationService;
     private final NodeRepository nodeRepository;
@@ -46,7 +48,7 @@ public class FlowService {
     private final FlowStructureValidator flowStructureValidator;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
-    private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
@@ -129,7 +131,12 @@ public class FlowService {
             }
         }
         flow.changeActivationStatus(request.status());
-        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        if (request.status() == FlowStatus.ACTIVE) {
+            eventPublisher.publishEvent(FlowRuntimeChangeEvent.activate(
+                    flow.getGroupId(), flow.getLocationId(), flow.getId()));
+        } else {
+            publishRuntimeRemoval(flow, findRuntimeNodeIds(flow.getId()));
+        }
         return toResponse(flow);
     }
 
@@ -139,7 +146,7 @@ public class FlowService {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
-        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        publishRuntimeRemoval(flow, findRuntimeNodeIds(flow.getId()));
         return toResponse(flow);
     }
 
@@ -151,10 +158,11 @@ public class FlowService {
         if (!flow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new FlowDeletionNotAllowedException(flowId, flow.getStatus());
         }
+        Set<Long> runtimeNodeIds = findRuntimeNodeIds(flowId);
         linkRepository.deleteByFlowId(flowId);
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
-        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        publishRuntimeRemoval(flow, runtimeNodeIds);
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -178,8 +186,9 @@ public class FlowService {
         Flow savedFlow = flowRepository.save(updateFlow);
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
+        Set<Long> runtimeNodeIds = findRuntimeNodeIds(currentFlow.getId());
         currentFlow.archive();
-        activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
+        publishRuntimeRemoval(currentFlow, runtimeNodeIds);
         return toResponse(savedFlow);
     }
 
@@ -239,6 +248,24 @@ public class FlowService {
                     nodeIds.get(request.targetClientNodeKey()),
                     request.targetPort()));
         }
+    }
+
+    // 비활성화되는 Flow의 ALERT Runtime State를 정확한 Node ID로 정리할 수 있게 전달합니다.
+    private Set<Long> findRuntimeNodeIds(Long flowId) {
+        return nodeRepository.findByFlowId(flowId).stream()
+                .filter(node -> node.getNodeType() == NodeType.ALERT)
+                .map(Node::getId)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    // 트랜잭션 커밋 뒤 Route, Active FlowDefinition, Runtime State를 정리하도록 이벤트를 발행합니다.
+    private void publishRuntimeRemoval(Flow flow, Set<Long> runtimeNodeIds) {
+        eventPublisher.publishEvent(FlowRuntimeChangeEvent.remove(
+                flow.getGroupId(),
+                flow.getLocationId(),
+                flow.getId(),
+                runtimeNodeIds
+        ));
     }
 
     // Entity 변환 책임을 DTO 밖에 두고 API에 필요한 Flow 값만 전달합니다.

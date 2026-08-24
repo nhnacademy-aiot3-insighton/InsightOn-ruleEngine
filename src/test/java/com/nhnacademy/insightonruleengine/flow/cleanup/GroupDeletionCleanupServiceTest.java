@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
@@ -41,8 +40,6 @@ class GroupDeletionCleanupServiceTest {
     @Mock
     private FlowRouteRedisRepository flowRouteRedisRepository;
     @Mock
-    private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
-    @Mock
     private ActiveFlowRedisRepository activeFlowRedisRepository;
     @Mock
     private AlertCountRedisRepository alertCountRedisRepository;
@@ -57,7 +54,6 @@ class GroupDeletionCleanupServiceTest {
                 flowRepository,
                 nodeRepository,
                 flowRouteRedisRepository,
-                activeFlowDefinitionProvider,
                 activeFlowRedisRepository,
                 alertCountRedisRepository,
                 databaseCleanupService
@@ -80,9 +76,6 @@ class GroupDeletionCleanupServiceTest {
             verify(flowRouteRedisRepository).delete(1L, 10L);
             verify(flowRouteRedisRepository).delete(1L, 20L);
             verify(flowRouteRedisRepository).delete(1L, 30L);
-            verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
-            verify(activeFlowDefinitionProvider).evictNow(1L, 20L);
-            verify(activeFlowDefinitionProvider).evictNow(1L, 30L);
             verify(activeFlowRedisRepository).delete(1L, 100L);
             verify(activeFlowRedisRepository).delete(1L, 200L);
             verify(activeFlowRedisRepository).delete(1L, 300L);
@@ -94,9 +87,6 @@ class GroupDeletionCleanupServiceTest {
         verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
         verify(flowRouteRedisRepository, times(2)).delete(1L, 20L);
         verify(flowRouteRedisRepository, times(2)).delete(1L, 30L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 20L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 30L);
         verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
         verify(activeFlowRedisRepository, times(2)).delete(1L, 200L);
         verify(activeFlowRedisRepository, times(2)).delete(1L, 300L);
@@ -118,8 +108,6 @@ class GroupDeletionCleanupServiceTest {
         doAnswer(invocation -> {
             verify(flowRouteRedisRepository).delete(1L, 10L);
             verify(flowRouteRedisRepository).delete(2L, 10L);
-            verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
-            verify(activeFlowDefinitionProvider).evictNow(2L, 10L);
             verify(activeFlowRedisRepository).delete(1L, 100L);
             verify(activeFlowRedisRepository).delete(2L, 200L);
             return null;
@@ -129,8 +117,6 @@ class GroupDeletionCleanupServiceTest {
 
         verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
         verify(flowRouteRedisRepository, times(2)).delete(2L, 10L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(2)).evictNow(2L, 10L);
         verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
         verify(activeFlowRedisRepository, times(2)).delete(2L, 200L);
         verify(alertCountRedisRepository, times(2)).deleteStates(100L, Set.of(), Set.of());
@@ -163,7 +149,6 @@ class GroupDeletionCleanupServiceTest {
 
         verify(nodeRepository, never()).findByFlowIdIn(org.mockito.ArgumentMatchers.anyList());
         verify(flowRouteRedisRepository, times(4)).delete(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(4)).evictNow(1L, 10L);
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
     }
 
@@ -185,7 +170,6 @@ class GroupDeletionCleanupServiceTest {
         cleanupService.cleanup(1L, List.of(10L));
 
         verify(flowRouteRedisRepository, times(3)).delete(1L, 10L);
-        verify(activeFlowDefinitionProvider, times(3)).evictNow(1L, 10L);
         verify(activeFlowRedisRepository, times(3)).delete(1L, 100L);
         verify(alertCountRedisRepository, times(3)).deleteStates(100L, Set.of(), Set.of());
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);

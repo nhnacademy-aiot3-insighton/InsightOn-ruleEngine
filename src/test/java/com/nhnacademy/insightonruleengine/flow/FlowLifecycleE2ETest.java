@@ -8,7 +8,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
@@ -76,9 +75,6 @@ class FlowLifecycleE2ETest {
 
     @MockitoBean
     private FlowActivationValidator flowActivationValidator;
-
-    @MockitoBean
-    private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
 
     @Autowired
     private EntityManager entityManager;

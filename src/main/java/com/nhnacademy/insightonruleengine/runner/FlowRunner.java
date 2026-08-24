@@ -52,14 +52,6 @@ public class FlowRunner {
         }
     }
 
-    public void runFlow(FlowDefinition flow, SensorEvent event) {
-        if (flow == null || event == null) {
-            throw new IllegalArgumentException("flow와 event는 필수입니다.");
-        }
-        ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
-        executeFlow(flow, event, logContext);
-    }
-
     private void executeFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
         FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
         NodeDefinition current = findTriggerNode(flow);

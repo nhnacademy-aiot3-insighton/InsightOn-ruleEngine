@@ -1,12 +1,12 @@
 package com.nhnacademy.insightonruleengine.runner.router;
 
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.recovery.FlowRuntimeRecoveryService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,12 +16,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BypassFlowRouter implements FlowRouter {
 
-    private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private final FlowRuntimeRecoveryService flowRuntimeRecoveryService;
     private final NodeParamsParser nodeParamsParser;
 
     @Override
     public List<FlowDefinition> route(SensorEvent event) {
-        return activeFlowDefinitionProvider.find(event.groupId(), event.locationId())
+        return flowRuntimeRecoveryService.findActiveFlows(event.groupId(), event.locationId())
                 .stream()
                 .filter(flow -> matchesTrigger(flow, event))
                 .toList();

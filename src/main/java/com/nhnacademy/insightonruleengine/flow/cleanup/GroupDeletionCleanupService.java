@@ -1,7 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.cleanup;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
@@ -26,7 +25,6 @@ public class GroupDeletionCleanupService {
     private final FlowRepository flowRepository;
     private final NodeRepository nodeRepository;
     private final FlowRouteRedisRepository flowRouteRedisRepository;
-    private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
     private final ActiveFlowRedisRepository activeFlowRedisRepository;
     private final AlertCountRedisRepository alertCountRedisRepository;
     private final GroupDeletionDatabaseCleanupService databaseCleanupService;
@@ -73,10 +71,8 @@ public class GroupDeletionCleanupService {
         for (Flow flow : flows) {
             routeKeys.add(new RouteKey(flow.getGroupId(), flow.getLocationId()));
         }
-        routeKeys.forEach(routeKey -> {
-            flowRouteRedisRepository.delete(routeKey.groupId(), routeKey.locationId());
-            activeFlowDefinitionProvider.evictNow(routeKey.groupId(), routeKey.locationId());
-        });
+        routeKeys.forEach(routeKey ->
+                flowRouteRedisRepository.delete(routeKey.groupId(), routeKey.locationId()));
 
         for (Flow flow : flows) {
             activeFlowRedisRepository.delete(flow.getGroupId(), flow.getId());

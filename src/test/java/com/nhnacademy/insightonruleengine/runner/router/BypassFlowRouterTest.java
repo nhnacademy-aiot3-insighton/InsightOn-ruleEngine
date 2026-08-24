@@ -4,14 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.recovery.FlowRuntimeRecoveryService;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -26,22 +27,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BypassFlowRouterTest {
 
     @Mock
-    private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private FlowRuntimeRecoveryService flowRuntimeRecoveryService;
 
     private BypassFlowRouter router;
 
     @BeforeEach
     void setUp() {
-        NodeParamsParser parser = new NodeParamsParser(
-                new ObjectMapper(),
-                Validation.buildDefaultValidatorFactory().getValidator());
-        router = new BypassFlowRouter(activeFlowDefinitionProvider, parser);
+        try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
+            NodeParamsParser parser = new NodeParamsParser(
+                    new ObjectMapper(),
+                    validatorFactory.getValidator());
+            router = new BypassFlowRouter(flowRuntimeRecoveryService, parser);
+        }
     }
 
     @Test
     void sensorTriggerMatchesOnlyConfiguredSensor() {
         FlowDefinition definition = definition(1L, NodeType.SENSOR, 200L);
-        when(activeFlowDefinitionProvider.find(1L, 10L)).thenReturn(List.of(definition));
+        when(flowRuntimeRecoveryService.findActiveFlows(1L, 10L)).thenReturn(List.of(definition));
 
         List<FlowDefinition> routed = router.route(event(200L));
 
@@ -51,7 +54,7 @@ class BypassFlowRouterTest {
     @Test
     void locationTriggerMatchesAnySensorInLocation() {
         FlowDefinition definition = definition(2L, NodeType.LOCATION, null);
-        when(activeFlowDefinitionProvider.find(1L, 10L)).thenReturn(List.of(definition));
+        when(flowRuntimeRecoveryService.findActiveFlows(1L, 10L)).thenReturn(List.of(definition));
 
         assertEquals(List.of(definition), router.route(event(999L)));
     }
@@ -59,9 +62,17 @@ class BypassFlowRouterTest {
     @Test
     void sensorTriggerWithDifferentSensorIsExcluded() {
         FlowDefinition definition = definition(3L, NodeType.SENSOR, 200L);
-        when(activeFlowDefinitionProvider.find(1L, 10L)).thenReturn(List.of(definition));
+        when(flowRuntimeRecoveryService.findActiveFlows(1L, 10L)).thenReturn(List.of(definition));
 
         assertEquals(List.of(), router.route(event(201L)));
+    }
+
+    @Test
+    void scheduleTriggerIsExcludedFromTelemetryExecution() {
+        FlowDefinition definition = definition(4L, NodeType.SCHEDULE, null);
+        when(flowRuntimeRecoveryService.findActiveFlows(1L, 10L)).thenReturn(List.of(definition));
+
+        assertEquals(List.of(), router.route(event(200L)));
     }
 
     private FlowDefinition definition(Long flowId, NodeType nodeType, Long sensorId) {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,13 +13,13 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.authorization.GroupRole;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
@@ -32,6 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
@@ -42,6 +44,7 @@ import com.nhnacademy.insightonruleengine.flow.validation.domain.FlowStructureVa
 import com.nhnacademy.insightonruleengine.flow.validation.domain.NodeErrorCode;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,6 +52,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class FlowServiceTest {
@@ -78,7 +83,7 @@ class FlowServiceTest {
     FlowActivationValidator flowActivationValidator;
 
     @Mock
-    ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     FlowService flowService;
@@ -233,7 +238,11 @@ class FlowServiceTest {
     @DisplayName("ACTIVE ↔ INACTIVE 상태 전환 테스트")
     void changeStatusTest() {
         Flow flow = new Flow(1L, 1L, "기존 Flow", "기존 설명", FlowStatus.ACTIVE);
+        ReflectionTestUtils.setField(flow, "id", 1L);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(flow));
+        FlowDefinition definition = mock(FlowDefinition.class);
+        when(flowDefinitionAssembler.assemble(GROUP_ID, 1L)).thenReturn(definition);
+        when(flowActivationValidator.validate(definition)).thenReturn(List.of());
         FlowStatusChangeRequest request = new FlowStatusChangeRequest(FlowStatus.INACTIVE);
 
         FlowResponse response = flowService.changeActivationStatus(GROUP_ID, USER_ID, 1L, request);
@@ -250,6 +259,10 @@ class FlowServiceTest {
         Assertions.assertEquals(FlowStatus.ACTIVE, activeResponse.status());
         verify(groupAuthorizationService, times(2))
                 .requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+        verify(flowDefinitionAssembler).assemble(GROUP_ID, 1L);
+        verify(flowActivationValidator).validate(definition);
+        verify(eventPublisher).publishEvent(FlowRuntimeChangeEvent.remove(1L, 1L, 1L, Set.of()));
+        verify(eventPublisher).publishEvent(FlowRuntimeChangeEvent.activate(1L, 1L, 1L));
 
     }
 

@@ -63,6 +63,40 @@ class FlowRunnerTest {
         assertFalse(logger.terminalActionReached);
     }
 
+    @Test
+    @DisplayName("한 Flow 실행이 실패해도 다음 Flow를 계속 실행한다")
+    void isolateFlowFailureTest() {
+        List<Long> attemptedFlowIds = new ArrayList<>();
+        FlowRouter router = event -> List.of(singleNodeFlowDefinition(1L), singleNodeFlowDefinition(2L));
+        NodeExecutor sensorExecutor = new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return NodeType.SENSOR;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                Long flowId = context.flow().flowId();
+                attemptedFlowIds.add(flowId);
+                if (flowId == 1L) {
+                    throw new IllegalStateException("첫 Flow 실행 실패");
+                }
+                return NodeExecutionResult.complete();
+            }
+        };
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(
+                router,
+                new NodeExecutorRegistry(List.of(sensorExecutor)),
+                logger
+        );
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(1L, 2L), attemptedFlowIds);
+        assertEquals(List.of(1L), logger.failedFlowIds);
+    }
+
     private NodeExecutor executor(
             NodeType nodeType,
             NodeExecutionResult result,
@@ -122,6 +156,20 @@ class FlowRunnerTest {
         );
     }
 
+    private FlowDefinition singleNodeFlowDefinition(Long flowId) {
+        return new FlowDefinition(
+                flowId,
+                1L,
+                10L,
+                "Flow " + flowId,
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(node(flowId, NodeType.SENSOR)),
+                List.of()
+        );
+    }
+
     private NodeDefinition node(Long nodeId, NodeType nodeType) {
         return new NodeDefinition(nodeId, nodeType, JsonNodeFactory.instance.objectNode());
     }
@@ -140,6 +188,7 @@ class FlowRunnerTest {
 
         private Long terminalNodeId;
         private boolean terminalActionReached;
+        private final List<Long> failedFlowIds = new ArrayList<>();
 
         @Override
         public void eventRouted(SensorEvent event, int flowCount) {
@@ -169,6 +218,7 @@ class FlowRunnerTest {
 
         @Override
         public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
+            failedFlowIds.add(context.flowId());
         }
 
         @Override

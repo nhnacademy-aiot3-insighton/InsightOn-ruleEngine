@@ -10,6 +10,7 @@ import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.redis.InvalidActiveFlowDataException;
+import com.nhnacademy.insightonruleengine.runner.redis.InvalidRouteDataException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +41,7 @@ public class FlowRuntimeRecoveryService {
                 return rebuildLocation(groupId, locationId);
             }
             flowIds = flowRouteRedisRepository.findFlowIds(groupId, locationId);
-        } catch (InvalidActiveFlowDataException exception) {
+        } catch (InvalidRouteDataException exception) {
             log.warn("검증되지 않은 Flow Data입니다. groupId={}, locationId={}", groupId, locationId, exception);
             return rebuildLocation(groupId, locationId);
         } catch (RuntimeException exception) {

@@ -55,15 +55,15 @@ class FlowRuntimeSynchronizerTest {
     void activateFlowTest() {
         FlowRuntimeChangeEvent event = FlowRuntimeChangeEvent.activate(GROUP_ID, LOCATION_ID, FLOW_ID);
         FlowDefinition definition = sampleDefinition();
-        Flow activeFlow = sampleFlow(FLOW_ID, FlowStatus.ACTIVE);
+        Flow activeFlow = sampleFlow(FlowStatus.ACTIVE);
 
-        when(flowDefinitionAssembler.assemble(GROUP_ID, FLOW_ID)).thenReturn(definition);
+        when(flowDefinitionAssembler.assembleActive(GROUP_ID, FLOW_ID)).thenReturn(definition);
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(GROUP_ID, LOCATION_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of(activeFlow));
 
         synchronizer.activate(event);
 
-        verify(flowDefinitionAssembler).assemble(GROUP_ID, FLOW_ID);
+        verify(flowDefinitionAssembler).assembleActive(GROUP_ID, FLOW_ID);
         verify(activeFlowRedisRepository).save(definition);
         verify(flowRouteRedisRepository).replace(GROUP_ID, LOCATION_ID, Set.of(FLOW_ID));
     }
@@ -72,7 +72,7 @@ class FlowRuntimeSynchronizerTest {
     @DisplayName("비활성화 상태인 Flow에 대한 제거 이벤트는 Redis Definition과 Alert State를 정상 삭제합니다")
     void removeInactiveFlowTest() {
         FlowRuntimeChangeEvent event = FlowRuntimeChangeEvent.remove(GROUP_ID, LOCATION_ID, FLOW_ID, Set.of(100L));
-        Flow inactiveFlow = sampleFlow(FLOW_ID, FlowStatus.INACTIVE);
+        Flow inactiveFlow = sampleFlow(FlowStatus.INACTIVE);
 
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(GROUP_ID, LOCATION_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of());
@@ -105,7 +105,7 @@ class FlowRuntimeSynchronizerTest {
     @DisplayName("현재 DB에서 ACTIVE 상태인 Flow에 대한 지연된 제거 이벤트는 Definition 및 Alert State 삭제를 무시합니다")
     void ignoreStaleRemoveEventWhenFlowIsActiveTest() {
         FlowRuntimeChangeEvent event = FlowRuntimeChangeEvent.remove(GROUP_ID, LOCATION_ID, FLOW_ID, Set.of(100L));
-        Flow activeFlow = sampleFlow(FLOW_ID, FlowStatus.ACTIVE);
+        Flow activeFlow = sampleFlow(FlowStatus.ACTIVE);
 
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(GROUP_ID, LOCATION_ID, FlowStatus.ACTIVE))
                 .thenReturn(List.of(activeFlow));
@@ -118,9 +118,9 @@ class FlowRuntimeSynchronizerTest {
         verify(alertCountRedisRepository, never()).deleteStates(FLOW_ID, Set.of(100L));
     }
 
-    private Flow sampleFlow(Long flowId, FlowStatus status) {
-        Flow flow = new Flow(GROUP_ID, LOCATION_ID, "Flow " + flowId, "description", status);
-        ReflectionTestUtils.setField(flow, "id", flowId);
+    private Flow sampleFlow(FlowStatus status) {
+        Flow flow = new Flow(GROUP_ID, LOCATION_ID, "Flow " + FLOW_ID, "description", status);
+        ReflectionTestUtils.setField(flow, "id", FLOW_ID);
         return flow;
     }
 

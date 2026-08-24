@@ -26,7 +26,7 @@ public class FlowRuntimeSynchronizer {
     private final AlertCountRedisRepository alertCountRedisRepository;
 
     public void activate(FlowRuntimeChangeEvent event) {
-        FlowDefinition definition = flowDefinitionAssembler.assemble(event.groupId(), event.flowId());
+        FlowDefinition definition = flowDefinitionAssembler.assembleActive(event.groupId(), event.flowId());
         activeFlowRedisRepository.save(definition);
         refreshRoute(event.groupId(), event.locationId());
     }
