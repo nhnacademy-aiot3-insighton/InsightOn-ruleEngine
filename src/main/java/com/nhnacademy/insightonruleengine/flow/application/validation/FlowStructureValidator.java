@@ -10,6 +10,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValida
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -46,10 +47,9 @@ public class FlowStructureValidator {
         NodeRoleValidationResult nodeRoleResult = flowNodeValidator.validateRoles(nodeResult);
         errors.addAll(nodeRoleResult.errors());
 
-        LinkRulesResult linkRules = flowLinkValidator.validateBusinessRules(
-                linkRefResult,
-                nodeResult.nodesByKey()
-        );
+        LinkRulesResult linkRules = nodeResult.canValidateConnections()
+                ? flowLinkValidator.validateBusinessRules(linkRefResult, nodeResult.nodesByKey())
+                : new LinkRulesResult(Set.of(), false, List.of());
         errors.addAll(linkRules.errors());
 
         errors.addAll(

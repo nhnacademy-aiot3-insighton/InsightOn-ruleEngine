@@ -24,6 +24,8 @@ import org.springframework.expression.spel.SpelParseException;
 @RequiredArgsConstructor
 public class FlowActivationValidator {
 
+    private static final String NODE_FIELD_PREFIX = "nodes[";
+
     private final FlowStructureValidator flowStructureValidator;
     private final NodeParamsParser nodeParamsParser;
     private final NodeExecutorRegistry nodeExecutorRegistry;
@@ -58,7 +60,7 @@ public class FlowActivationValidator {
             errors.add(error(
                     FlowExecutableErrorCode.UNSUPPORTED_NODE_EXECUTOR,
                     node,
-                    "nodes[" + node.nodeId() + "]",
+                    NODE_FIELD_PREFIX + node.nodeId() + "]",
                     "플로우를 활성화할 수 없습니다."
             ));
             return;
@@ -72,13 +74,13 @@ public class FlowActivationValidator {
         } catch (SpelParseException exception) {
             errors.add(error(
                     FlowExecutableErrorCode.INVALID_THRESHOLD_EXPRESSION, node,
-                    "nodes[" + node.nodeId() + "].configuration.expression",
+                    NODE_FIELD_PREFIX + node.nodeId() + "].configuration.expression",
                     "Threshold expression 문법이 올바르지 않습니다."
             ));
         } catch (RuntimeException exception) {
             errors.add(error(
                     FlowExecutableErrorCode.INVALID_NODE_CONFIGURATION, node,
-                    "nodes[" + node.nodeId() + "].configuration",
+                    NODE_FIELD_PREFIX + node.nodeId() + "].configuration",
                     "Node configuration이 현재 엔진 계약에 맞지 않습니다."
             ));
         }

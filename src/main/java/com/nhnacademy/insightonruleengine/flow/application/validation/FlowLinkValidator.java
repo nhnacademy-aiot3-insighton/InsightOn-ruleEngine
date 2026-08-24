@@ -145,7 +145,7 @@ public class FlowLinkValidator {
             List<FlowStructureValidationError> errors
     ) {
         boolean valid = true;
-        if (source.nodeType() != null && source.nodeType().getCategory() == Category.ACTION) {
+        if (source.nodeType().getCategory() == Category.ACTION) {
             addError(
                     errors,
                     FlowStructureErrorCode.ACTION_OUTPUT_LINK,
@@ -155,7 +155,7 @@ public class FlowLinkValidator {
             );
             valid = false;
         }
-        if (target.nodeType() != null && target.nodeType().getCategory() == Category.TRIGGER) {
+        if (target.nodeType().getCategory() == Category.TRIGGER) {
             addError(
                     errors,
                     FlowStructureErrorCode.TRIGGER_INPUT_LINK,
@@ -178,8 +178,7 @@ public class FlowLinkValidator {
             List<FlowStructureValidationError> errors
     ) {
         boolean valid = true;
-        if (source.nodeType() != null
-                && !source.nodeType().getPortSchema().outputPorts(null).contains(link.sourcePort())) {
+        if (!source.nodeType().getPortSchema().outputPorts(null).contains(link.sourcePort())) {
             addError(
                     errors,
                     FlowStructureErrorCode.INVALID_PORT,

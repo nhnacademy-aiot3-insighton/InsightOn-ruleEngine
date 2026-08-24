@@ -31,9 +31,7 @@ public class NodeValidator {
         Map<String, FlowNodeRequest> nodesByKey = new LinkedHashMap<>();
         boolean canValidateConnections = true;
         for (int i = 0; i < nodes.size(); i++) {
-            FlowNodeRequest node = nodes.get(i);
-            String fieldPath = "nodes[" + i + "]";
-            if (!validateNode(node, fieldPath, nodesByKey, errors)) {
+            if (!validateAndIndexNode(nodes.get(i), i, nodesByKey, errors)) {
                 canValidateConnections = false;
             }
         }
@@ -44,43 +42,39 @@ public class NodeValidator {
         );
     }
 
-    private boolean validateNode(
+    private boolean validateAndIndexNode(
             FlowNodeRequest node,
-            String fieldPath,
+            int requestIndex,
             Map<String, FlowNodeRequest> nodesByKey,
             List<FlowStructureValidationError> errors
     ) {
+        String fieldPath = "nodes[" + requestIndex + "]";
         if (node == null) {
-            addError(
-                    errors,
-                    NodeErrorCode.NULL_NODE,
-                    null,
-                    fieldPath,
-                    "노드는 null일 수 없습니다."
-            );
+            addError(errors, NodeErrorCode.NULL_NODE, null, fieldPath, "노드는 null일 수 없습니다.");
             return false;
         }
 
         NodeFieldValidation fieldValidation = validateNodeRequiredFields(node, fieldPath, errors);
-        boolean valid = fieldValidation.hasNodeType() && fieldValidation.hasClientNodeKey();
-        if (fieldValidation.hasClientNodeKey()) {
-            String nodeKey = node.clientNodeKey();
-            if (nodesByKey.putIfAbsent(nodeKey, node) != null) {
-                addError(
-                        errors,
-                        NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
-                        nodeKey,
-                        fieldPath + ".clientNodeKey",
-                        "clientKey는 중복될 수 없습니다."
-                );
-                valid = false;
-            }
+        if (!fieldValidation.hasClientNodeKey()) {
+            return false;
         }
-        return valid;
+
+        String nodeKey = node.clientNodeKey();
+        boolean duplicateNodeKey = nodesByKey.putIfAbsent(nodeKey, node) != null;
+        if (duplicateNodeKey) {
+            addError(
+                    errors,
+                    NodeErrorCode.DUPLICATE_CLIENT_NODE_KEY,
+                    nodeKey,
+                    fieldPath + ".clientNodeKey",
+                    "clientKey는 중복될 수 없습니다."
+            );
+        }
+        return fieldValidation.hasNodeType() && !duplicateNodeKey;
     }
 
     //누락된 노드 필드를 각각 기록해 사용자가 고칠 위치와 원인을 보여줍니다.
-    //DTO의 @NotNull은 HTTP Bean Validation 계약이고, 직접 호출에서도 NPE 대신 검증 오류를 반환해야 합니다.
+    // Bean Validation 전에 직접 생성된 요청도 이 검증기를 거칠 수 있어 null 검사를 유지합니다.
     @SuppressWarnings({"java:S2583", "java:S2589"})
     public NodeFieldValidation validateNodeRequiredFields(
             FlowNodeRequest node,
