@@ -135,6 +135,8 @@ public class FlowLinkValidator {
     }
 
     //액션 출력과 트리거 입력에 대한 규칙을 검증합니다.
+    //DTO의 @NotNull과 별개로 직접 호출에서 누락된 nodeType을 안전하게 건너뜁니다.
+    @SuppressWarnings({"java:S2583", "java:S2589"})
     private boolean validateDirection(
             FlowLinkRequest link,
             FlowNodeRequest source,
@@ -167,6 +169,8 @@ public class FlowLinkValidator {
     }
 
     //소스포트와 타겟포트의 계약을 검증합니다 소스포트는 타입 검증, 타겟포트는 in 이어야만 허용.
+    //DTO의 @NotNull과 별개로 직접 호출에서 누락된 nodeType을 안전하게 건너뜁니다.
+    @SuppressWarnings({"java:S2583", "java:S2589"})
     private boolean validatePorts(
             FlowLinkRequest link,
             FlowNodeRequest source,

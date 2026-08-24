@@ -1,6 +1,5 @@
 package com.nhnacademy.insightonruleengine.runner.orchestrator;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.runner.FlowRunner;
 import com.nhnacademy.insightonruleengine.runner.dto.SensorEvent;
@@ -20,7 +19,6 @@ public class TelemetryExecutionOrchestrator {
     private final StaleTelemetryDetector staleTelemetryDetector;
     private final FlowRuntimeRecoveryService flowRuntimeRecoveryService;
     private final FlowRunner flowRunner;
-    private final ObjectMapper objectMapper;
 
     //Telemetry 메시지를 검증하고 대상 장소의 모든 ACTIVE Flow를 독립적으로 실행합니다.
     public void orchestrate(TelemetryEventMessage message) {
@@ -47,7 +45,7 @@ public class TelemetryExecutionOrchestrator {
             return;
         }
 
-        SensorEvent sensorEvent = message.toSensorEvent(objectMapper);
+        SensorEvent sensorEvent = message.toSensorEvent();
 
         // 3. Flow별 독립 실행 및 실패 격리
         for (FlowDefinition flow : activeFlows) {

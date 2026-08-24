@@ -72,7 +72,7 @@ public class AlertCountRedisRepository {
 
     //Flow 삭제, 비활성화 시 미리 수집한 Node Id로 Count와 Cooldown을 정리합니다.
     public void deleteStates(Long flowId, Set<Long> actionNodeIds) {
-        if(actionNodeIds == null || actionNodeIds.isEmpty()) {
+        if (actionNodeIds == null || actionNodeIds.isEmpty()) {
             return;
         }
         List<String> keys = actionNodeIds.stream()
@@ -82,5 +82,22 @@ public class AlertCountRedisRepository {
                 ))
                 .toList();
         redisTemplate.delete(keys);
+    }
+
+    // 삭제 이벤트 정리에서 실제로 생성 가능한 COUNT와 Cooldown Key만 정확한 ID로 삭제합니다.
+    public void deleteStates(Long flowId, Set<Long> countNodeIds, Set<Long> cooldownNodeIds) {
+        Stream<String> countKeys = safeStream(countNodeIds)
+                .map(actionNodeId -> redisKeyFactory.count(flowId, actionNodeId));
+        Stream<String> cooldownKeys = safeStream(cooldownNodeIds)
+                .map(actionNodeId -> redisKeyFactory.cooldown(flowId, actionNodeId));
+        List<String> keys = Stream.concat(countKeys, cooldownKeys).toList();
+        if (keys.isEmpty()) {
+            return;
+        }
+        redisTemplate.delete(keys);
+    }
+
+    private Stream<Long> safeStream(Set<Long> nodeIds) {
+        return nodeIds == null ? Stream.empty() : nodeIds.stream();
     }
 }

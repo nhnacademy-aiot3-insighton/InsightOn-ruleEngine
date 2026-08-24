@@ -34,6 +34,8 @@ class AlertRuntimeStateRedisIntegrationTest {
 
     private static final int REDIS_PORT = 6379;
 
+    //JUnit Testcontainers 확장이 테스트 클래스 종료 시 컨테이너를 닫습니다.
+    @SuppressWarnings("resource")
     @Container
     private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
             .withExposedPorts(REDIS_PORT);
@@ -43,7 +45,7 @@ class AlertRuntimeStateRedisIntegrationTest {
     private static RedisKeyFactory redisKeyFactory;
     private static StringRedisTemplate redisTemplate;
 
-    //임시로 Redis 연결해줍니다;
+    //테스트용 Redis 연결을 설정합니다.
     @BeforeAll
     static void setUpRedis() {
         RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration(
@@ -72,7 +74,7 @@ class AlertRuntimeStateRedisIntegrationTest {
 
     @Test
     @DisplayName("COUNT는 고정 TTL 안에 임계값을 넘으면 true -> reset")
-    void countThresholdResetTest() throws Exception {
+    void countThresholdResetTest() {
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 3, 3, 0));
         String countKey = redisKeyFactory.count(100L, 20L);
         Long firstTtl = redisTemplate.getExpire(countKey, MILLISECONDS);
@@ -93,15 +95,16 @@ class AlertRuntimeStateRedisIntegrationTest {
     @DisplayName("Cooldown 정책 상 Counter를 바로 변경하지 않고 TTL 만료 후 다음 Count를 합니다.")
     void cooldownTest() {
         String countKey = redisKeyFactory.count(100L, 20L);
+        String cooldownKey = redisKeyFactory.cooldown(100L, 20L);
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
         assertTrue(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
 
         assertFalse(redisTemplate.hasKey(countKey));
-        assertTrue(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 20L)));
+        assertTrue(redisTemplate.hasKey(cooldownKey));
 
         await().atMost(Duration.ofSeconds(3))
-                .until(() -> !Boolean.TRUE.equals(redisTemplate.hasKey(redisKeyFactory.cooldown(100L, 20L))));
+                .until(() -> !redisTemplate.hasKey(cooldownKey));
         assertFalse(alertCountRedisRepository.incrementAndCheck(100L, 20L, 2, 10, 1));
         assertEquals("1", redisTemplate.opsForValue().get(countKey));
     }

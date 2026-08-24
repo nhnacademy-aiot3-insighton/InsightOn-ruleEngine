@@ -30,20 +30,12 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
                 return;
             }
 
-            TelemetryEventMessage eventMessage;
-            try {
-                eventMessage = objectMapper.readValue(body, TelemetryEventMessage.class);
-            } catch (Exception exception) {
-                log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}",
-                        deliveryTag, exception);
+            TelemetryEventMessage eventMessage = deserialize(body, deliveryTag);
+            if (eventMessage == null) {
                 return;
             }
 
-            try {
-                eventMessage.validate();
-            } catch (IllegalArgumentException exception) {
-                log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
-                        exception.getMessage(), deliveryTag);
+            if (!isValid(eventMessage, deliveryTag)) {
                 return;
             }
 
@@ -55,6 +47,27 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
                     deliveryTag, exception);
         } finally {
             channel.basicAck(deliveryTag, false);
+        }
+    }
+
+    private TelemetryEventMessage deserialize(byte[] body, long deliveryTag) {
+        try {
+            return objectMapper.readValue(body, TelemetryEventMessage.class);
+        } catch (Exception exception) {
+            log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}",
+                    deliveryTag, exception);
+            return null;
+        }
+    }
+
+    private boolean isValid(TelemetryEventMessage eventMessage, long deliveryTag) {
+        try {
+            eventMessage.validate();
+            return true;
+        } catch (IllegalArgumentException exception) {
+            log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
+                    exception.getMessage(), deliveryTag);
+            return false;
         }
     }
 }

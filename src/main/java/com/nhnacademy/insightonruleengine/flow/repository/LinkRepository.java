@@ -17,4 +17,23 @@ public interface LinkRepository extends JpaRepository<Link, Long> {
     @Modifying
     @Query("delete from Link l where l.flowId = :flowId")
     void deleteByFlowId(@Param("flowId") Long flowId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from Link link
+            where link.flowId in (
+                select flow.id from Flow flow where flow.groupId = :groupId
+            )
+            """)
+    int deleteByGroupId(@Param("groupId") Long groupId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from Link link
+            where link.flowId in (
+                select flow.id from Flow flow where flow.locationId = :locationId
+            )
+            """)
+    int deleteByLocationId(@Param("locationId") Long locationId);
+
 }

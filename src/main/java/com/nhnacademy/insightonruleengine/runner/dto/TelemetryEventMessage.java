@@ -1,11 +1,9 @@
 package com.nhnacademy.insightonruleengine.runner.dto;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
 //Core가 x-consistent-hash Exchange로 발행하는 외부 Telemetry 원본 메시지 모델입니다.
-// FixMe TelemetryEventMessage = sensorEvent
 public record TelemetryEventMessage(
         Long groupId,
         Long locationId,
@@ -37,7 +35,7 @@ public record TelemetryEventMessage(
     }
 
     //내부 엔진 실행 모델인 SensorEvent로 변환합니다.
-    public SensorEvent toSensorEvent(ObjectMapper objectMapper) {
+    public SensorEvent toSensorEvent() {
         validate();
         return new SensorEvent(
                 groupId,

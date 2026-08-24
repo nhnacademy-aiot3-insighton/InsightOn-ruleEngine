@@ -27,7 +27,7 @@ class TelemetryEventMessageTest {
                 now
         );
         message.validate();
-        SensorEvent event = message.toSensorEvent(objectMapper);
+        SensorEvent event = message.toSensorEvent();
         assertEquals(1L, event.groupId());
         assertEquals(100L, event.locationId());
         assertEquals(1001L, event.sensorId());

@@ -44,7 +44,7 @@ class AlertCountRedisRepositoryTest {
 
         repository.deleteStates(10L, Set.of(100L, 200L));
 
-        ArgumentCaptor<Collection<String>> captor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<Collection<String>> captor = ArgumentCaptor.captor();
         verify(redisTemplate).delete(captor.capture());
 
         assertThat(captor.getValue())
@@ -58,7 +58,7 @@ class AlertCountRedisRepositoryTest {
 
     @Test
     @DisplayName("정리할 Action Node가 없으면 Redis를 호출하지 않습니다.")
-    void EmptyNodeTest() {
+    void emptyNodeTest() {
         repository.deleteStates(10L, Set.of());
         verify(redisTemplate, never()).delete(ArgumentMatchers.anyCollection());
     }

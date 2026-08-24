@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.runner.lifecycle;
 
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.definition.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
@@ -60,7 +61,7 @@ public class FlowRuntimeSynchronizer {
                         locationId,
                         FlowStatus.ACTIVE
                 ).stream()
-                .map(flow -> flow.getId())
+                .map(Flow::getId)
                 .collect(Collectors.toUnmodifiableSet());
         flowRouteRedisRepository.replace(groupId, locationId, activeFlowIds);
     }
