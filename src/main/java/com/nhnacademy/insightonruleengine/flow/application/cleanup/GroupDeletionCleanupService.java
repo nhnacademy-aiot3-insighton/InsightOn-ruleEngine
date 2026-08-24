@@ -5,6 +5,7 @@ import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlow
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
@@ -99,8 +100,12 @@ public class GroupDeletionCleanupService {
                 continue;
             }
             JsonNode configuration = node.getConfiguration();
-            int requiredCount = configuration == null ? 1 : configuration.path("requiredCount").asInt(1);
-            int cooldownSeconds = configuration == null ? 0 : configuration.path("cooldownSeconds").asInt(0);
+            int requiredCount = configuration == null
+                    ? AlertParams.DEFAULT_REQUIRED_COUNT
+                    : configuration.path("requiredCount").asInt(AlertParams.DEFAULT_REQUIRED_COUNT);
+            int cooldownSeconds = configuration == null
+                    ? AlertParams.DEFAULT_COOLDOWN_SECONDS
+                    : configuration.path("cooldownSeconds").asInt(AlertParams.DEFAULT_COOLDOWN_SECONDS);
             MutableRuntimeStateNodeIds target = mutableTargets.computeIfAbsent(
                     node.getFlowId(),
                     ignored -> new MutableRuntimeStateNodeIds()

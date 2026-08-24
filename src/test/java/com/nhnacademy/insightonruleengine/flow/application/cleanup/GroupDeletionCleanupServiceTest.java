@@ -9,13 +9,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
@@ -72,10 +72,11 @@ class GroupDeletionCleanupServiceTest {
         Flow third = flow(300L, 20L, FlowStatus.ARCHIVED);
         Node countAndCooldown = alertNode(1001L, 2);
         Node cooldownOnly = alertNode(1002L, 1);
+        Node defaultCountAndCooldown = defaultAlertNode(1003L);
         Node nonAlert = thresholdNode();
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of(third, first, second));
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L, 300L)))
-                .thenReturn(List.of(countAndCooldown, cooldownOnly, nonAlert));
+                .thenReturn(List.of(countAndCooldown, cooldownOnly, defaultCountAndCooldown, nonAlert));
         doAnswer(invocation -> {
             verify(flowRouteRedisRepository).delete(1L, 10L);
             verify(flowRouteRedisRepository).delete(1L, 20L);
@@ -101,7 +102,7 @@ class GroupDeletionCleanupServiceTest {
         verify(activeFlowRedisRepository, times(2)).delete(1L, 200L);
         verify(activeFlowRedisRepository, times(2)).delete(1L, 300L);
         verify(alertCountRedisRepository, times(2))
-                .deleteStates(100L, Set.of(1001L), Set.of(1001L, 1002L));
+                .deleteStates(100L, Set.of(1001L, 1003L), Set.of(1001L, 1002L, 1003L));
         verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
         verify(alertCountRedisRepository, times(2)).deleteStates(300L, Set.of(), Set.of());
 
@@ -144,7 +145,7 @@ class GroupDeletionCleanupServiceTest {
         Flow flow = flow(100L, 10L, FlowStatus.ACTIVE);
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of(flow));
         when(nodeRepository.findByFlowIdIn(List.of(100L))).thenReturn(List.of());
-        org.mockito.Mockito.doThrow(new RedisConnectionFailureException("Redis unavailable"))
+        doThrow(new RedisConnectionFailureException("Redis unavailable"))
                 .when(flowRouteRedisRepository).delete(1L, 10L);
         List<Long> locationIds = List.of(10L);
 
@@ -250,6 +251,12 @@ class GroupDeletionCleanupServiceTest {
                         .put("requiredCount", requiredCount)
                         .put("cooldownSeconds", 30)
         );
+        ReflectionTestUtils.setField(node, "id", nodeId);
+        return node;
+    }
+
+    private Node defaultAlertNode(Long nodeId) {
+        Node node = new Node(100L, NodeType.ALERT, JsonNodeFactory.instance.objectNode());
         ReflectionTestUtils.setField(node, "id", nodeId);
         return node;
     }
