@@ -3,7 +3,6 @@ package com.nhnacademy.insightonruleengine.flow.domain.exception;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.nhnacademy.insightonruleengine.common.exception.ErrorCode;
-import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowDefinitionKeyException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

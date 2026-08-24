@@ -259,10 +259,12 @@ class FlowRunnerTest {
 
         @Override
         public void eventRouted(SensorEvent event, int flowCount) {
+            // This test logger only records terminal execution outcomes.
         }
 
         @Override
         public void flowStarted(ExecutionLogContext context, Long triggerNodeId) {
+            // This test logger only records terminal execution outcomes.
         }
 
         @Override
@@ -277,10 +279,12 @@ class FlowRunnerTest {
 
         @Override
         public void nodeStarted(ExecutionLogContext context, NodeDefinition node) {
+            // This test logger only records terminal execution outcomes.
         }
 
         @Override
         public void nodeFinished(ExecutionLogContext context, NodeDefinition node, NodeExecutionResult result) {
+            // This test logger only records terminal execution outcomes.
         }
 
         @Override
@@ -290,6 +294,7 @@ class FlowRunnerTest {
 
         @Override
         public void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception) {
+            // This test logger only records terminal execution outcomes.
         }
     }
 }

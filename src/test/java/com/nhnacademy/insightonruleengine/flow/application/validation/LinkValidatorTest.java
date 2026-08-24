@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator.LinkValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;

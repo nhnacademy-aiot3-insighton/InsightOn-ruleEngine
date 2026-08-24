@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;

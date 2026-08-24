@@ -1,13 +1,12 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.FlowDefinitionCache;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
@@ -60,8 +59,7 @@ class ActiveFlowDefinitionProviderTest {
     @Test
     void cacheMissRebuildsDefinitionFromDatabase() {
         FlowDefinition definition = definition();
-        Flow flow =
-                org.mockito.Mockito.mock(Flow.class);
+        Flow flow = mock(Flow.class);
         when(flow.getGroupId()).thenReturn(1L);
         when(flow.getId()).thenReturn(100L);
         when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))

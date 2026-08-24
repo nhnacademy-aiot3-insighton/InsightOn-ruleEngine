@@ -15,14 +15,19 @@ class SensorEventTest {
 
     @Test
     void rejectsMissingRequiredFields() {
+        Instant timestamp = Instant.now();
+        Map<String, Object> metrics = Map.of("temperature", 20);
+        Map<String, Object> emptyMetrics = Map.of();
+        Map<String, Object> blankNameMetrics = Map.of(" ", 20);
+
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(null, 10L, 100L, Map.of("temperature", 20), Instant.now()));
+                () -> new SensorEvent(null, 10L, 100L, metrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, Map.of(), Instant.now()));
+                () -> new SensorEvent(1L, 10L, 100L, emptyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, Map.of(" ", 20), Instant.now()));
+                () -> new SensorEvent(1L, 10L, 100L, blankNameMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(0L, 10L, 100L, Map.of("temperature", 20), Instant.now()));
+                () -> new SensorEvent(0L, 10L, 100L, metrics, timestamp));
     }
 
     @Test

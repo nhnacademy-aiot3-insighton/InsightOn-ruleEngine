@@ -20,7 +20,6 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.application.FlowService;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeValidator;
@@ -139,12 +138,7 @@ class FlowServiceIntegrationTest {
 
         assertThrows(
                 DuplicateFlowNameException.class,
-                () -> flowService.update(
-                        1L,
-                        100L,
-                        currentFlowId,
-                        duplicateNameRequest
-                )
+                () -> flowService.update(1L, 100L, currentFlowId, duplicateNameRequest)
         );
         entityManager.flush();
         entityManager.clear();

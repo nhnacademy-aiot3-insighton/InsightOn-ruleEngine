@@ -12,7 +12,6 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import java.time.Duration;
 import java.time.OffsetDateTime;

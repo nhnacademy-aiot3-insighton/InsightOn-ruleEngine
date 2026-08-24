@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.nhnacademy.insightonruleengine.config.HeartbeatConfiguration;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
 import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;

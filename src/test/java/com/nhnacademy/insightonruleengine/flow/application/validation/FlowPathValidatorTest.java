@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;

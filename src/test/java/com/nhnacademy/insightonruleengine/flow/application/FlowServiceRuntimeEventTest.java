@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.flow.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -17,7 +18,6 @@ import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeR
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.application.FlowService;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import java.time.OffsetDateTime;
@@ -75,7 +75,7 @@ class FlowServiceRuntimeEventTest {
         flowService.changeActivationStatus(1L, 100L, 10L,
                 new FlowStatusChangeRequest(FlowStatus.INACTIVE));
 
-        verify(activeFlowDefinitionProvider, org.mockito.Mockito.times(2))
+        verify(activeFlowDefinitionProvider, times(2))
                 .refreshAfterCommit(1L, 2L);
     }
 

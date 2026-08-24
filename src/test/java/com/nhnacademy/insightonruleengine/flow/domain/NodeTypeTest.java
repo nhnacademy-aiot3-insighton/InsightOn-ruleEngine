@@ -2,7 +2,6 @@ package com.nhnacademy.insightonruleengine.flow.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;

@@ -8,9 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.client.core.CoreGroupClient;
-import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.client.core.GroupMemberResponse;
-import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import feign.FeignException;

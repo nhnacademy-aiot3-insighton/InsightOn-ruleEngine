@@ -7,7 +7,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;

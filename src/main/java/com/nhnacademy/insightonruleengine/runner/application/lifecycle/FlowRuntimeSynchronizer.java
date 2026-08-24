@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.runner.application.lifecycle;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.event.FlowRuntimeChangeEvent;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;

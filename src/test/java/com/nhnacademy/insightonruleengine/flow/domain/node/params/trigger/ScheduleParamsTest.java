@@ -3,7 +3,6 @@ package com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;

@@ -1,6 +1,5 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.RedisKeyFactory;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
