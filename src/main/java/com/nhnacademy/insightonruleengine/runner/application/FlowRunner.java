@@ -96,7 +96,7 @@ public class FlowRunner {
                 return null;
             }
 
-            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort());
+            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
             if (nextLink == null
                     && current.nodeType().getCategory() == NodeType.Category.FILTER
                     && "false".equals(result.outputPort())) {

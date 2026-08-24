@@ -1,11 +1,11 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.nhnacademy.insightonruleengine.flow.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.dto.LocationDeletedEvent;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
+import com.nhnacademy.insightonruleengine.runner.model.LocationDeletedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

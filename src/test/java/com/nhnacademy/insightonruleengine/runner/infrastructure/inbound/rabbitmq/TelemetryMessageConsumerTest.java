@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.application.telemetry.TelemetryExecutionOrchestrator;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.rabbitmq.client.Channel;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +26,7 @@ class TelemetryMessageConsumerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Mock
-    private FlowRunner flowRunner;
+    private TelemetryExecutionOrchestrator telemetryExecutionOrchestrator;
 
     @Mock
     private Channel channel;
@@ -35,7 +35,7 @@ class TelemetryMessageConsumerTest {
 
     @BeforeEach
     void setUp() {
-        consumer = new TelemetryMessageConsumer(objectMapper, flowRunner);
+        consumer = new TelemetryMessageConsumer(objectMapper, telemetryExecutionOrchestrator);
     }
 
     @Test
@@ -46,7 +46,7 @@ class TelemetryMessageConsumerTest {
 
         consumer.onMessage(message, channel);
 
-        verify(flowRunner).run(any(SensorEvent.class));
+        verify(telemetryExecutionOrchestrator).orchestrate(any(SensorEvent.class));
         verify(channel).basicAck(101L, false);
     }
 
@@ -57,7 +57,7 @@ class TelemetryMessageConsumerTest {
         Message message = createMessage(103L, brokeJson);
         consumer.onMessage(message, channel);
 
-        verify(flowRunner, never()).run(any());
+        verify(telemetryExecutionOrchestrator, never()).orchestrate(any());
         verify(channel).basicAck(103L, false);
     }
 
@@ -75,7 +75,7 @@ class TelemetryMessageConsumerTest {
         Message message = createMessage(104L, missingLocationJson.getBytes(StandardCharsets.UTF_8));
         consumer.onMessage(message, channel);
 
-        verify(flowRunner, never()).run(any());
+        verify(telemetryExecutionOrchestrator, never()).orchestrate(any());
         verify(channel).basicAck(104L, false);
     }
 
@@ -84,7 +84,8 @@ class TelemetryMessageConsumerTest {
     void runnerExceptionTest() throws Exception {
         byte[] body = validBody();
         Message message = createMessage(106L, body);
-        doThrow(new RuntimeException("Execution failed")).when(flowRunner).run(any(SensorEvent.class));
+        doThrow(new RuntimeException("Execution failed"))
+                .when(telemetryExecutionOrchestrator).orchestrate(any(SensorEvent.class));
         consumer.onMessage(message, channel);
         verify(channel).basicAck(106L, false);
         verify(channel, never()).basicNack(106L, false, true);
@@ -97,7 +98,7 @@ class TelemetryMessageConsumerTest {
 
         consumer.onMessage(message, channel);
 
-        verify(flowRunner, never()).run(any());
+        verify(telemetryExecutionOrchestrator, never()).orchestrate(any());
         verify(channel).basicAck(107L, false);
     }
 

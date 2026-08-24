@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.action.dto;
+package com.nhnacademy.insightonruleengine.runner.model.action;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
 import java.util.Map;

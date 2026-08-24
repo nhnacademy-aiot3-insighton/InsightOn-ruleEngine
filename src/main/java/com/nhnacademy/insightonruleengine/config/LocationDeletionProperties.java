@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.common.config;
+package com.nhnacademy.insightonruleengine.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;

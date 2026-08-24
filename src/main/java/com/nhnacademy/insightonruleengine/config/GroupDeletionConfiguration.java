@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.common.config;
+package com.nhnacademy.insightonruleengine.config;
 
 import org.aopalliance.aop.Advice;
 import org.springframework.amqp.core.Binding;

@@ -1,15 +1,15 @@
-package com.nhnacademy.insightonruleengine.flow.cleanup;
+package com.nhnacademy.insightonruleengine.flow.application.cleanup;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nhnacademy.insightonruleengine.flow.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.repository.FlowRepository;
-import com.nhnacademy.insightonruleengine.flow.repository.NodeRepository;
-import com.nhnacademy.insightonruleengine.runner.alert.AlertCountRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.ActiveFlowRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;

@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.messaging;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
-import com.nhnacademy.insightonruleengine.flow.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.dto.GroupDeletedEvent;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
+import com.nhnacademy.insightonruleengine.runner.model.GroupDeletedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;

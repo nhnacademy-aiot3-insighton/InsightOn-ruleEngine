@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.common.config;
+package com.nhnacademy.insightonruleengine.config;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;

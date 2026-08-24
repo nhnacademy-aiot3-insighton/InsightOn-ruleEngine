@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.common.config;
+package com.nhnacademy.insightonruleengine.config;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -8,11 +8,11 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import com.nhnacademy.insightonruleengine.flow.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.dto.GroupDeletedEvent;
-import com.nhnacademy.insightonruleengine.runner.dto.LocationDeletedEvent;
-import com.nhnacademy.insightonruleengine.runner.messaging.GroupDeletionListener;
-import com.nhnacademy.insightonruleengine.runner.messaging.LocationDeletionListener;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.GroupDeletionListener;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.LocationDeletionListener;
+import com.nhnacademy.insightonruleengine.runner.model.GroupDeletedEvent;
+import com.nhnacademy.insightonruleengine.runner.model.LocationDeletedEvent;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

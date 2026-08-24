@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
+import com.nhnacademy.insightonruleengine.runner.application.telemetry.TelemetryExecutionOrchestrator;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
     private static final int MAX_MESSAGE_BYTES = 256 * 1024;
 
     private final ObjectMapper objectMapper;
-    private final FlowRunner flowRunner;
+    private final TelemetryExecutionOrchestrator telemetryExecutionOrchestrator;
 
     @Override
     public void onMessage(Message message, Channel channel) throws Exception {
@@ -39,7 +39,7 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
         }
 
         try {
-            flowRunner.run(sensorEvent);
+            telemetryExecutionOrchestrator.orchestrate(sensorEvent);
             channel.basicAck(deliveryTag, false);
         } catch (RuntimeException exception) {
             log.error(

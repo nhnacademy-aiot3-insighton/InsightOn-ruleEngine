@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.action.dto;
+package com.nhnacademy.insightonruleengine.runner.model.action;
 
 import java.time.OffsetDateTime;
 

@@ -1,7 +1,7 @@
-package com.nhnacademy.insightonruleengine.runner.action;
+package com.nhnacademy.insightonruleengine.runner.application.action;
 
-import com.nhnacademy.insightonruleengine.runner.action.dto.AiSuggestionActionEvent;
-import com.nhnacademy.insightonruleengine.runner.action.dto.EngineAlertActionEvent;
+import com.nhnacademy.insightonruleengine.runner.model.action.AiSuggestionActionEvent;
+import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 
 public interface ActionPublisher {
 

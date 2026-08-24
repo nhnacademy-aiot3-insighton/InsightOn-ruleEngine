@@ -4,11 +4,11 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.runner.action.ActionPublisher;
-import com.nhnacademy.insightonruleengine.runner.action.dto.EngineAlertActionEvent;
-import com.nhnacademy.insightonruleengine.runner.alert.AlertCountService;
-import com.nhnacademy.insightonruleengine.runner.dto.FlowExecutionContext;
-import com.nhnacademy.insightonruleengine.runner.dto.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
+import com.nhnacademy.insightonruleengine.runner.execution.state.alert.AlertCountService;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,8 +22,6 @@ public class AlertNodeExecutor implements NodeExecutor {
     private final NodeParamsParser nodeParamsParser;
     private final AlertCountService alertCountService;
     private final ActionPublisher actionPublisher;
-    private final ObjectMapper objectMapper;
-
     @Override
     public NodeType supports() {
         return NodeType.ALERT;

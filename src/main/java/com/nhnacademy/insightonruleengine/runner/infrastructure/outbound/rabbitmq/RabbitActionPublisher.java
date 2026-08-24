@@ -1,8 +1,9 @@
-package com.nhnacademy.insightonruleengine.runner.action;
+package com.nhnacademy.insightonruleengine.runner.infrastructure.outbound.rabbitmq;
 
-import com.nhnacademy.insightonruleengine.common.config.ActionPublisherProperties;
-import com.nhnacademy.insightonruleengine.runner.action.dto.AiSuggestionActionEvent;
-import com.nhnacademy.insightonruleengine.runner.action.dto.EngineAlertActionEvent;
+import com.nhnacademy.insightonruleengine.config.ActionPublisherProperties;
+import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
+import com.nhnacademy.insightonruleengine.runner.model.action.AiSuggestionActionEvent;
+import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
