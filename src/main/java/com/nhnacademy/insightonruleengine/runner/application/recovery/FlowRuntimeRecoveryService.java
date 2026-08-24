@@ -20,7 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-//Redis MISS나 손상 데이터를 PostgreSQL의 ACTIVE Flow 원본으로 복구합니다.
+// Redis MISS나 손상 데이터를 PostgreSQL의 ACTIVE Flow 원본으로 복구합니다.
+// FIXME: 현재 사용하는 곳 없음. 향후 런타임 복구 경로 연결 시 사용 여부를 재검토합니다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
