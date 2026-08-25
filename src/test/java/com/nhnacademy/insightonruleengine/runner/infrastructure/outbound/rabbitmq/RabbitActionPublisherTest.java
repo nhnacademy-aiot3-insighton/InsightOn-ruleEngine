@@ -9,6 +9,7 @@ import com.nhnacademy.insightonruleengine.config.ActionPublisherProperties;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
 import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +62,7 @@ class RabbitActionPublisherTest {
 
     private EngineAlertActionEvent event() {
         return new EngineAlertActionEvent(
+                UUID.fromString("315efbba-2553-4d4d-bb67-f4f41a51f63a"),
                 1L,
                 10L,
                 100L,
