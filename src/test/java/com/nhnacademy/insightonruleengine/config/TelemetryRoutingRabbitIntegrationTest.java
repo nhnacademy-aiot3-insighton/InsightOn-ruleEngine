@@ -68,7 +68,7 @@ class TelemetryRoutingRabbitIntegrationTest {
                 EXCHANGE_NAME,
                 QUEUE_PREFIX,
                 List.of(0, 2, 4, 6, 8, 10, 12, 14),
-                ""
+                "locationId"
         );
         TelemetryRoutingConfiguration config = new TelemetryRoutingConfiguration();
         CustomExchange exchange = config.telemetryExchange(properties);
@@ -84,12 +84,12 @@ class TelemetryRoutingRabbitIntegrationTest {
     }
 
     @Test
-    @DisplayName("같은 locationId로 발행한 메시지는 16개 Queue 중 같은 Queue가 수신합니다.")
+    @DisplayName("같은 locationId Header로 발행한 메시지는 16개 Queue 중 같은 Queue가 수신합니다.")
     void sameLocationSameQueueTest() {
         List<String> expectedMessages = IntStream.range(0, MESSAGE_COUNT)
                 .mapToObj(index -> "telemetry-" + index)
                 .toList();
-        expectedMessages.forEach(message -> rabbitTemplate.convertAndSend(EXCHANGE_NAME, "42", message));
+        expectedMessages.forEach(message -> publishTelemetry(42L, message));
         await().atMost(Duration.ofSeconds(5))
                 .until(() -> totalMessageCount() == MESSAGE_COUNT);
         List<String> queuesWithMessages = queueNames().stream()
@@ -102,6 +102,14 @@ class TelemetryRoutingRabbitIntegrationTest {
                 .mapToObj(index -> rabbitTemplate.receiveAndConvert(selectedQueue, 2_000L))
                 .toList();
         assertEquals(expectedMessages, actualMessages);
+    }
+
+    // Core와 같은 방식으로 빈 routing key를 사용하고 locationId Header를 전달합니다.
+    private static void publishTelemetry(long locationId, String payload) {
+        rabbitTemplate.convertAndSend(EXCHANGE_NAME, "", payload, message -> {
+            message.getMessageProperties().setHeader("locationId", String.valueOf(locationId));
+            return message;
+        });
     }
 
     //운영 설정이 만든 Queue와 Binding을 실제 RabbitMQ에 순서대로 등록합니다.

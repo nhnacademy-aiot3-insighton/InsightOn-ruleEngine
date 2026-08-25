@@ -15,7 +15,7 @@ import org.springframework.amqp.core.Queue;
 
 class TelemetryRoutingConfigurationTest {
 
-    private static final String EXCHANGE_NAME = "insighton.core.telemetry.exchange";
+    private static final String EXCHANGE_NAME = "insighton.core.telemetry.exchange-v2";
 
     private final TelemetryRoutingConfiguration configuration = new TelemetryRoutingConfiguration();
 

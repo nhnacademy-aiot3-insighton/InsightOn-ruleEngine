@@ -62,7 +62,7 @@ class TelemetryRoutingPropertiesTest {
 
         TelemetryRoutingProperties props3 = new TelemetryRoutingProperties(
                 true,
-                "insighton.core.telemetry.exchange",
+                "insighton.core.telemetry.exchange-v2",
                 null,
                 ENGINE_A_INDICES,
                 null
@@ -71,7 +71,7 @@ class TelemetryRoutingPropertiesTest {
 
         TelemetryRoutingProperties props4 = new TelemetryRoutingProperties(
                 true,
-                "insighton.core.telemetry.exchange",
+                "insighton.core.telemetry.exchange-v2",
                 " ",
                 ENGINE_A_INDICES,
                 null
@@ -178,7 +178,7 @@ class TelemetryRoutingPropertiesTest {
     private TelemetryRoutingProperties properties(List<Integer> ownedQueueIndices) {
         return new TelemetryRoutingProperties(
                 true,
-                "insighton.core.telemetry.exchange",
+                "insighton.core.telemetry.exchange-v2",
                 "telemetry.",
                 ownedQueueIndices,
                 null

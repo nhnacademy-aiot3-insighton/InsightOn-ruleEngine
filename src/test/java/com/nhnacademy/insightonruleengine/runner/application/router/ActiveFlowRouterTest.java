@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import jakarta.validation.Validation;
 import java.time.Instant;
@@ -23,19 +23,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class BypassFlowRouterTest {
+class ActiveFlowRouterTest {
 
     @Mock
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
 
-    private BypassFlowRouter router;
+    private ActiveFlowRouter router;
 
     @BeforeEach
     void setUp() {
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
-        router = new BypassFlowRouter(activeFlowDefinitionProvider, parser);
+        router = new ActiveFlowRouter(activeFlowDefinitionProvider, parser);
     }
 
     @Test
