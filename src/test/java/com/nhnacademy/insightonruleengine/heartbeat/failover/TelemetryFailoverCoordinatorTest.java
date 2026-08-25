@@ -35,7 +35,7 @@ class TelemetryFailoverCoordinatorTest {
     void setUp() {
         enabledRoutingProperties = new TelemetryRoutingProperties(
                 true,
-                "insighton.core.telemetry.exchange",
+                "insighton.core.telemetry.exchange-v2",
                 "telemetry.",
                 List.of(0, 2, 4, 6, 8, 10, 12, 14),
                 null

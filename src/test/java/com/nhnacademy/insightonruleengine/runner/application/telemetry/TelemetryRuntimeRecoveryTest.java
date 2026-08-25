@@ -16,7 +16,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.application.router.BypassFlowRouter;
+import com.nhnacademy.insightonruleengine.runner.application.router.ActiveFlowRouter;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
@@ -56,7 +56,7 @@ class TelemetryRuntimeRecoveryTest {
                 assembler,
                 cache
         );
-        BypassFlowRouter router = new BypassFlowRouter(provider, mock(NodeParamsParser.class));
+        ActiveFlowRouter router = new ActiveFlowRouter(provider, mock(NodeParamsParser.class));
 
         NodeExecutor locationExecutor = executor(NodeType.LOCATION, NodeExecutionResult.next("out"));
         NodeExecutor alertExecutor = executor(NodeType.ALERT, NodeExecutionResult.complete());
