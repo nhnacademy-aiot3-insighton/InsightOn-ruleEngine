@@ -65,6 +65,7 @@ class ThresholdEvaluatorTest {
     void rejectBlankExpression() {
         FlowExecutionContext context = context(Map.of("temperature", 20.0));
 
+        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluate(null, context));
         assertThrows(IllegalArgumentException.class, () -> evaluator.evaluate(" ", context));
     }
 
@@ -78,12 +79,32 @@ class ThresholdEvaluatorTest {
     @DisplayName("올바른 expression은 검증을 통과한다")
     void validateValidExpression() {
         assertDoesNotThrow(() -> evaluator.validateExpression("#metrics['temperature'] > 30"));
+        assertDoesNotThrow(() -> evaluator.validateExpression("#metrics['temperature'] > 30"));
     }
 
     @Test
     @DisplayName("문법이 잘못된 expression은 검증 중 거부한다")
     void rejectInvalidExpressionSyntax() {
         assertThrows(RuntimeException.class, () -> evaluator.validateExpression("#metrics['temperature'] >"));
+    }
+
+    @Test
+    @DisplayName("검증할 expression은 필수이며 허용 길이를 초과할 수 없습니다")
+    void rejectMissingOrOversizedExpression() {
+        assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression(null));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression(" "));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression("1".repeat(1001)));
+    }
+
+    @Test
+    @DisplayName("expression 캐시는 상한에 도달하면 정리한 뒤 계속 사용할 수 있습니다")
+    void clearsExpressionCacheAtCapacity() {
+        for (int index = 0; index <= 1024; index++) {
+            int expressionNumber = index;
+            assertDoesNotThrow(() -> evaluator.validateExpression(expressionNumber + " >= 0"));
+        }
+
+        assertDoesNotThrow(() -> evaluator.validateExpression("1024 >= 0"));
     }
 
     private FlowExecutionContext context(Map<String, Object> metrics) {

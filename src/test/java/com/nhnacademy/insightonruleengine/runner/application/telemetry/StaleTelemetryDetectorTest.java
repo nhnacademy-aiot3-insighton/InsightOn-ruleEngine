@@ -29,4 +29,39 @@ class StaleTelemetryDetectorTest {
         assertThat(detector.isStale(1L, 10L, 102L, Instant.parse("2026-08-20T01:03:00Z")))
                 .isFalse();
     }
+
+    @Test
+    @DisplayName("더 최신 Telemetry가 오면 watermark를 갱신합니다")
+    void newerTelemetryUpdatesWatermarkTest() {
+        detector.isStale(1L, 10L, 101L, Instant.parse("2026-08-20T01:05:00Z"));
+
+        assertThat(detector.isStale(
+                1L, 10L, 101L, Instant.parse("2026-08-20T01:06:00Z")))
+                .isFalse();
+        assertThat(detector.isStale(
+                1L, 10L, 101L, Instant.parse("2026-08-20T01:05:30Z")))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("식별자나 발생 시각이 없으면 stale로 단정하지 않습니다")
+    void incompleteTelemetryIsNotStaleTest() {
+        Instant timestamp = Instant.parse("2026-08-20T01:05:00Z");
+
+        assertThat(detector.isStale(null, 10L, 101L, timestamp)).isFalse();
+        assertThat(detector.isStale(1L, null, 101L, timestamp)).isFalse();
+        assertThat(detector.isStale(1L, 10L, null, timestamp)).isFalse();
+        assertThat(detector.isStale(1L, 10L, 101L, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("초기화하면 이전 watermark를 사용하지 않습니다")
+    void clearRemovesWatermarkTest() {
+        Instant timestamp = Instant.parse("2026-08-20T01:05:00Z");
+        detector.isStale(1L, 10L, 101L, timestamp);
+
+        detector.clear();
+
+        assertThat(detector.isStale(1L, 10L, 101L, timestamp)).isFalse();
+    }
 }
