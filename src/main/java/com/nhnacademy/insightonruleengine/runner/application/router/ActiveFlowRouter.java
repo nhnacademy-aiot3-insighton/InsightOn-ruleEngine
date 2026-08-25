@@ -1,20 +1,20 @@
 package com.nhnacademy.insightonruleengine.runner.application.router;
 
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** group/location으로 후보를 찾은 뒤 Flow의 Trigger 조건으로 실행. */
+/** group/location의 활성 Flow 중 Telemetry trigger와 일치하는 실행 대상을 선택한다. */
 @Component
 @RequiredArgsConstructor
-public class BypassFlowRouter implements FlowRouter {
+public class ActiveFlowRouter implements FlowRouter {
 
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
     private final NodeParamsParser nodeParamsParser;
