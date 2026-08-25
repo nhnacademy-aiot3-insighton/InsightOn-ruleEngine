@@ -1,17 +1,46 @@
 package com.nhnacademy.insightonruleengine.runner.model.action;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class EngineAlertActionEventTest {
 
+    private static final UUID EVENT_ID = UUID.fromString("315efbba-2553-4d4d-bb67-f4f41a51f63a");
+
     @Test
     void acceptsValidEvent() {
         assertDoesNotThrow(() -> event(1L, 10L, 100L, "고온 경보", "온도가 기준을 초과했습니다.", Severity.CRITICAL));
+    }
+
+    @Test
+    void rejectsNullEventId() {
+        assertThrows(IllegalArgumentException.class, () -> new EngineAlertActionEvent(
+                null,
+                1L,
+                10L,
+                100L,
+                "경보",
+                "메시지",
+                Severity.CRITICAL,
+                Map.of("temperature", 31.5)
+        ));
+    }
+
+    @Test
+    void serializesEventIdAsUuidString() {
+        JsonNode json = new ObjectMapper().valueToTree(
+                event(1L, 10L, 100L, "경보", "메시지", Severity.CRITICAL)
+        );
+
+        assertEquals(EVENT_ID.toString(), json.get("eventId").asText());
     }
 
     @Test
@@ -67,6 +96,7 @@ class EngineAlertActionEventTest {
             Severity severity
     ) {
         return new EngineAlertActionEvent(
+                EVENT_ID,
                 groupId,
                 locationId,
                 flowId,

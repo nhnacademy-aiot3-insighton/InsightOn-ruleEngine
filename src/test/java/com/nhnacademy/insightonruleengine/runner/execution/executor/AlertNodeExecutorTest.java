@@ -1,6 +1,7 @@
 package com.nhnacademy.insightonruleengine.runner.execution.executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -78,6 +79,8 @@ class AlertNodeExecutorTest {
         verify(actionPublisher).publishAlert(captor.capture());
         EngineAlertActionEvent event = captor.getValue();
         assertTrue(result.terminal());
+        assertNotNull(event.eventId());
+        assertEquals(4, event.eventId().version());
         assertEquals(1L, event.groupId());
         assertEquals(10L, event.locationId());
         assertEquals(100L, event.flowId());
