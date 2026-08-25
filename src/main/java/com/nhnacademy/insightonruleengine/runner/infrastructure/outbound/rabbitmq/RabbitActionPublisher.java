@@ -30,11 +30,11 @@ public class RabbitActionPublisher implements ActionPublisher {
                     properties.alertRoutingKey(),
                     event
             );
-            log.info("Published ALERT action event. flowId={}, locationId={}, title={}",
-                    event.flowId(), event.locationId(), event.title());
+            log.info("Published ALERT action event. eventId={}, flowId={}, locationId={}, title={}",
+                    event.eventId(), event.flowId(), event.locationId(), event.title());
         } catch (Exception exception) {
-            log.error("Failed to publish ALERT action event. flowId={}, locationId={}",
-                    event.flowId(), event.locationId(), exception);
+            log.error("Failed to publish ALERT action event. eventId={}, flowId={}, locationId={}",
+                    event.eventId(), event.flowId(), event.locationId(), exception);
             throw new IllegalArgumentException("publish ALERT action event가 실패 했습니다.", exception);
         }
     }

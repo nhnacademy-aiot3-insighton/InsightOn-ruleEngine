@@ -2,9 +2,12 @@ package com.nhnacademy.insightonruleengine.runner.model.action;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
 import java.util.Map;
+import java.util.UUID;
 
 //InsightOn-ai 서비스로 발행하는 ALERT 액션 이벤트 dto
 public record EngineAlertActionEvent(
+        // 멱등성 제공을 위한 uuid 형식의 eventId
+        UUID eventId,
         Long groupId,
         Long locationId,
         Long flowId,
@@ -14,6 +17,9 @@ public record EngineAlertActionEvent(
         Map<String, Object> triggerValue
 ) {
     public EngineAlertActionEvent {
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId는 필수입니다.");
+        }
         if (groupId == null || groupId <= 0L) {
             throw new IllegalArgumentException("groupId는 필수이며 양수여야 합니다.");
         }

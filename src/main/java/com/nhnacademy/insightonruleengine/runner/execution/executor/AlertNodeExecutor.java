@@ -10,6 +10,7 @@ import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -41,6 +42,7 @@ public class AlertNodeExecutor implements NodeExecutor {
             triggerValue = context.event().metrics();
         }
         EngineAlertActionEvent event = new EngineAlertActionEvent(
+                UUID.randomUUID(),
                 context.flow().groupId(),
                 context.flow().locationId(),
                 context.flow().flowId(),
