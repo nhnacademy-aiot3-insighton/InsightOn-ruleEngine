@@ -1,11 +1,14 @@
 package com.nhnacademy.insightonruleengine.runner.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -17,17 +20,68 @@ class SensorEventTest {
     void rejectsMissingRequiredFields() {
         Instant timestamp = Instant.now();
         Map<String, Object> metrics = Map.of("temperature", 20);
-        Map<String, Object> emptyMetrics = Map.of();
-        Map<String, Object> blankNameMetrics = Map.of(" ", 20);
 
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(null, 10L, 100L, metrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, emptyMetrics, timestamp));
+                () -> new SensorEvent(1L, null, 100L, metrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, blankNameMetrics, timestamp));
+                () -> new SensorEvent(1L, 10L, null, metrics, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, metrics, null));
+    }
+
+    @Test
+    void rejectsNonPositiveIdentifiers() {
+        Instant timestamp = Instant.now();
+        Map<String, Object> metrics = Map.of("temperature", 20);
+
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(0L, 10L, 100L, metrics, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 0L, 100L, metrics, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 0L, metrics, timestamp));
+    }
+
+    @Test
+    void rejectsInvalidMetrics() {
+        Instant timestamp = Instant.now();
+        Map<String, Object> nullKeyMetrics = new HashMap<>();
+        nullKeyMetrics.put(null, 20);
+        Map<String, Object> nullValueMetrics = new HashMap<>();
+        nullValueMetrics.put("temperature", null);
+        Map<String, Object> tooManyMetrics = new LinkedHashMap<>();
+        for (int index = 0; index < 257; index++) {
+            tooManyMetrics.put("metric-" + index, index);
+        }
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, null, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, Map.of(), timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, tooManyMetrics, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, nullKeyMetrics, timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, Map.of(" ", 20), timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, Map.of("x".repeat(101), 20), timestamp));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SensorEvent(1L, 10L, 100L, nullValueMetrics, timestamp));
+    }
+
+    @Test
+    void copiesMetricsToProtectEventFromExternalMutation() {
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("temperature", 20);
+
+        SensorEvent event = new SensorEvent(1L, 10L, 100L, metrics, Instant.now());
+        metrics.put("temperature", 30);
+
+        assertNotSame(metrics, event.metrics());
+        assertEquals(20, event.metrics().get("temperature"));
     }
 
     @Test

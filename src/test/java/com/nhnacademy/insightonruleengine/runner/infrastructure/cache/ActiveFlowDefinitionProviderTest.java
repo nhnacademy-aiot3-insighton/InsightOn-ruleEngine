@@ -1,6 +1,10 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -23,6 +27,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class ActiveFlowDefinitionProviderTest {
@@ -103,9 +109,131 @@ class ActiveFlowDefinitionProviderTest {
         verify(flowDefinitionCache).replace(1L, 10L, List.of());
     }
 
+    @Test
+    void usesLocalFallbackOnlyWhenRedisAndDatabaseBothFail() {
+        FlowDefinition definition = definition();
+        RedisConnectionFailureException redisFailure =
+                new RedisConnectionFailureException("Redis unavailable");
+        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(redisFailure);
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenThrow(databaseFailure);
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+    }
+
+    @Test
+    void propagatesDatabaseFailureWhenNoLocalFallbackExists() {
+        RedisConnectionFailureException redisFailure =
+                new RedisConnectionFailureException("Redis unavailable");
+        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
+        when(flowDefinitionCache.find(1L, 10L)).thenThrow(redisFailure);
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenThrow(databaseFailure);
+
+        IllegalStateException thrown = assertThrows(
+                IllegalStateException.class,
+                () -> provider.find(1L, 10L)
+        );
+
+        assertSame(databaseFailure, thrown);
+        assertEquals(List.of(redisFailure), List.of(thrown.getSuppressed()));
+    }
+
+    @Test
+    void keepsLocalFallbackWhenRedisReplaceFails() {
+        FlowDefinition definition = definition();
+        Flow flow = flow(100L);
+        RedisConnectionFailureException redisReadFailure =
+                new RedisConnectionFailureException("Redis read unavailable");
+        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.empty())
+                .thenThrow(redisReadFailure);
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of(flow))
+                .thenThrow(databaseFailure);
+        when(flowDefinitionAssembler.assemble(1L, 100L)).thenReturn(definition);
+        doThrow(new RedisConnectionFailureException("Redis write unavailable"))
+                .when(flowDefinitionCache).replace(1L, 10L, List.of(definition));
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+    }
+
+    @Test
+    void warmUpGroupsActiveFlowsByRoute() {
+        FlowDefinition firstDefinition = definition();
+        FlowDefinition secondDefinition = definition(101L);
+        Flow firstFlow = flow(100L);
+        Flow secondFlow = flow(101L);
+        when(flowRepository.findAllByStatus(FlowStatus.ACTIVE))
+                .thenReturn(List.of(firstFlow, secondFlow));
+        when(flowDefinitionAssembler.assemble(1L, 100L)).thenReturn(firstDefinition);
+        when(flowDefinitionAssembler.assemble(1L, 101L)).thenReturn(secondDefinition);
+
+        provider.warmUp();
+
+        verify(flowDefinitionCache)
+                .replace(1L, 10L, List.of(firstDefinition, secondDefinition));
+    }
+
+    @Test
+    void refreshRunsImmediatelyWithoutTransactionSynchronization() {
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        provider.refreshAfterCommit(1L, 10L);
+
+        verify(flowDefinitionCache).replace(1L, 10L, List.of());
+    }
+
+    @Test
+    void refreshWaitsForTransactionCommitWhenSynchronizationIsActive() {
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of());
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            provider.refreshAfterCommit(1L, 10L);
+            verifyNoInteractions(flowRepository, flowDefinitionAssembler, flowDefinitionCache);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            verify(flowDefinitionCache).replace(1L, 10L, List.of());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void evictAfterCommitDoesNotPropagateRedisFailure() {
+        doThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .when(flowDefinitionCache).evict(1L, 10L);
+
+        provider.evictAfterCommit(1L, 10L);
+
+        verify(flowDefinitionCache).evict(1L, 10L);
+    }
+
+    private Flow flow(long flowId) {
+        Flow flow = mock(Flow.class);
+        when(flow.getGroupId()).thenReturn(1L);
+        lenient().when(flow.getLocationId()).thenReturn(10L);
+        when(flow.getId()).thenReturn(flowId);
+        return flow;
+    }
+
     private FlowDefinition definition() {
+        return definition(100L);
+    }
+
+    private FlowDefinition definition(long flowId) {
         return new FlowDefinition(
-                100L,
+                flowId,
                 1L,
                 10L,
                 "cached flow",
