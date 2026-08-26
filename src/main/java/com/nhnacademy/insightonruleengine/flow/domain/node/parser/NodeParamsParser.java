@@ -9,6 +9,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,8 +18,11 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class NodeParamsParser {
 
+    private static final int MAX_CACHE_ENTRIES = 1024;
+
     private final ObjectMapper objectMapper;
     private final Validator validator;
+    private final ConcurrentMap<CacheKey, NodeParams> parsedParamsCache = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
     public <T extends NodeParams> T parse(NodeType nodeType, JsonNode configuration) {
@@ -28,12 +33,19 @@ public class NodeParamsParser {
             throw new IllegalArgumentException("configuration은 필수입니다.");
         }
 
+        CacheKey cacheKey = new CacheKey(nodeType, configuration.toString());
+        NodeParams cached = parsedParamsCache.get(cacheKey);
+        if (cached != null) {
+            return (T) cached;
+        }
+
         try {
 //          public <T> T treeToValue(TreeNode n, Class<T> valueType)
 //          ObjectMapper의 ReadTree와 tree to value의 적절한 사용이 필요함.
 
             T params = (T) objectMapper.treeToValue(configuration, nodeType.getParamsType());
             validate(params);
+            cacheParsedParams(cacheKey, params);
             return params;
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Node configuration 파싱에 실패했습니다.", exception);
@@ -45,6 +57,16 @@ public class NodeParamsParser {
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
         }
+    }
+
+    private void cacheParsedParams(CacheKey cacheKey, NodeParams params) {
+        if (parsedParamsCache.size() >= MAX_CACHE_ENTRIES) {
+            parsedParamsCache.clear();
+        }
+        parsedParamsCache.putIfAbsent(cacheKey, params);
+    }
+
+    private record CacheKey(NodeType nodeType, String configuration) {
     }
 
 }

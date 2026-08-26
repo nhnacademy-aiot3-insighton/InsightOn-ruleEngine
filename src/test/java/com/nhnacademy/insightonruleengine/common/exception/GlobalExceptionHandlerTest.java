@@ -3,11 +3,11 @@ package com.nhnacademy.insightonruleengine.common.exception;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.exception.DuplicateFlowNameException;
-import com.nhnacademy.insightonruleengine.flow.exception.FlowNotFoundException;
-import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
-import com.nhnacademy.insightonruleengine.runner.redis.InvalidActiveFlowDataException;
-import com.nhnacademy.insightonruleengine.runner.redis.InvalidRouteDataException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.InvalidActiveFlowDataException;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.InvalidRouteDataException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

@@ -12,17 +12,25 @@ import jakarta.validation.constraints.Size;
 public record AlertParams(
         @NotBlank @Size(max = 200) String title,
         @NotNull Severity severity,
-        @NotBlank String message,
+        @NotBlank @Size(max = 2000) String message,
         @Min(1) Integer requiredCount,
         @Min(1) Integer countTimeoutSeconds,
         @Min(0) Integer cooldownSeconds
 ) implements NodeParams {
+
+    public static final int DEFAULT_REQUIRED_COUNT = 3;
+    public static final int DEFAULT_COUNT_TIMEOUT_SECONDS = 300;
+    public static final int DEFAULT_COOLDOWN_SECONDS = 1800;
+
     public AlertParams {
         if (requiredCount == null) {
-            requiredCount = 1;
+            requiredCount = DEFAULT_REQUIRED_COUNT;
+        }
+        if (countTimeoutSeconds == null && requiredCount >= 2) {
+            countTimeoutSeconds = DEFAULT_COUNT_TIMEOUT_SECONDS;
         }
         if (cooldownSeconds == null) {
-            cooldownSeconds = 0;
+            cooldownSeconds = DEFAULT_COOLDOWN_SECONDS;
         }
         if (requiredCount >= 2 && (countTimeoutSeconds == null || countTimeoutSeconds <= 0)) {
             throw new IllegalArgumentException(

@@ -1,6 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.domain;
 
-import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -95,7 +95,9 @@ public class Flow {
     }
 
     public void archive() {
-        if (!status.equals(FlowStatus.ACTIVE) && !status.equals(FlowStatus.INACTIVE)) {
+        if (!status.equals(FlowStatus.ACTIVE)
+                && !status.equals(FlowStatus.INACTIVE)
+                && !status.equals(FlowStatus.ERROR)) {
             throw new InvalidFlowStatusTransitionException(status, FlowStatus.ARCHIVED);
         }
         status = FlowStatus.ARCHIVED;

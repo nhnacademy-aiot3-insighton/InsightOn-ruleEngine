@@ -3,7 +3,7 @@ package com.nhnacademy.insightonruleengine.flow.domain;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.nhnacademy.insightonruleengine.flow.exception.InvalidFlowStatusTransitionException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,8 +28,9 @@ class FlowTest {
     void flowNameTest() {
         Assertions.assertThrows(IllegalArgumentException.class, () ->
                 new Flow(1L, 1L, "", "테스트", FlowStatus.ACTIVE));
+        String longName = "가".repeat(101);
         Assertions.assertThrows(IllegalArgumentException.class, () ->
-                new Flow(1L, 1L, "가".repeat(101), "테스트", FlowStatus.ACTIVE));
+                new Flow(1L, 1L, longName, "테스트", FlowStatus.ACTIVE));
         Flow testFlow = new Flow(1L, 1L, " 테스트 ", "테스트", FlowStatus.ACTIVE);
         Assertions.assertEquals("테스트", testFlow.getName());
     }
@@ -57,15 +58,14 @@ class FlowTest {
         Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
     }
 
-    // 실행 또는 대기 상태가 아닌 Flow가 휴지통으로 이동하지 않는지 확인합니다.
     @Test
-    @DisplayName("ACTIVE와 INACTIVE가 아닌 Flow는 보관할 수 없다")
-    void rejectUnsupportedFlowArchiveTest() {
+    @DisplayName("ERROR Flow는 수정을 위해 보관할 수 있다")
+    void errorFlowCanBeArchived() {
         Flow flow = new Flow(1L, 1L, "테스트", null, FlowStatus.ERROR);
 
-        assertThrows(InvalidFlowStatusTransitionException.class, flow::archive);
+        flow.archive();
 
-        Assertions.assertEquals(FlowStatus.ERROR, flow.getStatus());
+        Assertions.assertEquals(FlowStatus.ARCHIVED, flow.getStatus());
     }
 
     @Test

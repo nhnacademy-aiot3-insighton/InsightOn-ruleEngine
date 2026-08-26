@@ -2,10 +2,10 @@ package com.nhnacademy.insightonruleengine.flow;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.dto.FlowCreateRequest;
-import com.nhnacademy.insightonruleengine.flow.dto.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.dto.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.dto.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
 import java.util.List;
 
 public abstract class FlowTestData {
@@ -14,13 +14,16 @@ public abstract class FlowTestData {
         return List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("sensor")
-                        .nodeType(NodeType.SENSOR)
+                        .nodeType(NodeType.LOCATION)
                         .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("alert")
                         .nodeType(NodeType.ALERT)
-                        .configuration(JsonNodeFactory.instance.objectNode())
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("title", "테스트 알림")
+                                .put("severity", "WARNING")
+                                .put("message", "테스트 알림 메시지"))
                         .build()
         );
     }
@@ -45,23 +48,27 @@ public abstract class FlowTestData {
                 .build();
     }
 
-    //시나리오 1: 기초 온도 30도 이상 경보 플로우 (SENSOR -> THRESHOLD -> ALERT)
+    //시나리오 1: 기초 온도 30도 이상 경보 플로우 (LOCATION -> THRESHOLD -> ALERT)
     public static FlowCreateRequest createTemperatureThreshold30FlowRequest(Long locationId) {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_sensor")
-                        .nodeType(NodeType.SENSOR)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("metric", "temperature"))
+                        .nodeType(NodeType.LOCATION)
+                        .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_threshold_30")
                         .nodeType(NodeType.THRESHOLD)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("expression", "payload > 30"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("expression", "#metrics['temperature'] > 30"))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_alert")
                         .nodeType(NodeType.ALERT)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("message", "온도 30도 초과 경보"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("title", "온도 경보")
+                                .put("severity", "WARNING")
+                                .put("message", "온도 30도 초과 경보"))
                         .build()
         );
 
@@ -100,7 +107,10 @@ public abstract class FlowTestData {
                 FlowNodeRequest.builder()
                         .clientNodeKey("fan_actuator")
                         .nodeType(NodeType.ACTUATOR_CONTROL)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("target", "fan").put("action", "ON"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("actuatorType", "FAN")
+                                .put("command", "power")
+                                .put("commandValue", "ON"))
                         .build()
         );
 
@@ -122,29 +132,34 @@ public abstract class FlowTestData {
                 .build();
     }
 
-    //시나리오 3: 이중 조건 직렬 검사 플로우 (SENSOR -> THRESHOLD(온도) -> THRESHOLD(습도) -> ALERT)
+    //시나리오 3: 이중 조건 직렬 검사 플로우 (LOCATION -> THRESHOLD(온도) -> THRESHOLD(습도) -> ALERT)
     public static FlowCreateRequest createMultiThresholdSerialFlowRequest(Long locationId) {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("env_sensor")
-                        .nodeType(NodeType.SENSOR)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("metric", "environment"))
+                        .nodeType(NodeType.LOCATION)
+                        .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_check")
                         .nodeType(NodeType.THRESHOLD)
                         .configuration(
-                                JsonNodeFactory.instance.objectNode().put("expression", "payload.temperature > 30"))
+                                JsonNodeFactory.instance.objectNode()
+                                        .put("expression", "#metrics['temperature'] > 30"))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("humidity_check")
                         .nodeType(NodeType.THRESHOLD)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("expression", "payload.humidity > 70"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("expression", "#metrics['humidity'] > 70"))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("high_temp_humidity_alert")
                         .nodeType(NodeType.ALERT)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("message", "고온 고습 경보"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("title", "고온 고습 경보")
+                                .put("severity", "WARNING")
+                                .put("message", "고온 고습 경보"))
                         .build()
         );
 
@@ -178,29 +193,35 @@ public abstract class FlowTestData {
                 .build();
     }
 
-    //시나리오 4: 참/거짓 이중 분기 플로우 (SENSOR -> THRESHOLD -> [true: ALERT, false: ACTUATOR_CONTROL])
+    //시나리오 4: 참/거짓 이중 분기 플로우 (LOCATION -> THRESHOLD -> [true: ALERT, false: ACTUATOR_CONTROL])
     public static FlowCreateRequest createTrueFalseFlowRequest(Long locationId) {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_sensor")
-                        .nodeType(NodeType.SENSOR)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("metric", "temperature"))
+                        .nodeType(NodeType.LOCATION)
+                        .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("temp_threshold")
                         .nodeType(NodeType.THRESHOLD)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("expression", "payload > 30"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("expression", "#metrics['temperature'] > 30"))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("high_temp_alert")
                         .nodeType(NodeType.ALERT)
-                        .configuration(JsonNodeFactory.instance.objectNode().put("message", "고온 경보"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("title", "고온 경보")
+                                .put("severity", "WARNING")
+                                .put("message", "고온 경보"))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("cooler_off_actuator")
                         .nodeType(NodeType.ACTUATOR_CONTROL)
-                        .configuration(
-                                JsonNodeFactory.instance.objectNode().put("target", "cooler").put("action", "OFF"))
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("actuatorType", "COOLER")
+                                .put("command", "power")
+                                .put("commandValue", "OFF"))
                         .build()
         );
 
@@ -239,7 +260,7 @@ public abstract class FlowTestData {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("sensor")
-                        .nodeType(NodeType.SENSOR)
+                        .nodeType(NodeType.LOCATION)
                         .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()

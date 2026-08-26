@@ -25,6 +25,11 @@ public interface PortSchema {
         return params -> fixedPorts;
     }
 
+    /** "true"/"false" 두 출력 포트를 갖는 필터 타입용. */
+    static PortSchema booleanPorts() {
+        return fixed("true", "false");
+    }
+
     /** 출력이 없는 타입용 (ACTION 계열).
      *
      */

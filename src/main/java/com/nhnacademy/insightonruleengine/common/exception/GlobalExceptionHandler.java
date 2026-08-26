@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.common.exception;
 
-import com.nhnacademy.insightonruleengine.flow.exception.CoreDependencyException;
-import com.nhnacademy.insightonruleengine.flow.exception.ForbiddenException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -32,8 +32,7 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class,
             MissingRequestHeaderException.class,
             MissingServletRequestParameterException.class,
-            MethodArgumentTypeMismatchException.class,
-            IllegalArgumentException.class
+            MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<ErrorResponse> handleInvalidRequest(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
