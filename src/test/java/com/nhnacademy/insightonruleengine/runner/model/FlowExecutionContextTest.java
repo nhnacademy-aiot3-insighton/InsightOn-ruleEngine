@@ -37,9 +37,10 @@ class FlowExecutionContextTest {
                 Map.of("temperature", 31.5),
                 Instant.parse("2026-08-24T00:00:00Z")
         );
+        FlowDefinition flow = flow();
 
         assertThrows(IllegalArgumentException.class, () -> new FlowExecutionContext(null, event));
-        assertThrows(IllegalArgumentException.class, () -> new FlowExecutionContext(flow(), null));
+        assertThrows(IllegalArgumentException.class, () -> new FlowExecutionContext(flow, null));
     }
 
     @Test
@@ -48,11 +49,12 @@ class FlowExecutionContextTest {
         when(nullMetricsEvent.metrics()).thenReturn(null);
         SensorEvent emptyMetricsEvent = mock(SensorEvent.class);
         when(emptyMetricsEvent.metrics()).thenReturn(Map.of());
+        FlowDefinition flow = flow();
 
         assertThrows(IllegalArgumentException.class,
-                () -> new FlowExecutionContext(flow(), nullMetricsEvent));
+                () -> new FlowExecutionContext(flow, nullMetricsEvent));
         assertThrows(IllegalArgumentException.class,
-                () -> new FlowExecutionContext(flow(), emptyMetricsEvent));
+                () -> new FlowExecutionContext(flow, emptyMetricsEvent));
     }
 
     @Test

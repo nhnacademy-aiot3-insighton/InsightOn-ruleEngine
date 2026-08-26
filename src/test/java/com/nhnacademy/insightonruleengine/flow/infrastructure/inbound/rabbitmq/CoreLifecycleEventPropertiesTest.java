@@ -35,21 +35,36 @@ class CoreLifecycleEventPropertiesTest {
     @DisplayName("활성 상태에서는 공유 Exchange와 두 이벤트 설정이 모두 필요합니다")
     void requiredConfigurationTest() {
         CoreLifecycleEventProperties valid = validProperties();
+        CoreLifecycleEventProperties missingExchange = properties(
+                " ",
+                valid.retry(),
+                valid.groupDeleted(),
+                valid.locationDeleted()
+        );
+        CoreLifecycleEventProperties missingGroupDeleted = properties(
+                valid.exchange(),
+                valid.retry(),
+                null,
+                valid.locationDeleted()
+        );
+        CoreLifecycleEventProperties missingLocationDeleted = properties(
+                valid.exchange(),
+                valid.retry(),
+                valid.groupDeleted(),
+                null
+        );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> properties(" ", valid.retry(), valid.groupDeleted(), valid.locationDeleted())
-                        .validateEnabledConfiguration()
+                missingExchange::validateEnabledConfiguration
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> properties(valid.exchange(), valid.retry(), null, valid.locationDeleted())
-                        .validateEnabledConfiguration()
+                missingGroupDeleted::validateEnabledConfiguration
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> properties(valid.exchange(), valid.retry(), valid.groupDeleted(), null)
-                        .validateEnabledConfiguration()
+                missingLocationDeleted::validateEnabledConfiguration
         );
     }
 

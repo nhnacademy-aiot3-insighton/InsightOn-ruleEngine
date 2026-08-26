@@ -22,6 +22,8 @@ class EngineAlertActionEventTest {
 
     @Test
     void rejectsNullEventId() {
+        Map<String, Object> metrics = Map.of("temperature", 31.5);
+
         assertThrows(IllegalArgumentException.class, () -> new EngineAlertActionEvent(
                 null,
                 1L,
@@ -30,7 +32,7 @@ class EngineAlertActionEventTest {
                 "경보",
                 "메시지",
                 Severity.CRITICAL,
-                Map.of("temperature", 31.5)
+                metrics
         ));
     }
 
@@ -69,12 +71,14 @@ class EngineAlertActionEventTest {
 
     @Test
     void rejectsInvalidTitle() {
+        String oversizedTitle = "a".repeat(201);
+
         assertThrows(IllegalArgumentException.class,
                 () -> event(1L, 10L, 100L, null, "메시지", Severity.CRITICAL));
         assertThrows(IllegalArgumentException.class,
                 () -> event(1L, 10L, 100L, " ", "메시지", Severity.CRITICAL));
         assertThrows(IllegalArgumentException.class,
-                () -> event(1L, 10L, 100L, "a".repeat(201), "메시지", Severity.CRITICAL));
+                () -> event(1L, 10L, 100L, oversizedTitle, "메시지", Severity.CRITICAL));
     }
 
     @Test
