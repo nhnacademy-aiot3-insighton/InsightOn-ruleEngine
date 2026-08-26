@@ -32,7 +32,7 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class GroupDeletionCleanupServiceTest {
+class FlowCleanupServiceTest {
 
     @Mock
     private FlowRepository flowRepository;
@@ -47,13 +47,13 @@ class GroupDeletionCleanupServiceTest {
     @Mock
     private AlertCountRedisRepository alertCountRedisRepository;
     @Mock
-    private GroupDeletionDatabaseCleanupService databaseCleanupService;
+    private FlowCleanupDBService databaseCleanupService;
 
-    private GroupDeletionCleanupService cleanupService;
+    private FlowCleanupService cleanupService;
 
     @BeforeEach
     void setUp() {
-        cleanupService = new GroupDeletionCleanupService(
+        cleanupService = new FlowCleanupService(
                 flowRepository,
                 nodeRepository,
                 flowRouteRedisRepository,
@@ -90,7 +90,7 @@ class GroupDeletionCleanupServiceTest {
             return null;
         }).when(databaseCleanupService).deleteByGroupId(1L);
 
-        cleanupService.cleanup(1L, List.of(10L, 20L, 30L));
+        cleanupService.cleanupByGroup(1L, List.of(10L, 20L, 30L));
 
         verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
         verify(flowRouteRedisRepository, times(2)).delete(1L, 20L);
@@ -126,7 +126,7 @@ class GroupDeletionCleanupServiceTest {
             return null;
         }).when(databaseCleanupService).deleteByLocationId(10L);
 
-        cleanupService.cleanupLocation(10L);
+        cleanupService.cleanupByLocation(10L);
 
         verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
         verify(flowRouteRedisRepository, times(2)).delete(2L, 10L);
@@ -149,7 +149,10 @@ class GroupDeletionCleanupServiceTest {
                 .when(flowRouteRedisRepository).delete(1L, 10L);
         List<Long> locationIds = List.of(10L);
 
-        assertThrows(RedisConnectionFailureException.class, () -> cleanupService.cleanup(1L, locationIds));
+        assertThrows(
+                RedisConnectionFailureException.class,
+                () -> cleanupService.cleanupByGroup(1L, locationIds)
+        );
 
         verify(databaseCleanupService, never()).deleteByGroupId(1L);
     }
@@ -159,8 +162,8 @@ class GroupDeletionCleanupServiceTest {
     void absentGroupIsIdempotentTest() {
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of());
 
-        cleanupService.cleanup(1L, List.of(10L));
-        cleanupService.cleanup(1L, List.of(10L));
+        cleanupService.cleanupByGroup(1L, List.of(10L));
+        cleanupService.cleanupByGroup(1L, List.of(10L));
 
         verify(nodeRepository, never()).findByFlowIdIn(org.mockito.ArgumentMatchers.anyList());
         verify(flowRouteRedisRepository, times(4)).delete(1L, 10L);
@@ -181,9 +184,9 @@ class GroupDeletionCleanupServiceTest {
 
         assertThrows(
                 IllegalStateException.class,
-                () -> cleanupService.cleanup(1L, locationIds)
+                () -> cleanupService.cleanupByGroup(1L, locationIds)
         );
-        cleanupService.cleanup(1L, List.of(10L));
+        cleanupService.cleanupByGroup(1L, List.of(10L));
 
         verify(flowRouteRedisRepository, times(3)).delete(1L, 10L);
         verify(activeFlowDefinitionProvider, times(3)).evictNow(1L, 10L);
@@ -197,8 +200,8 @@ class GroupDeletionCleanupServiceTest {
     void absentLocationIsIdempotentTest() {
         when(flowRepository.findAllByLocationId(10L)).thenReturn(List.of());
 
-        cleanupService.cleanupLocation(10L);
-        cleanupService.cleanupLocation(10L);
+        cleanupService.cleanupByLocation(10L);
+        cleanupService.cleanupByLocation(10L);
 
         verify(nodeRepository, never()).findByFlowIdIn(org.mockito.ArgumentMatchers.anyList());
         verify(databaseCleanupService, times(2)).deleteByLocationId(10L);
@@ -211,26 +214,26 @@ class GroupDeletionCleanupServiceTest {
         List<Long> zeroLocationId = List.of(0L);
         List<Long> negativeLocationId = List.of(-1L);
 
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(null, emptyLocationIds));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(0L, emptyLocationIds));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, null));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, zeroLocationId));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanup(1L, negativeLocationId));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByGroup(null, emptyLocationIds));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByGroup(0L, emptyLocationIds));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByGroup(1L, null));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByGroup(1L, zeroLocationId));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByGroup(1L, negativeLocationId));
 
         List<Long> locationIdsWithNull = new ArrayList<>();
         locationIdsWithNull.add(null);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> cleanupService.cleanup(1L, locationIdsWithNull)
+                () -> cleanupService.cleanupByGroup(1L, locationIdsWithNull)
         );
     }
 
     @Test
     @DisplayName("장소 삭제는 양수인 Location ID만 허용합니다")
     void invalidLocationDeletionIdTest() {
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(null));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(0L));
-        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupLocation(-1L));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByLocation(null));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByLocation(0L));
+        assertThrows(IllegalArgumentException.class, () -> cleanupService.cleanupByLocation(-1L));
     }
 
     private Flow flow(Long flowId, Long locationId, FlowStatus status) {

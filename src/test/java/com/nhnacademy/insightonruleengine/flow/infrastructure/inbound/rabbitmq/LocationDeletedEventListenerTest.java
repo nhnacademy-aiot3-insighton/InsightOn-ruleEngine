@@ -1,11 +1,11 @@
-package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.model.LocationDeletedEvent;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.FlowCleanupService;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto.LocationDeletedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,16 +14,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class LocationDeletionListenerTest {
+class LocationDeletedEventListenerTest {
 
     @Mock
-    private GroupDeletionCleanupService cleanupService;
+    private FlowCleanupService cleanupService;
 
-    private LocationDeletionListener listener;
+    private LocationDeletedEventListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new LocationDeletionListener(cleanupService);
+        listener = new LocationDeletedEventListener(cleanupService);
     }
 
     @Test
@@ -31,7 +31,7 @@ class LocationDeletionListenerTest {
     void consumeValidEventTest() {
         listener.consume(new LocationDeletedEvent(10L));
 
-        verify(cleanupService).cleanupLocation(10L);
+        verify(cleanupService).cleanupByLocation(10L);
     }
 
     @Test
@@ -41,6 +41,6 @@ class LocationDeletionListenerTest {
 
         assertThrows(IllegalArgumentException.class, () -> listener.consume(invalidEvent));
 
-        verify(cleanupService, never()).cleanupLocation(0L);
+        verify(cleanupService, never()).cleanupByLocation(0L);
     }
 }

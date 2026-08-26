@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.model;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto;
 
 public record LocationDeletedEvent(Long locationId) {
 
