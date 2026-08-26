@@ -26,15 +26,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(GroupDeletionDatabaseCleanupService.class)
+@Import(FlowCleanupDBService.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-class GroupDeletionDatabaseCleanupServiceIntegrationTest {
+class FlowCleanupDBServiceIntegrationTest {
 
     private static final long TARGET_GROUP_ID = 7001L;
     private static final long OTHER_GROUP_ID = 7002L;
 
     @Autowired
-    private GroupDeletionDatabaseCleanupService cleanupService;
+    private FlowCleanupDBService cleanupService;
     @Autowired
     private FlowRepository flowRepository;
     @Autowired

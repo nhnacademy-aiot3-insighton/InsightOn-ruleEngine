@@ -1,11 +1,11 @@
-package com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.model.GroupDeletedEvent;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.FlowCleanupService;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto.GroupDeletedEvent;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,16 +15,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class GroupDeletionListenerTest {
+class GroupDeletedEventListenerTest {
 
     @Mock
-    private GroupDeletionCleanupService cleanupService;
+    private FlowCleanupService cleanupService;
 
-    private GroupDeletionListener listener;
+    private GroupDeletedEventListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new GroupDeletionListener(cleanupService);
+        listener = new GroupDeletedEventListener(cleanupService);
     }
 
     @Test
@@ -34,7 +34,7 @@ class GroupDeletionListenerTest {
 
         listener.consume(event);
 
-        verify(cleanupService).cleanup(10L, List.of(100L));
+        verify(cleanupService).cleanupByGroup(10L, List.of(100L));
     }
 
     @Test

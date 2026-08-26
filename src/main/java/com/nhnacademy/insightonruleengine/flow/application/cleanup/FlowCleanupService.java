@@ -1,13 +1,13 @@
 package com.nhnacademy.insightonruleengine.flow.application.cleanup;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class GroupDeletionCleanupService {
+public class FlowCleanupService {
 
     private final FlowRepository flowRepository;
     private final NodeRepository nodeRepository;
@@ -30,9 +30,9 @@ public class GroupDeletionCleanupService {
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
     private final ActiveFlowRedisRepository activeFlowRedisRepository;
     private final AlertCountRedisRepository alertCountRedisRepository;
-    private final GroupDeletionDatabaseCleanupService databaseCleanupService;
+    private final FlowCleanupDBService databaseCleanupService;
 
-    public void cleanup(Long groupId, List<Long> locationIds) {
+    public void cleanupByGroup(Long groupId, List<Long> locationIds) {
         if (groupId == null || groupId <= 0L) {
             throw new IllegalArgumentException("groupId는 양수여야 합니다.");
         }
@@ -53,7 +53,7 @@ public class GroupDeletionCleanupService {
         cleanupRuntime(flows, nodes, eventRouteKeys);
     }
 
-    public void cleanupLocation(Long locationId) {
+    public void cleanupByLocation(Long locationId) {
         if (locationId == null || locationId <= 0L) {
             throw new IllegalArgumentException("locationId는 양수여야 합니다.");
         }

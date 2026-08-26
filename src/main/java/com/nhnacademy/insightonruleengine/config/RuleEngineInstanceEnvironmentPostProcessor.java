@@ -22,7 +22,10 @@ public class RuleEngineInstanceEnvironmentPostProcessor implements EnvironmentPo
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        String hostName = System.getenv("HOSTNAME");
+        applyPodOrdinal(System.getenv("HOSTNAME"), environment);
+    }
+
+    void applyPodOrdinal(String hostName, ConfigurableEnvironment environment) {
         if (hostName == null) {
             return;
         }
