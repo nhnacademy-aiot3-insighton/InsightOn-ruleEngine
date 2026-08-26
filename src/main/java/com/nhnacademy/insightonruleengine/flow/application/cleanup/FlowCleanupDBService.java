@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class GroupDeletionDatabaseCleanupService {
+public class FlowCleanupDBService {
 
     private final LinkRepository linkRepository;
     private final NodeRepository nodeRepository;

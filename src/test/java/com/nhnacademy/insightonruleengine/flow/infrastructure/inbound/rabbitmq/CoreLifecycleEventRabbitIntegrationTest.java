@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.config;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -8,11 +8,10 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import com.nhnacademy.insightonruleengine.flow.application.cleanup.GroupDeletionCleanupService;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.GroupDeletionListener;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.LocationDeletionListener;
-import com.nhnacademy.insightonruleengine.runner.model.GroupDeletedEvent;
-import com.nhnacademy.insightonruleengine.runner.model.LocationDeletedEvent;
+import com.nhnacademy.insightonruleengine.config.RabbitMessageConverterConfig;
+import com.nhnacademy.insightonruleengine.flow.application.cleanup.FlowCleanupService;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto.GroupDeletedEvent;
+import com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto.LocationDeletedEvent;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,18 +47,16 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(
-        classes = GroupDeletionRabbitIntegrationTest.TestApplication.class
+        classes = CoreLifecycleEventRabbitIntegrationTest.TestApplication.class
 )
 @TestPropertySource(
-        locations = "classpath:config/prod/rule-engine.properties",
+        locations = "classpath:config/common/core-lifecycle-events.properties",
         properties = {
-                "rule-engine.group-deletion.initial-interval=10ms",
-                "rule-engine.group-deletion.max-interval=20ms",
-                "rule-engine.location-deletion.initial-interval=10ms",
-                "rule-engine.location-deletion.max-interval=20ms"
+                "rule-engine.core-lifecycle-events.retry.initial-interval=10ms",
+                "rule-engine.core-lifecycle-events.retry.max-interval=20ms"
         }
 )
-class GroupDeletionRabbitIntegrationTest {
+class CoreLifecycleEventRabbitIntegrationTest {
 
     private static final String EXCHANGE = "insighton.core-events";
     private static final String ROUTING_KEY = "group.deleted";
@@ -77,7 +74,7 @@ class GroupDeletionRabbitIntegrationTest {
     );
 
     @MockitoBean
-    private GroupDeletionCleanupService cleanupService;
+    private FlowCleanupService cleanupService;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -112,7 +109,7 @@ class GroupDeletionRabbitIntegrationTest {
     void consumeCoreGroupDeletedEventTest() {
         rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, event(10L));
 
-        verify(cleanupService, timeout(5_000)).cleanup(10L, List.of(100L, 200L));
+        verify(cleanupService, timeout(5_000)).cleanupByGroup(10L, List.of(100L, 200L));
         assertNull(rabbitTemplate.receive(DEAD_LETTER_QUEUE, 200L));
         Message aiMessage = rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L);
         assertNotNull(aiMessage);
@@ -126,11 +123,12 @@ class GroupDeletionRabbitIntegrationTest {
     @DisplayName("정리 실패는 세 번만 시도한 뒤 영속 DLQ로 이동합니다")
     void boundedRetryThenDeadLetterTest() {
         doThrow(new IllegalStateException("cleanup failed"))
-                .when(cleanupService).cleanup(20L, List.of(100L, 200L));
+                .when(cleanupService).cleanupByGroup(20L, List.of(100L, 200L));
 
         rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, event(20L));
 
-        verify(cleanupService, timeout(5_000).times(3)).cleanup(20L, List.of(100L, 200L));
+        verify(cleanupService, timeout(5_000).times(3))
+                .cleanupByGroup(20L, List.of(100L, 200L));
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
                 assertNotNull(rabbitTemplate.receive(DEAD_LETTER_QUEUE, 200L))
         );
@@ -145,7 +143,7 @@ class GroupDeletionRabbitIntegrationTest {
                 new LocationDeletedEvent(30L)
         );
 
-        verify(cleanupService, timeout(5_000)).cleanupLocation(30L);
+        verify(cleanupService, timeout(5_000)).cleanupByLocation(30L);
         assertNull(rabbitTemplate.receive(LOCATION_DEAD_LETTER_QUEUE, 200L));
         assertNotNull(rabbitTemplate.receive(AI_LOCATION_QUEUE, 2_000L));
     }
@@ -154,7 +152,7 @@ class GroupDeletionRabbitIntegrationTest {
     @DisplayName("장소 정리 실패도 세 번만 시도한 뒤 전용 영속 DLQ로 이동합니다")
     void locationBoundedRetryThenDeadLetterTest() {
         doThrow(new IllegalStateException("cleanup failed"))
-                .when(cleanupService).cleanupLocation(40L);
+                .when(cleanupService).cleanupByLocation(40L);
 
         rabbitTemplate.convertAndSend(
                 EXCHANGE,
@@ -162,7 +160,7 @@ class GroupDeletionRabbitIntegrationTest {
                 new LocationDeletedEvent(40L)
         );
 
-        verify(cleanupService, timeout(5_000).times(3)).cleanupLocation(40L);
+        verify(cleanupService, timeout(5_000).times(3)).cleanupByLocation(40L);
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
                 assertNotNull(rabbitTemplate.receive(LOCATION_DEAD_LETTER_QUEUE, 200L))
         );
@@ -175,7 +173,7 @@ class GroupDeletionRabbitIntegrationTest {
         rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, event(50L));
 
         verify(cleanupService, timeout(5_000).times(2))
-                .cleanup(50L, List.of(100L, 200L));
+                .cleanupByGroup(50L, List.of(100L, 200L));
         assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L));
         assertNotNull(rabbitTemplate.receive(AI_GROUP_QUEUE, 2_000L));
     }
@@ -193,10 +191,9 @@ class GroupDeletionRabbitIntegrationTest {
     })
     @Import({
             RabbitMessageConverterConfig.class,
-            GroupDeletionConfiguration.class,
-            GroupDeletionListener.class,
-            LocationDeletionConfiguration.class,
-            LocationDeletionListener.class
+            CoreLifecycleEventConfiguration.class,
+            GroupDeletedEventListener.class,
+            LocationDeletedEventListener.class
     })
     static class TestApplication {
 

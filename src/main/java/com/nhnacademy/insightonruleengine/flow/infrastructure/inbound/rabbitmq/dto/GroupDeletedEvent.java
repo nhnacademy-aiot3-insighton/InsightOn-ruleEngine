@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.runner.model;
+package com.nhnacademy.insightonruleengine.flow.infrastructure.inbound.rabbitmq.dto;
 
 import java.util.List;
 
