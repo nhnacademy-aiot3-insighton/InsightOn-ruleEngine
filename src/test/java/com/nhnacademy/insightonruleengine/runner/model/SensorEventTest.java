@@ -51,6 +51,10 @@ class SensorEventTest {
         nullKeyMetrics.put(null, 20);
         Map<String, Object> nullValueMetrics = new HashMap<>();
         nullValueMetrics.put("temperature", null);
+        Map<String, Object> emptyMetrics = Map.of();
+        Map<String, Object> blankKeyMetrics = Map.of(" ", 20);
+        String oversizedKey = "x".repeat(101);
+        Map<String, Object> oversizedKeyMetrics = Map.of(oversizedKey, 20);
         Map<String, Object> tooManyMetrics = new LinkedHashMap<>();
         for (int index = 0; index < 257; index++) {
             tooManyMetrics.put("metric-" + index, index);
@@ -59,15 +63,15 @@ class SensorEventTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(1L, 10L, 100L, null, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, Map.of(), timestamp));
+                () -> new SensorEvent(1L, 10L, 100L, emptyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(1L, 10L, 100L, tooManyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(1L, 10L, 100L, nullKeyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, Map.of(" ", 20), timestamp));
+                () -> new SensorEvent(1L, 10L, 100L, blankKeyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
-                () -> new SensorEvent(1L, 10L, 100L, Map.of("x".repeat(101), 20), timestamp));
+                () -> new SensorEvent(1L, 10L, 100L, oversizedKeyMetrics, timestamp));
         assertThrows(IllegalArgumentException.class,
                 () -> new SensorEvent(1L, 10L, 100L, nullValueMetrics, timestamp));
     }

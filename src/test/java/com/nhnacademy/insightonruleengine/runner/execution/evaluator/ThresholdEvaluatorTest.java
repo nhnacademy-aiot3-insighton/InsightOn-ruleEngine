@@ -91,9 +91,11 @@ class ThresholdEvaluatorTest {
     @Test
     @DisplayName("검증할 expression은 필수이며 허용 길이를 초과할 수 없습니다")
     void rejectMissingOrOversizedExpression() {
+        String oversizedExpression = "1".repeat(1001);
+
         assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression(null));
         assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression(" "));
-        assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression("1".repeat(1001)));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.validateExpression(oversizedExpression));
     }
 
     @Test
