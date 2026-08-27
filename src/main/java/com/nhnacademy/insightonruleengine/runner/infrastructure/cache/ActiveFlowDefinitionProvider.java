@@ -8,7 +8,9 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRe
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -32,28 +34,30 @@ public class ActiveFlowDefinitionProvider {
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
     private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
+    private final AtomicBoolean redisDegraded = new AtomicBoolean();
+    private final AtomicBoolean localFallbackActive = new AtomicBoolean();
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
+        Optional<List<FlowDefinition>> cachedDefinitions;
         try {
-            return flowDefinitionCache.find(groupId, locationId)
-                    .map(definitions -> remember(routeKey, definitions))
-                    .orElseGet(() -> rebuild(routeKey));
+            cachedDefinitions = flowDefinitionCache.find(groupId, locationId);
+            markRedisRecovered();
         } catch (RuntimeException cacheException) {
-            log.warn("Flow 캐시 조회에 실패하여 DB 원본에서 다시 확인합니다. groupId={}, locationId={}",
-                    groupId, locationId, cacheException);
-            try {
-                return rebuild(routeKey);
-            } catch (RuntimeException databaseException) {
-                List<FlowDefinition> fallback = localFallback.get(routeKey);
-                if (fallback != null) {
-                    log.warn("Redis와 DB 조회가 모두 실패하여 로컬 캐시를 사용합니다. groupId={}, locationId={}",
-                            groupId, locationId, databaseException);
-                    return fallback;
-                }
-                databaseException.addSuppressed(cacheException);
-                throw databaseException;
-            }
+            logRedisFailure("조회", routeKey, cacheException);
+            return rebuildOrFallback(routeKey, cacheException);
+        }
+
+        if (cachedDefinitions.isPresent()) {
+            markLocalFallbackRecovered();
+            return remember(routeKey, cachedDefinitions.get());
+        }
+        try {
+            List<FlowDefinition> definitions = rebuild(routeKey);
+            markLocalFallbackRecovered();
+            return definitions;
+        } catch (RuntimeException databaseException) {
+            return localFallbackOrThrow(routeKey, databaseException);
         }
     }
 
@@ -72,7 +76,7 @@ public class ActiveFlowDefinitionProvider {
         }
 
         grouped.forEach(this::replaceNow);
-        log.info("ACTIVE Flow 캐시 적재를 완료했습니다. routeCount={}", grouped.size());
+        log.info("활성 플로우 캐시 적재를 완료했습니다. routeCount={}", grouped.size());
     }
 
     public void refreshAfterCommit(Long groupId, Long locationId) {
@@ -84,7 +88,7 @@ public class ActiveFlowDefinitionProvider {
             try {
                 evictNow(groupId, locationId);
             } catch (RuntimeException exception) {
-                log.warn("Flow 캐시 삭제에 실패했습니다. groupId={}, locationId={}", groupId, locationId, exception);
+                logRedisFailure("삭제", new RouteKey(groupId, locationId), exception);
             }
         });
     }
@@ -92,6 +96,7 @@ public class ActiveFlowDefinitionProvider {
     public void evictNow(Long groupId, Long locationId) {
         localFallback.remove(new RouteKey(groupId, locationId));
         flowDefinitionCache.evict(groupId, locationId);
+        markRecovered();
     }
 
     private List<FlowDefinition> rebuild(RouteKey routeKey) {
@@ -120,9 +125,9 @@ public class ActiveFlowDefinitionProvider {
         try {
             // Redis SET은 한 키에 대한 원자적 교체이므로 갱신 중 빈 라우팅 상태를 만들지 않는다.
             flowDefinitionCache.replace(routeKey.groupId(), routeKey.locationId(), snapshot);
+            markRecovered();
         } catch (RuntimeException exception) {
-            log.warn("Flow 캐시 저장에 실패했습니다. 로컬 fallback은 유지합니다. groupId={}, locationId={}",
-                    routeKey.groupId(), routeKey.locationId(), exception);
+            logRedisFailure("저장", routeKey, exception);
         }
     }
 
@@ -130,6 +135,78 @@ public class ActiveFlowDefinitionProvider {
         List<FlowDefinition> snapshot = List.copyOf(definitions);
         localFallback.put(routeKey, snapshot);
         return snapshot;
+    }
+
+    private List<FlowDefinition> rebuildOrFallback(
+            RouteKey routeKey,
+            RuntimeException cacheException
+    ) {
+        try {
+            List<FlowDefinition> definitions = rebuild(routeKey);
+            markLocalFallbackRecovered();
+            return definitions;
+        } catch (RuntimeException databaseException) {
+            databaseException.addSuppressed(cacheException);
+            return localFallbackOrThrow(routeKey, databaseException);
+        }
+    }
+
+    private List<FlowDefinition> localFallbackOrThrow(
+            RouteKey routeKey,
+            RuntimeException exception
+    ) {
+        List<FlowDefinition> fallback = localFallback.get(routeKey);
+        if (fallback == null) {
+            throw exception;
+        }
+        logLocalFallback(routeKey, exception);
+        return fallback;
+    }
+
+    private void logRedisFailure(String operation, RouteKey routeKey, RuntimeException exception) {
+        if (redisDegraded.compareAndSet(false, true)) {
+            log.warn(
+                    "Redis 플로우 캐시 {}에 실패해 대체 경로를 사용합니다. "
+                            + "groupId={}, locationId={}, errorType={}, message={}",
+                    operation,
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
+            log.debug("Redis 플로우 캐시 장애 상세.", exception);
+        }
+    }
+
+    private void logLocalFallback(RouteKey routeKey, RuntimeException exception) {
+        if (localFallbackActive.compareAndSet(false, true)) {
+            log.warn(
+                    "Redis 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
+                            + "groupId={}, locationId={}, errorType={}, message={}",
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
+            log.debug("로컬 플로우 캐시 사용 상세.", exception);
+        }
+    }
+
+    private void markRecovered() {
+        markRedisRecovered();
+        markLocalFallbackRecovered();
+    }
+
+    private void markRedisRecovered() {
+        if (redisDegraded.compareAndSet(true, false)) {
+            log.info("Redis 플로우 캐시 연결이 복구됐습니다.");
+        }
+    }
+
+    private void markLocalFallbackRecovered() {
+        if (localFallbackActive.compareAndSet(true, false)) {
+            log.info("플로우 라우팅의 Redis 또는 DB 조회가 복구됐습니다.");
+        }
     }
 
     private void afterCommit(Runnable action) {
