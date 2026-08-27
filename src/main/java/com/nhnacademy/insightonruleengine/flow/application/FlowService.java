@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.flow.application;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowCoordinator;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -47,6 +48,7 @@ public class FlowService {
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private final ScheduleFlowCoordinator scheduleFlowCoordinator;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
@@ -130,6 +132,11 @@ public class FlowService {
         }
         flow.changeActivationStatus(request.status());
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        if (request.status() == FlowStatus.ACTIVE) {
+            scheduleFlowCoordinator.registerAfterCommit(flow.getGroupId(), flow.getId());
+        } else {
+            scheduleFlowCoordinator.cancelAfterCommit(flow.getId());
+        }
         return toResponse(flow);
     }
 
@@ -140,6 +147,7 @@ public class FlowService {
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowCoordinator.cancelAfterCommit(flow.getId());
         return toResponse(flow);
     }
 
@@ -155,6 +163,7 @@ public class FlowService {
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowCoordinator.cancelAfterCommit(flow.getId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -180,6 +189,7 @@ public class FlowService {
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
+        scheduleFlowCoordinator.cancelAfterCommit(currentFlow.getId());
         return toResponse(savedFlow);
     }
 
