@@ -17,17 +17,17 @@ public class HeartbeatScheduler {
         try {
             engineHeartbeatService.refreshHeartbeat();
             if (refreshFailed) {
-                log.info("현재 엔진의 heartbeat 갱신이 복구됐습니다.");
+                log.info("현재 엔진의 하트비트 갱신이 복구됐습니다.");
                 refreshFailed = false;
             }
         } catch (RuntimeException exception) {
             if (!refreshFailed) {
                 log.warn(
-                        "현재 엔진의 heartbeat 갱신에 실패했습니다. errorType={}, message={}",
+                        "현재 엔진의 하트비트 갱신에 실패했습니다. errorType={}, message={}",
                         exception.getClass().getSimpleName(),
                         exception.getMessage()
                 );
-                log.debug("현재 엔진 heartbeat 갱신 실패 상세.", exception);
+                log.debug("현재 엔진 하트비트 갱신 실패 상세.", exception);
                 refreshFailed = true;
             }
         }

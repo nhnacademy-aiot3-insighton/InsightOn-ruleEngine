@@ -34,7 +34,7 @@ public class ActiveFlowDefinitionProvider {
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
     private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
-    private final AtomicBoolean redisDegraded = new AtomicBoolean();
+    private final AtomicBoolean flowCacheDegraded = new AtomicBoolean();
     private final AtomicBoolean localFallbackActive = new AtomicBoolean();
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
@@ -42,9 +42,9 @@ public class ActiveFlowDefinitionProvider {
         Optional<List<FlowDefinition>> cachedDefinitions;
         try {
             cachedDefinitions = flowDefinitionCache.find(groupId, locationId);
-            markRedisRecovered();
+            markFlowCacheRecovered();
         } catch (RuntimeException cacheException) {
-            logRedisFailure("조회", routeKey, cacheException);
+            logFlowCacheFailure("조회", routeKey, cacheException);
             return rebuildOrFallback(routeKey, cacheException);
         }
 
@@ -88,7 +88,7 @@ public class ActiveFlowDefinitionProvider {
             try {
                 evictNow(groupId, locationId);
             } catch (RuntimeException exception) {
-                logRedisFailure("삭제", new RouteKey(groupId, locationId), exception);
+                logFlowCacheFailure("삭제", new RouteKey(groupId, locationId), exception);
             }
         });
     }
@@ -127,7 +127,7 @@ public class ActiveFlowDefinitionProvider {
             flowDefinitionCache.replace(routeKey.groupId(), routeKey.locationId(), snapshot);
             markRecovered();
         } catch (RuntimeException exception) {
-            logRedisFailure("저장", routeKey, exception);
+            logFlowCacheFailure("저장", routeKey, exception);
         }
     }
 
@@ -163,10 +163,10 @@ public class ActiveFlowDefinitionProvider {
         return fallback;
     }
 
-    private void logRedisFailure(String operation, RouteKey routeKey, RuntimeException exception) {
-        if (redisDegraded.compareAndSet(false, true)) {
+    private void logFlowCacheFailure(String operation, RouteKey routeKey, RuntimeException exception) {
+        if (flowCacheDegraded.compareAndSet(false, true)) {
             log.warn(
-                    "Redis 플로우 캐시 {}에 실패해 대체 경로를 사용합니다. "
+                    "플로우 캐시 {}에 실패해 대체 경로를 사용합니다. "
                             + "groupId={}, locationId={}, errorType={}, message={}",
                     operation,
                     routeKey.groupId(),
@@ -174,14 +174,14 @@ public class ActiveFlowDefinitionProvider {
                     exception.getClass().getSimpleName(),
                     exception.getMessage()
             );
-            log.debug("Redis 플로우 캐시 장애 상세.", exception);
+            log.debug("플로우 캐시 장애 상세.", exception);
         }
     }
 
     private void logLocalFallback(RouteKey routeKey, RuntimeException exception) {
         if (localFallbackActive.compareAndSet(false, true)) {
             log.warn(
-                    "Redis 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
+                    "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
                             + "groupId={}, locationId={}, errorType={}, message={}",
                     routeKey.groupId(),
                     routeKey.locationId(),
@@ -193,19 +193,19 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private void markRecovered() {
-        markRedisRecovered();
+        markFlowCacheRecovered();
         markLocalFallbackRecovered();
     }
 
-    private void markRedisRecovered() {
-        if (redisDegraded.compareAndSet(true, false)) {
-            log.info("Redis 플로우 캐시 연결이 복구됐습니다.");
+    private void markFlowCacheRecovered() {
+        if (flowCacheDegraded.compareAndSet(true, false)) {
+            log.info("플로우 캐시 접근이 정상화됐습니다.");
         }
     }
 
     private void markLocalFallbackRecovered() {
         if (localFallbackActive.compareAndSet(true, false)) {
-            log.info("플로우 라우팅의 Redis 또는 DB 조회가 복구됐습니다.");
+            log.info("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다.");
         }
     }
 

@@ -27,34 +27,67 @@ public class TelemetryQueueFailoverMonitor {
     private final TelemetryRoutingProperties routingProperties;
     private final HeartbeatProperties heartbeatProperties;
     private boolean heartbeatCheckFailed;
+    private boolean queueTransitionFailed;
 
     @Scheduled(fixedDelayString = "${rule-engine.heartbeat.failover-check-interval:5000}")
     public void checkPeerStatus() {
         if (!routingProperties.enabled() || !heartbeatProperties.enabled()) {
             return;
         }
+        EngineStatus engineStatus = getPeerEngineStatus();
+        if (engineStatus == null) {
+            return;
+        }
+        if (engineStatus == EngineStatus.DOWN && !listenerContainerManager.isTakingOver()) {
+            transitionQueue("인계", listenerContainerManager::takeover);
+        } else if (engineStatus == EngineStatus.UP && listenerContainerManager.isTakingOver()) {
+            transitionQueue("반환", listenerContainerManager::handback);
+        }
+    }
+
+    private EngineStatus getPeerEngineStatus() {
         try {
             EngineStatus engineStatus = engineHeartbeatService.getEngineStatus();
             if (heartbeatCheckFailed) {
-                log.info("상대 엔진의 heartbeat 확인이 복구됐습니다.");
+                log.info("상대 엔진의 하트비트 확인이 복구됐습니다. peerEngineId={}",
+                        heartbeatProperties.peerEngineId());
                 heartbeatCheckFailed = false;
             }
-            if (engineStatus == EngineStatus.DOWN && !listenerContainerManager.isTakingOver()) {
-                log.warn("상대 엔진이 DOWN 상태입니다.");
-                listenerContainerManager.takeover();
-            } else if (engineStatus == EngineStatus.UP && listenerContainerManager.isTakingOver()) {
-                log.info("상대 엔진이 회복됐습니다.");
-                listenerContainerManager.handback();
-            }
+            return engineStatus;
         } catch (RuntimeException exception) {
             if (!heartbeatCheckFailed) {
                 log.warn(
-                        "상대 엔진의 heartbeat 확인에 실패했습니다. errorType={}, message={}",
+                        "상대 엔진의 하트비트 확인에 실패했습니다. peerEngineId={}, errorType={}, message={}",
+                        heartbeatProperties.peerEngineId(),
                         exception.getClass().getSimpleName(),
                         exception.getMessage()
                 );
-                log.debug("상대 엔진 heartbeat 확인 실패 상세.", exception);
+                log.debug("상대 엔진 하트비트 확인 실패 상세.", exception);
                 heartbeatCheckFailed = true;
+            }
+            return null;
+        }
+    }
+
+    private void transitionQueue(String action, Runnable transition) {
+        try {
+            transition.run();
+            if (queueTransitionFailed) {
+                log.info("Telemetry 큐 전환 재시도가 성공했습니다. peerEngineId={}, action={}",
+                        heartbeatProperties.peerEngineId(), action);
+                queueTransitionFailed = false;
+            }
+        } catch (RuntimeException exception) {
+            if (!queueTransitionFailed) {
+                log.error(
+                        "Telemetry 큐 전환에 실패했습니다. peerEngineId={}, action={}, errorType={}, message={}",
+                        heartbeatProperties.peerEngineId(),
+                        action,
+                        exception.getClass().getSimpleName(),
+                        exception.getMessage(),
+                        exception
+                );
+                queueTransitionFailed = true;
             }
         }
     }
