@@ -15,6 +15,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
@@ -140,6 +141,42 @@ class FlowRunnerTest {
         assertInstanceOf(IllegalStateException.class, logger.failure);
     }
 
+    @Test
+    @DisplayName("센서 이벤트 없이 Schedule Trigger부터 Action까지 실행한다")
+    void runScheduledFlowWithoutSensorEvent() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutor scheduleExecutor = new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return NodeType.SCHEDULE;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                assertEquals(ExecutionTriggerType.SCHEDULE, context.triggerType());
+                assertEquals(Map.of(), context.metrics());
+                executed.add(node.nodeType());
+                return NodeExecutionResult.next("out");
+            }
+        };
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                scheduleExecutor,
+                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed)
+        ));
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(),
+                registry,
+                new RecordingExecutionLogger()
+        );
+
+        runner.runScheduled(
+                scheduledFlowDefinition(),
+                Instant.parse("2026-08-24T09:00:00Z")
+        );
+
+        assertEquals(List.of(NodeType.SCHEDULE, NodeType.ALERT), executed);
+    }
+
     private NodeExecutor executor(
             NodeType nodeType,
             NodeExecutionResult result,
@@ -234,6 +271,19 @@ class FlowRunnerTest {
                         new LinkDefinition(1L, 4L, 1L, 2L, "out", "in"),
                         new LinkDefinition(2L, 4L, 2L, 1L, "true", "in")
                 )
+        );
+    }
+
+    private FlowDefinition scheduledFlowDefinition() {
+        return new FlowDefinition(
+                5L, 1L, 10L, "정기 알림", null, FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        new NodeDefinition(1L, NodeType.SCHEDULE,
+                                JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")),
+                        node(2L, NodeType.ALERT)
+                ),
+                List.of(new LinkDefinition(1L, 5L, 1L, 2L, "out", "in"))
         );
     }
 
