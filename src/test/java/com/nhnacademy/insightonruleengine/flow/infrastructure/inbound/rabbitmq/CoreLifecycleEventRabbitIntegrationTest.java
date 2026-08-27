@@ -50,10 +50,23 @@ import org.testcontainers.utility.DockerImageName;
         classes = CoreLifecycleEventRabbitIntegrationTest.TestApplication.class
 )
 @TestPropertySource(
-        locations = "classpath:config/common/core-lifecycle-events.properties",
         properties = {
+                "rule-engine.core-lifecycle-events.enabled=true",
+                "rule-engine.core-lifecycle-events.exchange=insighton.core-events",
+                "rule-engine.core-lifecycle-events.retry.max-attempts=3",
                 "rule-engine.core-lifecycle-events.retry.initial-interval=10ms",
-                "rule-engine.core-lifecycle-events.retry.max-interval=20ms"
+                "rule-engine.core-lifecycle-events.retry.multiplier=2",
+                "rule-engine.core-lifecycle-events.retry.max-interval=20ms",
+                "rule-engine.core-lifecycle-events.group-deleted.routing-key=group.deleted",
+                "rule-engine.core-lifecycle-events.group-deleted.queue=rule-engine.group-deleted.queue",
+                "rule-engine.core-lifecycle-events.group-deleted.dead-letter-exchange=rule-engine.group-deleted.dlx",
+                "rule-engine.core-lifecycle-events.group-deleted.dead-letter-routing-key=rule-engine.group-deleted.dlq",
+                "rule-engine.core-lifecycle-events.group-deleted.dead-letter-queue=rule-engine.group-deleted.dlq",
+                "rule-engine.core-lifecycle-events.location-deleted.routing-key=location.deleted",
+                "rule-engine.core-lifecycle-events.location-deleted.queue=rule-engine.location-deleted.queue",
+                "rule-engine.core-lifecycle-events.location-deleted.dead-letter-exchange=rule-engine.location-deleted.dlx",
+                "rule-engine.core-lifecycle-events.location-deleted.dead-letter-routing-key=rule-engine.location-deleted.dlq",
+                "rule-engine.core-lifecycle-events.location-deleted.dead-letter-queue=rule-engine.location-deleted.dlq"
         }
 )
 class CoreLifecycleEventRabbitIntegrationTest {

@@ -6,7 +6,9 @@ import jakarta.annotation.PreDestroy;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.AcknowledgeMode;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,7 @@ public class TelemetryListenerContainerManager {
     private final ConnectionFactory connectionFactory;
     private final TelemetryRoutingProperties routingProperties;
     private final TelemetryMessageConsumer messageConsumer;
+    private final AmqpAdmin amqpAdmin;
 
     private SimpleMessageListenerContainer normalContainer;
     private SimpleMessageListenerContainer takeoverContainer;
@@ -28,11 +31,13 @@ public class TelemetryListenerContainerManager {
     public TelemetryListenerContainerManager(
             ConnectionFactory connectionFactory,
             TelemetryRoutingProperties routingProperties,
-            TelemetryMessageConsumer messageConsumer
+            TelemetryMessageConsumer messageConsumer,
+            AmqpAdmin amqpAdmin
     ) {
         this.connectionFactory = connectionFactory;
         this.routingProperties = routingProperties;
         this.messageConsumer = messageConsumer;
+        this.amqpAdmin = amqpAdmin;
         initContainers();
     }
 
@@ -66,6 +71,7 @@ public class TelemetryListenerContainerManager {
     @PostConstruct
     public void startNormal() {
         if (normalContainer != null && !normalContainer.isRunning()) {
+            amqpAdmin.initialize();
             log.info("Starting normal Telemetry listener container for queues: {}",
                     routingProperties.ownedQueueNames());
             normalContainer.start();

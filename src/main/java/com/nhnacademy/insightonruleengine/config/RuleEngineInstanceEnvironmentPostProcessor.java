@@ -1,6 +1,8 @@
 package com.nhnacademy.insightonruleengine.config;
 
 import java.util.Map;
+
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.env.ConfigurableEnvironment;
