@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType.Category;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
@@ -162,6 +163,17 @@ public class FlowLinkValidator {
                     link.targetClientNodeKey(),
                     fieldPath + ".targetClientNodeKey",
                     "트리거 노드는 시작점이므로 입력 링크를 가질 수 없습니다."
+            );
+            valid = false;
+        }
+        if (source.nodeType() == NodeType.SCHEDULE
+                && target.nodeType() != NodeType.ACTUATOR_CONTROL) {
+            addError(
+                    errors,
+                    FlowStructureErrorCode.INVALID_SCHEDULE_TARGET,
+                    link.sourceClientNodeKey(),
+                    fieldPath + ".targetClientNodeKey",
+                    "Schedule 노드는 Actuator Control 노드에 직접 연결해야 합니다."
             );
             valid = false;
         }

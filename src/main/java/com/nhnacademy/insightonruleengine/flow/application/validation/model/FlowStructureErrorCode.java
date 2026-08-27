@@ -27,5 +27,7 @@ public enum FlowStructureErrorCode implements FlowValidationErrorReason {
     //어떤 Action에도 도달할 수 없는 노드가 존재합니다.
     CANNOT_REACH_ACTION,
     //노드 링크 연결 구조에 순환 경로가 있습니다. (SELF_LOOP와 비슷한 문제 노드 A -> 노드 B -> 노드 A-> 노드 B) 이런 반복을 방지를 위함
-    CYCLE_DETECTED
+    CYCLE_DETECTED,
+    //시간 기반 트리거는 장치 제어 동작에 직접 연결해야 합니다.
+    INVALID_SCHEDULE_TARGET
 }
