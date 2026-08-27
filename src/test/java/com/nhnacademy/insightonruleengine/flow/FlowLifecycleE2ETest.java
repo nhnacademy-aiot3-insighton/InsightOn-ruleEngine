@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowCoordinator;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
@@ -79,6 +80,9 @@ class FlowLifecycleE2ETest {
 
     @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @MockitoBean
+    private ScheduleFlowCoordinator scheduleFlowCoordinator;
 
     @Autowired
     private EntityManager entityManager;

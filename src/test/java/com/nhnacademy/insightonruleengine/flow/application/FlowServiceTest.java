@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowCoordinator;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
@@ -79,6 +80,9 @@ class FlowServiceTest {
 
     @Mock
     ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @Mock
+    ScheduleFlowCoordinator scheduleFlowCoordinator;
 
     @InjectMocks
     FlowService flowService;

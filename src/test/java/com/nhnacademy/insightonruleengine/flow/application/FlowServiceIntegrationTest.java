@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowCoordinator;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
@@ -71,6 +72,9 @@ class FlowServiceIntegrationTest {
 
     @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @MockitoBean
+    private ScheduleFlowCoordinator scheduleFlowCoordinator;
 
     @Autowired
     private EntityManager entityManager;

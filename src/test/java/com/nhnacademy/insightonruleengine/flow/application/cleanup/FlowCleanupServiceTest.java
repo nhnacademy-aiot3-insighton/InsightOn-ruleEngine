@@ -19,6 +19,7 @@ import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlow
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowCoordinator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -48,6 +49,8 @@ class FlowCleanupServiceTest {
     private AlertCountRedisRepository alertCountRedisRepository;
     @Mock
     private FlowCleanupDBService databaseCleanupService;
+    @Mock
+    private ScheduleFlowCoordinator scheduleFlowCoordinator;
 
     private FlowCleanupService cleanupService;
 
@@ -60,7 +63,8 @@ class FlowCleanupServiceTest {
                 activeFlowDefinitionProvider,
                 activeFlowRedisRepository,
                 alertCountRedisRepository,
-                databaseCleanupService
+                databaseCleanupService,
+                scheduleFlowCoordinator
         );
     }
 
@@ -107,6 +111,7 @@ class FlowCleanupServiceTest {
         verify(alertCountRedisRepository, times(2)).deleteStates(300L, Set.of(), Set.of());
 
         verify(databaseCleanupService).deleteByGroupId(1L);
+        verify(scheduleFlowCoordinator).cancelAll(List.of(100L, 200L, 300L));
     }
 
     @Test
