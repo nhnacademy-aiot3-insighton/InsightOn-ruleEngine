@@ -25,7 +25,9 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ public class FlowService {
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
+    private final NodeConfigurationValidator nodeConfigurationValidator;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
@@ -221,9 +224,20 @@ public class FlowService {
     }
 
     private void validateStructure(List<FlowNodeRequest> nodes, List<FlowLinkRequest> links) {
-        List<FlowStructureValidationError> errors = flowStructureValidator.validate(nodes, links);
-        if (errors != null && !errors.isEmpty()) {
+        List<FlowStructureValidationError> errors = new ArrayList<>();
+        addErrors(errors, flowStructureValidator.validate(nodes, links));
+        addErrors(errors, nodeConfigurationValidator.validate(nodes));
+        if (!errors.isEmpty()) {
             throw new InvalidFlowStructureException(errors);
+        }
+    }
+
+    private void addErrors(
+            List<FlowStructureValidationError> target,
+            List<FlowStructureValidationError> source
+    ) {
+        if (source != null) {
+            target.addAll(source);
         }
     }
 
