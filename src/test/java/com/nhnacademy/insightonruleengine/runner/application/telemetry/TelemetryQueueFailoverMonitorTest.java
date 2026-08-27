@@ -1,9 +1,16 @@
 package com.nhnacademy.insightonruleengine.runner.application.telemetry;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatService;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineStatus;
@@ -17,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.RedisConnectionFailureException;
 
 @ExtendWith(MockitoExtension.class)
@@ -105,6 +113,56 @@ class TelemetryQueueFailoverMonitorTest {
 
         verify(listenerContainerManager, never()).takeover();
         verify(listenerContainerManager, never()).handback();
+    }
+
+    @Test
+    @DisplayName("큐 인계 실패는 하트비트 실패와 구분하고 반복 오류를 억제합니다.")
+    void takeoverFailureIsLoggedOnceAndRecoveryIsReported() {
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
+                engineHeartbeatService,
+                listenerContainerManager,
+                enabledRoutingProperties,
+                enabledHeartbeatProperties
+        );
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.DOWN);
+        when(listenerContainerManager.isTakingOver()).thenReturn(false);
+        doThrow(new IllegalStateException("RabbitMQ unavailable"))
+                .doThrow(new IllegalStateException("RabbitMQ unavailable"))
+                .doNothing()
+                .when(listenerContainerManager).takeover();
+
+        Logger logger = (Logger) LoggerFactory.getLogger(TelemetryQueueFailoverMonitor.class);
+        Level originalLevel = logger.getLevel();
+        boolean originalAdditive = logger.isAdditive();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        logger.setLevel(Level.DEBUG);
+        logger.setAdditive(false);
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            monitor.checkPeerStatus();
+            monitor.checkPeerStatus();
+            monitor.checkPeerStatus();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+            logger.setLevel(originalLevel);
+            logger.setAdditive(originalAdditive);
+        }
+
+        assertEquals(1L, appender.list.stream()
+                .filter(event -> event.getLevel() == Level.ERROR)
+                .filter(event -> event.getFormattedMessage().startsWith("Telemetry 큐 전환에 실패했습니다."))
+                .count());
+        assertEquals(1L, appender.list.stream()
+                .filter(event -> event.getLevel() == Level.INFO)
+                .filter(event -> event.getFormattedMessage().startsWith("Telemetry 큐 전환 재시도가 성공했습니다."))
+                .count());
+        assertEquals(0L, appender.list.stream()
+                .filter(event -> event.getFormattedMessage().contains("하트비트 확인에 실패했습니다."))
+                .count());
+        verify(engineHeartbeatService, times(3)).getEngineStatus();
+        verify(listenerContainerManager, times(3)).takeover();
     }
 
     @Test
