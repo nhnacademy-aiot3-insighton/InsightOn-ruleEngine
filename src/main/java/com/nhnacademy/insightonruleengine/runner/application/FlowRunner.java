@@ -50,11 +50,7 @@ public class FlowRunner {
         executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
             ExecutionLogContext logContext = ExecutionLogContext.telemetry(flow, event);
-            try {
-                runFlow(flow, new FlowExecutionContext(flow, event), logContext);
-            } catch (RuntimeException exception) {
-                executionLogger.flowFailed(logContext, exception);
-            }
+            runFlow(flow, new FlowExecutionContext(flow, event), logContext);
         }
     }
 
@@ -83,7 +79,7 @@ public class FlowRunner {
             }
             runFlow(flow, FlowExecutionContext.scheduled(flow, triggeredAt), logContext);
         } catch (RuntimeException exception) {
-            executionLogger.flowFailed(logContext, exception);
+            executionLogger.flowFailed(logContext, null, exception);
         }
     }
 
@@ -92,18 +88,22 @@ public class FlowRunner {
             FlowExecutionContext context,
             ExecutionLogContext logContext
     ) {
-        FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
-        NodeDefinition current = findTriggerNode(flow);
-        Set<Long> visitedNodeIds = new HashSet<>();
+        NodeDefinition current = null;
+        try {
+            FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
+            current = findTriggerNode(flow);
+            Set<Long> visitedNodeIds = new HashSet<>();
 
-        executionLogger.flowStarted(logContext, current.nodeId());
-        while (current != null) {
-            if (!visitedNodeIds.add(current.nodeId())) {
-                throw new IllegalStateException(
-                        "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
-                                + ", nodeId=" + current.nodeId());
+            while (current != null) {
+                if (!visitedNodeIds.add(current.nodeId())) {
+                    throw new IllegalStateException(
+                            "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
+                                    + ", nodeId=" + current.nodeId());
+                }
+                current = executeNode(index, current, context, logContext);
             }
-            current = executeNode(index, current, context, logContext);
+        } catch (RuntimeException exception) {
+            executionLogger.flowFailed(logContext, current, exception);
         }
     }
 
@@ -113,33 +113,25 @@ public class FlowRunner {
             FlowExecutionContext context,
             ExecutionLogContext logContext
     ) {
-        try {
-            NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
-            executionLogger.nodeStarted(logContext, current);
-
-            NodeExecutionResult result = executor.execute(current, context);
-            validateExecutionResult(current, result);
-            executionLogger.nodeFinished(logContext, current, result);
-            if (result.terminal()) {
-                executionLogger.flowFinished(logContext, current.nodeId(), true);
-                return null;
-            }
-
-            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
-            if (nextLink == null
-                    && current.nodeType().getCategory() == NodeType.Category.FILTER
-                    && "false".equals(result.outputPort())) {
-                executionLogger.flowFinished(logContext, current.nodeId(), false);
-                return null;
-            }
-            if (nextLink == null) {
-                nextLink = index.requireLink(current.nodeId(), result.outputPort());
-            }
-            return index.requireNode(nextLink.targetNodeId());
-        } catch (RuntimeException exception) {
-            executionLogger.nodeFailed(logContext, current, exception);
-            throw exception;
+        NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
+        NodeExecutionResult result = executor.execute(current, context);
+        validateExecutionResult(current, result);
+        if (result.terminal()) {
+            executionLogger.flowFinished(logContext, current.nodeId(), true);
+            return null;
         }
+
+        LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
+        if (nextLink == null
+                && current.nodeType().getCategory() == NodeType.Category.FILTER
+                && "false".equals(result.outputPort())) {
+            executionLogger.flowFinished(logContext, current.nodeId(), false);
+            return null;
+        }
+        if (nextLink == null) {
+            nextLink = index.requireLink(current.nodeId(), result.outputPort());
+        }
+        return index.requireNode(nextLink.targetNodeId());
     }
 
     private void validateExecutionResult(NodeDefinition node, NodeExecutionResult result) {

@@ -4,7 +4,6 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
 public record ExecutionLogContext(
@@ -14,7 +13,6 @@ public record ExecutionLogContext(
         Long groupId,
         Long locationId,
         Long sensorId,
-        Map<String, Object> metrics,
         Instant timestamp
 ) {
 
@@ -45,7 +43,6 @@ public record ExecutionLogContext(
                 event.groupId(),
                 event.locationId(),
                 event.sensorId(),
-                event.metrics(),
                 event.timestamp()
         );
     }
@@ -65,7 +62,6 @@ public record ExecutionLogContext(
                 flow.groupId(),
                 flow.locationId(),
                 null,
-                Map.of(),
                 triggeredAt
         );
     }
