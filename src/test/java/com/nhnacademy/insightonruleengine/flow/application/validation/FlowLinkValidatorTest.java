@@ -44,6 +44,68 @@ class FlowLinkValidatorTest {
     }
 
     @Test
+    @DisplayName("Schedule Trigger는 Actuator Control에 직접 연결할 수 있다")
+    void scheduleActuatorLinkTest() {
+        FlowNodeRequest schedule = node("schedule", NodeType.SCHEDULE);
+        FlowNodeRequest actuator = node("actuator", NodeType.ACTUATOR_CONTROL);
+        FlowLinkRequest link = link("schedule", "actuator", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(schedule, actuator)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(schedule, actuator)
+        );
+
+        assertTrue(actual.errors().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Schedule Trigger는 Alert에 연결할 수 없다")
+    void rejectScheduleAlertLinkTest() {
+        FlowNodeRequest schedule = node("schedule", NodeType.SCHEDULE);
+        FlowNodeRequest alert = node("alert", NodeType.ALERT);
+        FlowLinkRequest link = link("schedule", "alert", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(schedule, alert)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(schedule, alert)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.INVALID_SCHEDULE_TARGET), errorCodes(actual.errors()));
+        assertFalse(actual.canValidateConnections());
+    }
+
+    @Test
+    @DisplayName("Schedule Trigger는 Filter를 거쳐 Actuator Control에 연결할 수 없다")
+    void rejectScheduleFilterLinkTest() {
+        FlowNodeRequest schedule = node("schedule", NodeType.SCHEDULE);
+        FlowNodeRequest filter = node("filter", NodeType.THRESHOLD);
+        FlowLinkRequest link = link("schedule", "filter", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(schedule, filter)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(schedule, filter)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.INVALID_SCHEDULE_TARGET), errorCodes(actual.errors()));
+        assertFalse(actual.canValidateConnections());
+    }
+
+    @Test
     @DisplayName("Trigger로 들어오는 Link만 Trigger 입력 오류로 거부한다")
     void triggerInputTest() {
         FlowNodeRequest filter = node("filter", NodeType.THRESHOLD);
