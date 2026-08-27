@@ -43,8 +43,14 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
             channel.basicAck(deliveryTag, false);
         } catch (RuntimeException exception) {
             log.error(
-                    "Telemetry 메시지 처리에 실패하여 폐기합니다. deliveryTag={}",
-                    deliveryTag, exception);
+                    "Telemetry 메시지 처리에 실패하여 폐기합니다. deliveryTag={}, groupId={}, "
+                            + "locationId={}, sensorId={}, timestamp={}",
+                    deliveryTag,
+                    sensorEvent.groupId(),
+                    sensorEvent.locationId(),
+                    sensorEvent.sensorId(),
+                    sensorEvent.timestamp(),
+                    exception);
             channel.basicAck(deliveryTag, false);
         }
     }

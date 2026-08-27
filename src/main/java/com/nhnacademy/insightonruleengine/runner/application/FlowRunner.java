@@ -18,10 +18,8 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FlowRunner {
@@ -39,12 +37,7 @@ public class FlowRunner {
         try {
             flows = flowRouter.route(event);
         } catch (RuntimeException exception) {
-            log.error(
-                    "센서 이벤트 라우팅에 실패했습니다. groupId={}, locationId={}, sensorId={}",
-                    event.groupId(),
-                    event.locationId(),
-                    event.sensorId(),
-                    exception);
+            executionLogger.routingFailed(event, exception);
             return;
         }
         executionLogger.eventRouted(event, flows.size());
