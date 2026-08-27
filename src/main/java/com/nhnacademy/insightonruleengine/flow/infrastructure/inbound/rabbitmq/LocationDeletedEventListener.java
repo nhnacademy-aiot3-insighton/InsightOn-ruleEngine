@@ -26,8 +26,7 @@ public class LocationDeletedEventListener {
     )
     public void consume(LocationDeletedEvent event) {
         event.validate();
-        log.info("LOCATION_DELETED cleanup started. locationId={}", event.locationId());
         cleanupService.cleanupByLocation(event.locationId());
-        log.info("LOCATION_DELETED cleanup completed. locationId={}", event.locationId());
+        log.info("장소 삭제에 따른 플로우 정리 완료. locationId={}", event.locationId());
     }
 }

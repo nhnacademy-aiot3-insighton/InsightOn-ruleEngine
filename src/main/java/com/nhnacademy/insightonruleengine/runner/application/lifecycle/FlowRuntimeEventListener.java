@@ -17,20 +17,21 @@ public class FlowRuntimeEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void synchronize(FlowRuntimeChangeEvent event) {
-        try{
-            if(event.changeType() == FlowRuntimeChangeType.ACTIVATE){
+        try {
+            if (event.changeType() == FlowRuntimeChangeType.ACTIVATE) {
                 flowRuntimeSynchronizer.activate(event);
                 return;
             }
             flowRuntimeSynchronizer.remove(event);
-        }catch (RuntimeException e){
+        } catch (RuntimeException exception) {
             log.error(
-                    "Flow Runtime Redis synchronization failed. changeType={}, groupId={}, locationId={}, flowId={}",
+                    "플로우 실행 정보를 Redis에 동기화하지 못했습니다. "
+                            + "changeType={}, groupId={}, locationId={}, flowId={}",
                     event.changeType(),
                     event.groupId(),
                     event.locationId(),
                     event.flowId(),
-                    e
+                    exception
             );
         }
     }

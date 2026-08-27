@@ -14,12 +14,10 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.model.Flow
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.expression.spel.SpelParseException;
 
 /** ACTIVE 전환 전에 저장된 Flow가 현재 엔진에서 실행 가능한지 확인합니다. */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FlowActivationValidator {
@@ -44,19 +42,15 @@ public class FlowActivationValidator {
             errors.addAll(structureErrors);
         }
         for (NodeDefinition node : flow.nodes()) {
-            validateNode(flow.flowId(), node, errors);
+            validateNode(node, errors);
         }
         return List.copyOf(errors);
     }
 
-    private void validateNode(Long flowId, NodeDefinition node, List<FlowStructureValidationError> errors) {
+    private void validateNode(NodeDefinition node, List<FlowStructureValidationError> errors) {
         try {
             nodeExecutorRegistry.get(node.nodeType());
         } catch (RuntimeException exception) {
-            log.warn(
-                    "Flow 활성화 검증 중 Node Executor를 찾지 못했습니다. flowId={}, nodeId={}, nodeType={}",
-                    flowId, node.nodeId(), node.nodeType());
-
             errors.add(error(
                     FlowExecutableErrorCode.UNSUPPORTED_NODE_EXECUTOR,
                     node,

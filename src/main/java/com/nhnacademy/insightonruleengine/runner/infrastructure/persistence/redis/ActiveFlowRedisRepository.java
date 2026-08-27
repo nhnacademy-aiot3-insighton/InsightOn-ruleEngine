@@ -7,13 +7,11 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-@Slf4j
 public class ActiveFlowRedisRepository {
 
     private final StringRedisTemplate redisTemplate;

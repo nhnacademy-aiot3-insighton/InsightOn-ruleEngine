@@ -26,7 +26,7 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
         byte[] body = message.getBody();
         if (body == null || body.length == 0 || body.length > MAX_MESSAGE_BYTES) {
-            log.warn("Telemetry message body size is invalid. Discarding message. deliveryTag={}, size={}",
+            log.warn("Telemetry 메시지 크기가 올바르지 않아 폐기합니다. deliveryTag={}, size={}",
                     deliveryTag, body == null ? 0 : body.length);
             channel.basicAck(deliveryTag, false);
             return;
@@ -43,7 +43,7 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
             channel.basicAck(deliveryTag, false);
         } catch (RuntimeException exception) {
             log.error(
-                    "Telemetry message processing failed. Discarding message. deliveryTag={}",
+                    "Telemetry 메시지 처리에 실패하여 폐기합니다. deliveryTag={}",
                     deliveryTag, exception);
             channel.basicAck(deliveryTag, false);
         }
@@ -53,13 +53,13 @@ public class TelemetryMessageConsumer implements ChannelAwareMessageListener {
         try {
             return objectMapper.readValue(body, SensorEvent.class);
         } catch (IllegalArgumentException exception) {
-            log.warn("Invalid Telemetry message payload: {}. Discarding message. deliveryTag={}",
+            log.warn("Telemetry 메시지 내용이 올바르지 않아 폐기합니다. message={}, deliveryTag={}",
                     exception.getMessage(), deliveryTag);
             return null;
         } catch (Exception exception) {
-            log.warn("Failed to deserialize Telemetry message. Discarding message. deliveryTag={}, errorType={}",
+            log.warn("Telemetry 메시지 변환에 실패하여 폐기합니다. deliveryTag={}, errorType={}",
                     deliveryTag, exception.getClass().getSimpleName());
-            log.debug("Telemetry message deserialization failure. deliveryTag={}", deliveryTag, exception);
+            log.debug("Telemetry 메시지 변환 실패 상세. deliveryTag={}", deliveryTag, exception);
             return null;
         }
     }
