@@ -1,5 +1,8 @@
 package com.nhnacademy.insightonruleengine.heartbeat;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,5 +26,20 @@ class HeartbeatSchedulerTest {
         scheduler.refreshHeartbeat();
 
         verify(heartbeatService).refreshHeartbeat();
+    }
+
+    @Test
+    @DisplayName("heartbeat 갱신 실패를 전파하지 않고 다음 실행에서 복구를 확인한다")
+    void refreshFailureAndRecoveryTest() {
+        HeartbeatScheduler scheduler = new HeartbeatScheduler(heartbeatService);
+        doThrow(new IllegalStateException("Redis unavailable"))
+                .doNothing()
+                .when(heartbeatService)
+                .refreshHeartbeat();
+
+        assertDoesNotThrow(scheduler::refreshHeartbeat);
+        assertDoesNotThrow(scheduler::refreshHeartbeat);
+
+        verify(heartbeatService, times(2)).refreshHeartbeat();
     }
 }

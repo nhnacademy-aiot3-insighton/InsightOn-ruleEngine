@@ -1,4 +1,4 @@
-package com.nhnacademy.insightonruleengine.heartbeat.failover;
+package com.nhnacademy.insightonruleengine.runner.application.telemetry;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.RedisConnectionFailureException;
 
 @ExtendWith(MockitoExtension.class)
-class TelemetryFailoverCoordinatorTest {
+class TelemetryQueueFailoverMonitorTest {
 
     @Mock
     private EngineHeartbeatService engineHeartbeatService;
@@ -52,7 +52,7 @@ class TelemetryFailoverCoordinatorTest {
     @Test
     @DisplayName("상대 Engine이 DOWN 상태이고 아직 인계 전이면 takeover를 호출합니다.")
     void peerDownTest() {
-        TelemetryFailoverCoordinator coordinator = new TelemetryFailoverCoordinator(
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
                 engineHeartbeatService,
                 listenerContainerManager,
                 enabledRoutingProperties,
@@ -62,7 +62,7 @@ class TelemetryFailoverCoordinatorTest {
         when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.DOWN);
         when(listenerContainerManager.isTakingOver()).thenReturn(false);
 
-        coordinator.coordinate();
+        monitor.checkPeerStatus();
 
         verify(listenerContainerManager).takeover();
         verify(listenerContainerManager, never()).handback();
@@ -71,7 +71,7 @@ class TelemetryFailoverCoordinatorTest {
     @Test
     @DisplayName("상대 Engine이 복구(UP)되었고 현재 인계 중이면 handback을 호출합니다.")
     void peerUpTest() {
-        TelemetryFailoverCoordinator coordinator = new TelemetryFailoverCoordinator(
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
                 engineHeartbeatService,
                 listenerContainerManager,
                 enabledRoutingProperties,
@@ -81,7 +81,7 @@ class TelemetryFailoverCoordinatorTest {
         when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
         when(listenerContainerManager.isTakingOver()).thenReturn(true);
 
-        coordinator.coordinate();
+        monitor.checkPeerStatus();
 
         verify(listenerContainerManager).handback();
         verify(listenerContainerManager, never()).takeover();
@@ -90,7 +90,7 @@ class TelemetryFailoverCoordinatorTest {
     @Test
     @DisplayName("Redis 연결 장애 시에는 상대 장애로 오판하지 않고 takeover를 호출하지 않습니다.")
     void redisFailureTest() {
-        TelemetryFailoverCoordinator coordinator = new TelemetryFailoverCoordinator(
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
                 engineHeartbeatService,
                 listenerContainerManager,
                 enabledRoutingProperties,
@@ -101,7 +101,7 @@ class TelemetryFailoverCoordinatorTest {
                 new RedisConnectionFailureException("Redis is unreachable")
         );
 
-        coordinator.coordinate();
+        monitor.checkPeerStatus();
 
         verify(listenerContainerManager, never()).takeover();
         verify(listenerContainerManager, never()).handback();
@@ -117,14 +117,14 @@ class TelemetryFailoverCoordinatorTest {
                 List.of(0, 2, 4, 6, 8, 10, 12, 14),
                 null
         );
-        TelemetryFailoverCoordinator coordinator = new TelemetryFailoverCoordinator(
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
                 engineHeartbeatService,
                 listenerContainerManager,
                 disabledRouting,
                 enabledHeartbeatProperties
         );
 
-        coordinator.coordinate();
+        monitor.checkPeerStatus();
 
         verify(engineHeartbeatService, never()).getEngineStatus();
         verify(listenerContainerManager, never()).takeover();
