@@ -89,13 +89,13 @@ class FlowRunnerTest {
     }
 
     @Test
-    @DisplayName("deviceId만 저장된 기존 Actuator 설정도 실행 경로에서 파싱된다")
-    void legacyActuatorConfigurationRuns() {
+    @DisplayName("Core 명령 계약의 Actuator 설정이 실행 경로에서 파싱된다")
+    void actuatorConfigurationRuns() {
         List<NodeType> executed = new ArrayList<>();
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
-        NodeExecutor legacyActuatorExecutor = new NodeExecutor() {
+        NodeExecutor actuatorExecutor = new NodeExecutor() {
             @Override
             public NodeType supports() {
                 return NodeType.ACTUATOR_CONTROL;
@@ -104,17 +104,19 @@ class FlowRunnerTest {
             @Override
             public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
                 ActuatorControlParams params = parser.parse(NodeType.ACTUATOR_CONTROL, node.configuration());
-                assertEquals(900L, params.deviceId());
+                assertEquals("VENTILATION_FAN", params.actuatorType());
+                assertEquals("power", params.command());
+                assertEquals("ON", params.commandValue());
                 executed.add(node.nodeType());
                 return NodeExecutionResult.complete();
             }
         };
         NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
                 executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
-                legacyActuatorExecutor
+                actuatorExecutor
         ));
         FlowRunner runner = new FlowRunner(
-                event -> List.of(legacyActuatorFlowDefinition()),
+                event -> List.of(actuatorFlowDefinition()),
                 registry,
                 new RecordingExecutionLogger());
 
@@ -245,7 +247,7 @@ class FlowRunnerTest {
         );
     }
 
-    private FlowDefinition legacyActuatorFlowDefinition() {
+    private FlowDefinition actuatorFlowDefinition() {
         return new FlowDefinition(
                 3L, 1L, 10L, "기존 액추에이터", null, FlowStatus.ACTIVE,
                 OffsetDateTime.parse("2026-08-03T00:00:00Z"),
@@ -253,7 +255,10 @@ class FlowRunnerTest {
                         new NodeDefinition(1L, NodeType.SENSOR,
                                 JsonNodeFactory.instance.objectNode().put("sensorId", 100L)),
                         new NodeDefinition(2L, NodeType.ACTUATOR_CONTROL,
-                                JsonNodeFactory.instance.objectNode().put("deviceId", 900L))
+                                JsonNodeFactory.instance.objectNode()
+                                        .put("actuatorType", "VENTILATION_FAN")
+                                        .put("command", "power")
+                                        .put("commandValue", "ON"))
                 ),
                 List.of(new LinkDefinition(1L, 3L, 1L, 2L, "out", "in"))
         );

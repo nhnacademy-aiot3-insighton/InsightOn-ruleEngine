@@ -38,6 +38,7 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
@@ -71,6 +72,9 @@ class FlowServiceTest {
 
     @Mock
     FlowStructureValidator flowStructureValidator;
+
+    @Mock
+    NodeConfigurationValidator nodeConfigurationValidator;
 
     @Mock
     FlowDefinitionAssembler flowDefinitionAssembler;
@@ -361,6 +365,25 @@ class FlowServiceTest {
                 () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
 
         Assertions.assertEquals(FlowStatus.ACTIVE, currentFlow.getStatus());
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
+    @Test
+    @DisplayName("노드 설정 검증이 실패하면 Flow를 저장하지 않는다")
+    void invalidNodeConfigurationTest() {
+        FlowCreateRequest request = FlowTestData.createScheduledActuatorFlowRequest(2L);
+        when(nodeConfigurationValidator.validate(request.nodes()))
+                .thenReturn(List.of(new FlowStructureValidationError(
+                        NodeErrorCode.INVALID_NODE_CONFIGURATION,
+                        "hourly_schedule",
+                        "nodes[0].configuration.cron",
+                        "cron 표현식은 6자리이며 초 필드는 0이어야 합니다.")));
+
+        assertThrows(
+                InvalidFlowStructureException.class,
+                () -> flowService.create(GROUP_ID, USER_ID, request));
+
         verify(flowRepository, never()).save(any(Flow.class));
         verifyNoInteractions(nodeRepository, linkRepository);
     }

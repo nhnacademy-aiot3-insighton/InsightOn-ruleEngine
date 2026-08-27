@@ -28,6 +28,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathVa
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -69,6 +70,9 @@ class FlowServiceIntegrationTest {
 
     @MockitoBean
     private FlowActivationValidator flowActivationValidator;
+
+    @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
 
     @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;

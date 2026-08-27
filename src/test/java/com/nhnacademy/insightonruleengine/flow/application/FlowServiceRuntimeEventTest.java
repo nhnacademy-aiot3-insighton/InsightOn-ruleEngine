@@ -21,6 +21,7 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +51,9 @@ class FlowServiceRuntimeEventTest {
 
     @Mock
     private FlowStructureValidator flowStructureValidator;
+
+    @Mock
+    private NodeConfigurationValidator nodeConfigurationValidator;
 
     @Mock
     private FlowDefinitionAssembler flowDefinitionAssembler;

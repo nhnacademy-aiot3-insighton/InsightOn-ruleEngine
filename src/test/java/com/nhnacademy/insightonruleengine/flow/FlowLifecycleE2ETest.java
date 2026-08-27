@@ -27,6 +27,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeVa
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import jakarta.persistence.EntityManager;
@@ -83,6 +84,9 @@ class FlowLifecycleE2ETest {
 
     @MockitoBean
     private ScheduleFlowCoordinator scheduleFlowCoordinator;
+
+    @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
 
     @Autowired
     private EntityManager entityManager;
