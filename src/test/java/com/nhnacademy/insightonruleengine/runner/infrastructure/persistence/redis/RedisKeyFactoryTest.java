@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.red
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,5 +44,18 @@ class RedisKeyFactoryTest {
         assertThrows(IllegalArgumentException.class, () -> keyFactory.heartbeat(null));
         assertThrows(IllegalArgumentException.class, () -> keyFactory.heartbeat(""));
         assertThrows(IllegalArgumentException.class, () -> keyFactory.heartbeat(" "));
+    }
+
+    @Test
+    @DisplayName("Schedule 실행 Key는 Flow와 예정 실행 초를 구분한다")
+    void scheduleExecutionKeyTest() {
+        assertEquals(
+                "schedule-execution:10:1787558400",
+                keyFactory.scheduleExecution(10L, Instant.parse("2026-08-24T08:00:00Z"))
+        );
+        assertThrows(IllegalArgumentException.class,
+                () -> keyFactory.scheduleExecution(0L, Instant.now()));
+        assertThrows(IllegalArgumentException.class,
+                () -> keyFactory.scheduleExecution(1L, null));
     }
 }
