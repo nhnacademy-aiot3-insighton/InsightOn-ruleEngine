@@ -8,12 +8,14 @@ import com.nhnacademy.insightonruleengine.config.TelemetryRoutingProperties;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 
 class TelemetryListenerContainerManagerTest {
 
     private final ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
     private final TelemetryMessageConsumer messageConsumer = mock(TelemetryMessageConsumer.class);
+    private final AmqpAdmin amqpAdmin = mock(AmqpAdmin.class);
 
     @Test
     @DisplayName("라우팅 활성화되면 인스턴스 생성시 정상 컨테이너와 인계 컨테이너가 준비됩니다.")
@@ -28,7 +30,8 @@ class TelemetryListenerContainerManagerTest {
         TelemetryListenerContainerManager manager = new TelemetryListenerContainerManager(
                 connectionFactory,
                 properties,
-                messageConsumer
+                messageConsumer,
+                amqpAdmin
         );
         assertFalse(manager.isNormalRunning());
         assertFalse(manager.isTakingOver());
@@ -64,7 +67,8 @@ class TelemetryListenerContainerManagerTest {
         TelemetryListenerContainerManager manager = new TelemetryListenerContainerManager(
                 connectionFactory,
                 properties,
-                messageConsumer
+                messageConsumer,
+                amqpAdmin
         );
         manager.startNormal();
         manager.takeover();
