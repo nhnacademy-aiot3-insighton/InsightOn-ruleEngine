@@ -8,6 +8,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -140,18 +141,57 @@ class ScheduleFlowCoordinatorTest {
         Flow flow = new Flow(1L, 20L, "정기 실행", null, FlowStatus.ACTIVE);
         ReflectionTestUtils.setField(flow, "id", 10L);
         FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
-        when(flowRepository.findAllByStatus(FlowStatus.ACTIVE)).thenReturn(List.of(flow));
-        when(flowDefinitionAssembler.assemble(1L, 10L)).thenReturn(definition);
+        when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
+                .thenReturn(List.of(flow));
+        when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
 
         coordinator.warmUp();
 
         assertTrue(coordinator.isRegistered(10L));
         verify(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
+        verify(flowRepository).findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE);
+    }
+
+    @Test
+    void reconciliationRegistersNewSchedulesAndCancelsStaleSchedules() {
+        coordinator.register(scheduleFlow(10L, FlowStatus.ACTIVE));
+        Flow newSchedule = new Flow(1L, 20L, "새 정기 실행", null, FlowStatus.ACTIVE);
+        ReflectionTestUtils.setField(newSchedule, "id", 20L);
+        FlowDefinition newDefinition = scheduleFlow(20L, FlowStatus.ACTIVE);
+        when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
+                .thenReturn(List.of(newSchedule));
+        when(flowDefinitionAssembler.assembleActive(1L, 20L)).thenReturn(newDefinition);
+
+        coordinator.reconcileActiveSchedules();
+
+        assertFalse(coordinator.isRegistered(10L));
+        assertTrue(coordinator.isRegistered(20L));
+        verify(future).cancel(false);
+        verify(flowDefinitionAssembler).assembleActive(1L, 20L);
+    }
+
+    @Test
+    void reconciliationKeepsExistingRegistrationWithoutReassembly() {
+        coordinator.register(scheduleFlow(10L, FlowStatus.ACTIVE));
+        Flow existingSchedule = new Flow(1L, 20L, "정기 실행", null, FlowStatus.ACTIVE);
+        ReflectionTestUtils.setField(existingSchedule, "id", 10L);
+        when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
+                .thenReturn(List.of(existingSchedule));
+
+        coordinator.reconcileActiveSchedules();
+
+        assertTrue(coordinator.isRegistered(10L));
+        verifyNoInteractions(flowDefinitionAssembler);
+        verify(future, never()).cancel(false);
     }
 
     private FlowDefinition scheduleFlow(FlowStatus status) {
+        return scheduleFlow(10L, status);
+    }
+
+    private FlowDefinition scheduleFlow(Long flowId, FlowStatus status) {
         return new FlowDefinition(
-                10L,
+                flowId,
                 1L,
                 20L,
                 "정기 실행",
@@ -159,7 +199,7 @@ class ScheduleFlowCoordinatorTest {
                 status,
                 OffsetDateTime.parse("2026-08-24T00:00:00Z"),
                 List.of(new NodeDefinition(
-                        100L,
+                        flowId * 10,
                         NodeType.SCHEDULE,
                         JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")
                 )),

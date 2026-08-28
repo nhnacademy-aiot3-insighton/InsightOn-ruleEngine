@@ -2,8 +2,11 @@ package com.nhnacademy.insightonruleengine.flow.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
@@ -20,6 +23,9 @@ class FlowRepositoryTest {
 
     @Autowired
     private FlowRepository flowRepository;
+
+    @Autowired
+    private NodeRepository nodeRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -128,6 +134,45 @@ class FlowRepositoryTest {
         Assertions.assertEquals(1, result.size());
         Assertions.assertEquals(activeFlow.getId(), result.get(0).getId());
         Assertions.assertEquals(FlowStatus.ACTIVE, result.get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("ACTIVE 상태이며 요청한 타입의 노드가 있는 Flow만 조회한다")
+    void findAllActiveFlowsByNodeType() {
+        Flow activeSchedule = flowRepository.save(
+                createFlow(1L, 1L, "Active Schedule", FlowStatus.ACTIVE)
+        );
+        Flow activeSensor = flowRepository.save(
+                createFlow(1L, 2L, "Active Sensor", FlowStatus.ACTIVE)
+        );
+        Flow inactiveSchedule = flowRepository.save(
+                createFlow(1L, 3L, "Inactive Schedule", FlowStatus.INACTIVE)
+        );
+        nodeRepository.save(new Node(
+                activeSchedule.getId(),
+                NodeType.SCHEDULE,
+                JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")
+        ));
+        nodeRepository.save(new Node(
+                activeSensor.getId(),
+                NodeType.SENSOR,
+                JsonNodeFactory.instance.objectNode().put("sensorId", 100L)
+        ));
+        nodeRepository.save(new Node(
+                inactiveSchedule.getId(),
+                NodeType.SCHEDULE,
+                JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")
+        ));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Flow> result = flowRepository.findAllByStatusAndNodeType(
+                FlowStatus.ACTIVE,
+                NodeType.SCHEDULE
+        );
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(activeSchedule.getId(), result.getFirst().getId());
     }
 
     @Test
