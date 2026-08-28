@@ -16,8 +16,10 @@ import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ScheduleExecutionLockRepository;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -64,20 +67,25 @@ public class ScheduleFlowCoordinator {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(readOnly = true)
     public void warmUp() {
-        int registeredCount = 0;
-        for (Flow flow : flowRepository.findAllByStatus(FlowStatus.ACTIVE)) {
-            try {
-                FlowDefinition definition = flowDefinitionAssembler.assemble(flow.getGroupId(), flow.getId());
-                if (scheduleTrigger(definition).isPresent()) {
-                    register(definition);
-                    registeredCount++;
-                }
-            } catch (RuntimeException exception) {
-                log.error("ACTIVE Schedule Flow 시작 복구에 실패했습니다. flowId={}",
-                        flow.getId(), exception);
-            }
+        ReconciliationResult result = reconcileNow();
+        log.info("ACTIVE Schedule Flow 등록을 완료했습니다. registeredCount={}", result.totalCount());
+    }
+
+    @Scheduled(
+            fixedDelayString = "${rule-engine.schedule.reconciliation-interval:60000}",
+            initialDelayString = "${rule-engine.schedule.reconciliation-interval:60000}"
+    )
+    @Transactional(readOnly = true)
+    public void reconcileActiveSchedules() {
+        ReconciliationResult result = reconcileNow();
+        if (result.registeredCount() > 0 || result.cancelledCount() > 0) {
+            log.debug(
+                    "ACTIVE Schedule Flow 등록을 재조정했습니다. registeredCount={}, cancelledCount={}, totalCount={}",
+                    result.registeredCount(),
+                    result.cancelledCount(),
+                    result.totalCount()
+            );
         }
-        log.info("ACTIVE Schedule Flow 등록을 완료했습니다. registeredCount={}", registeredCount);
     }
 
     public void registerAfterCommit(Long groupId, Long flowId) {
@@ -156,6 +164,31 @@ public class ScheduleFlowCoordinator {
         return registrations.containsKey(flowId);
     }
 
+    private synchronized ReconciliationResult reconcileNow() {
+        Collection<Flow> activeSchedules = flowRepository.findAllByStatusAndNodeType(
+                FlowStatus.ACTIVE,
+                NodeType.SCHEDULE
+        );
+        Set<Long> activeFlowIds = new HashSet<>();
+        int registeredCount = 0;
+        for (Flow flow : activeSchedules) {
+            activeFlowIds.add(flow.getId());
+            if (registrations.containsKey(flow.getId())) {
+                continue;
+            }
+            registerActiveSafely(flow.getGroupId(), flow.getId());
+            if (registrations.containsKey(flow.getId())) {
+                registeredCount++;
+            }
+        }
+
+        Collection<Long> staleFlowIds = registrations.keySet().stream()
+                .filter(flowId -> !activeFlowIds.contains(flowId))
+                .toList();
+        staleFlowIds.forEach(this::cancel);
+        return new ReconciliationResult(registeredCount, staleFlowIds.size(), registrations.size());
+    }
+
     private void execute(Long groupId, Long flowId, Instant scheduledAt) {
         if (scheduledAt == null) {
             log.error("Schedule 실행 예정 시각을 확인할 수 없습니다. flowId={}", flowId);
@@ -214,5 +247,12 @@ public class ScheduleFlowCoordinator {
         if (id == null || id <= 0L) {
             throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
         }
+    }
+
+    private record ReconciliationResult(
+            int registeredCount,
+            int cancelledCount,
+            int totalCount
+    ) {
     }
 }
