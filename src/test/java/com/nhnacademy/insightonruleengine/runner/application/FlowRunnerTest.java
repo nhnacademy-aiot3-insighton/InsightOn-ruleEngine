@@ -163,7 +163,7 @@ class FlowRunnerTest {
         };
         NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
                 scheduleExecutor,
-                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed)
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
         ));
         FlowRunner runner = new FlowRunner(
                 event -> List.of(),
@@ -176,7 +176,7 @@ class FlowRunnerTest {
                 Instant.parse("2026-08-24T09:00:00Z")
         );
 
-        assertEquals(List.of(NodeType.SCHEDULE, NodeType.ALERT), executed);
+        assertEquals(List.of(NodeType.SCHEDULE, NodeType.ACTUATOR_CONTROL), executed);
     }
 
     private NodeExecutor executor(
@@ -281,12 +281,16 @@ class FlowRunnerTest {
 
     private FlowDefinition scheduledFlowDefinition() {
         return new FlowDefinition(
-                5L, 1L, 10L, "정기 알림", null, FlowStatus.ACTIVE,
+                5L, 1L, 10L, "정기 환기", null, FlowStatus.ACTIVE,
                 OffsetDateTime.parse("2026-08-03T00:00:00Z"),
                 List.of(
                         new NodeDefinition(1L, NodeType.SCHEDULE,
                                 JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")),
-                        node(2L, NodeType.ALERT)
+                        new NodeDefinition(2L, NodeType.ACTUATOR_CONTROL,
+                                JsonNodeFactory.instance.objectNode()
+                                        .put("actuatorType", "VENTILATION_FAN")
+                                        .put("command", "power")
+                                        .put("commandValue", "ON"))
                 ),
                 List.of(new LinkDefinition(1L, 5L, 1L, 2L, "out", "in"))
         );
