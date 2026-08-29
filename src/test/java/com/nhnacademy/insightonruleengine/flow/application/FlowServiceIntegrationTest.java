@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
@@ -27,6 +28,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathVa
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -70,7 +72,13 @@ class FlowServiceIntegrationTest {
     private FlowActivationValidator flowActivationValidator;
 
     @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
+
+    @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @MockitoBean
+    private ScheduleFlowScheduler scheduleFlowScheduler;
 
     @Autowired
     private EntityManager entityManager;

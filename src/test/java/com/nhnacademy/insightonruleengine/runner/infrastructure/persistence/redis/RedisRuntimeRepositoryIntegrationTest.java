@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.config.ScheduleExecutionProperties;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
@@ -14,6 +15,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -45,6 +47,7 @@ class RedisRuntimeRepositoryIntegrationTest {
     private static ActiveFlowRedisRepository activeFlowRepository;
     private static EngineHeartbeatRepository heartbeatRepository;
     private static AlertCountRedisRepository alertCountRedisRepository;
+    private static ScheduleExecutionRedisRepository scheduleExecutionRedisRepository;
 
     // 실제 Redis 명령과 JSON 변환을 함께 검증할 Repository들을 컨테이너에 연결합니다.
     @BeforeAll
@@ -64,6 +67,11 @@ class RedisRuntimeRepositoryIntegrationTest {
         activeFlowRepository = new ActiveFlowRedisRepository(redisTemplate, objectMapper, keyFactory);
         heartbeatRepository = new EngineHeartbeatRepository(redisTemplate, keyFactory);
         alertCountRedisRepository = new AlertCountRedisRepository(redisTemplate, keyFactory);
+        scheduleExecutionRedisRepository = new ScheduleExecutionRedisRepository(
+                redisTemplate,
+                keyFactory,
+                new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(10), 2)
+        );
     }
 
     // 테스트 간 Redis Key가 남아 결과를 바꾸지 않도록 매번 현재 DB만 비워줍니다.
@@ -143,6 +151,48 @@ class RedisRuntimeRepositoryIntegrationTest {
                 .atMost(Duration.ofSeconds(2))
                 .until(() -> !heartbeatRepository.isHeartbeat("engine-a"));
         assertFalse(heartbeatRepository.isHeartbeat("engine-a"));
+    }
+
+    @Test
+    @DisplayName("ACTIVE Schedule의 동일 실행 시각은 한 인스턴스만 선점합니다")
+    void scheduleExecutionClaimTest() {
+        Instant scheduledAt = Instant.parse("2026-08-24T08:00:00Z");
+
+        scheduleExecutionRedisRepository.markInactiveIfPresent(99L);
+        assertFalse(redisTemplate.hasKey("schedule-state:99"));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+
+        scheduleExecutionRedisRepository.markActive(10L);
+
+        assertTrue(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+
+        scheduleExecutionRedisRepository.markInactive(10L);
+
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt.plusSeconds(60)));
+    }
+
+    @Test
+    @DisplayName("비활성화보다 오래된 재조정은 Schedule 상태를 다시 ACTIVE로 만들 수 없습니다")
+    void staleScheduleReconciliationDoesNotOverrideInactiveState() {
+        scheduleExecutionRedisRepository.markActive(10L);
+        long staleReconciliationVersion = scheduleExecutionRedisRepository.beginReconciliation();
+
+        scheduleExecutionRedisRepository.markInactive(10L);
+
+        assertFalse(scheduleExecutionRedisRepository.repairActive(10L, staleReconciliationVersion));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(
+                10L,
+                Instant.parse("2026-08-24T08:01:00Z")
+        ));
+
+        long newerReconciliationVersion = scheduleExecutionRedisRepository.beginReconciliation();
+
+        assertTrue(scheduleExecutionRedisRepository.repairActive(10L, newerReconciliationVersion));
+        assertTrue(scheduleExecutionRedisRepository.claimIfActive(
+                10L,
+                Instant.parse("2026-08-24T08:02:00Z")
+        ));
     }
 
     @Test

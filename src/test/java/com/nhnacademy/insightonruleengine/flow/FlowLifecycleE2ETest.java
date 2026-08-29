@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
@@ -26,6 +27,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeVa
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import jakarta.persistence.EntityManager;
@@ -79,6 +81,12 @@ class FlowLifecycleE2ETest {
 
     @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @MockitoBean
+    private ScheduleFlowScheduler scheduleFlowScheduler;
+
+    @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
 
     @Autowired
     private EntityManager entityManager;

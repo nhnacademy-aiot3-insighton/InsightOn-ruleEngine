@@ -25,11 +25,12 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     @Override
     public void flowStarted(ExecutionLogContext context, Long triggerNodeId) {
         log.info(
-                "Flow execution started. executionId={}, flowId={}, triggerNodeId={}, sensorEvent={}",
+                "Flow execution started. executionId={}, triggerType={}, flowId={}, triggerNodeId={}, trigger={}",
                 context.executionId(),
+                context.triggerType(),
                 context.flowId(),
                 triggerNodeId,
-                sensorEventFields(context)
+                triggerFields(context)
         );
     }
 
@@ -37,12 +38,13 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     public void flowFinished(ExecutionLogContext context, Long terminalNodeId, boolean terminalActionReached) {
         log.info(
                 "Flow execution finished. executionId={}, flowId={}, terminalNodeId={}, "
-                        + "terminalActionReached={}, sensorEvent={}",
+                        + "terminalActionReached={}, triggerType={}, trigger={}",
                 context.executionId(),
                 context.flowId(),
                 terminalNodeId,
                 terminalActionReached,
-                sensorEventFields(context)
+                context.triggerType(),
+                triggerFields(context)
         );
     }
 
@@ -79,12 +81,13 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     public void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception) {
         log.warn(
                 "Node execution failed. executionId={}, flowId={}, nodeId={}, nodeType={}, "
-                        + "sensorEvent={}",
+                        + "triggerType={}, trigger={}",
                 context.executionId(),
                 context.flowId(),
                 node.nodeId(),
                 node.nodeType(),
-                sensorEventFields(context),
+                context.triggerType(),
+                triggerFields(context),
                 exception
         );
     }
@@ -92,12 +95,15 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
     @Override
     public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
         log.warn(
-                "Flow execution failed. executionId={}, flowId={}, exceptionType={}, message={}, sensorEvent={}",
+                "Flow execution failed. executionId={}, flowId={}, exceptionType={}, message={}, "
+                        + "triggerType={}, trigger={}",
                 context.executionId(),
                 context.flowId(),
                 exception.getClass().getSimpleName(),
                 exception.getMessage(),
-                sensorEventFields(context)
+                context.triggerType(),
+                triggerFields(context),
+                exception
         );
     }
 
@@ -111,7 +117,7 @@ public class ExecutionLoggerImpl implements ExecutionLogger {
         );
     }
 
-    private Map<String, Object> sensorEventFields(ExecutionLogContext context) {
+    private Map<String, Object> triggerFields(ExecutionLogContext context) {
         return sensorEventFields(
                 context.groupId(),
                 context.locationId(),

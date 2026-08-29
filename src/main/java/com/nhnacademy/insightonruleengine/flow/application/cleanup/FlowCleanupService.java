@@ -11,6 +11,7 @@ import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlow
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ public class FlowCleanupService {
     private final ActiveFlowRedisRepository activeFlowRedisRepository;
     private final AlertCountRedisRepository alertCountRedisRepository;
     private final FlowCleanupDBService databaseCleanupService;
+    private final ScheduleFlowScheduler scheduleFlowScheduler;
 
     public void cleanupByGroup(Long groupId, List<Long> locationIds) {
         if (groupId == null || groupId <= 0L) {
@@ -48,6 +50,7 @@ public class FlowCleanupService {
         List<Node> nodes = flowIds.isEmpty() ? List.of() : nodeRepository.findByFlowIdIn(flowIds);
         Set<RouteKey> eventRouteKeys = new HashSet<>();
         locationIds.forEach(locationId -> eventRouteKeys.add(new RouteKey(groupId, locationId)));
+        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, eventRouteKeys);
         databaseCleanupService.deleteByGroupId(groupId);
         cleanupRuntime(flows, nodes, eventRouteKeys);
@@ -63,6 +66,7 @@ public class FlowCleanupService {
                 .toList();
         List<Long> flowIds = flows.stream().map(Flow::getId).toList();
         List<Node> nodes = flowIds.isEmpty() ? List.of() : nodeRepository.findByFlowIdIn(flowIds);
+        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, Set.of());
         databaseCleanupService.deleteByLocationId(locationId);
         cleanupRuntime(flows, nodes, Set.of());

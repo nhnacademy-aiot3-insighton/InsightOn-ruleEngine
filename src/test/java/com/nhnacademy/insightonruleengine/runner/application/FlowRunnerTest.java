@@ -15,6 +15,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
@@ -88,13 +89,13 @@ class FlowRunnerTest {
     }
 
     @Test
-    @DisplayName("deviceId만 저장된 기존 Actuator 설정도 실행 경로에서 파싱된다")
-    void legacyActuatorConfigurationRuns() {
+    @DisplayName("Core 명령 계약의 Actuator 설정이 실행 경로에서 파싱된다")
+    void actuatorConfigurationRuns() {
         List<NodeType> executed = new ArrayList<>();
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
-        NodeExecutor legacyActuatorExecutor = new NodeExecutor() {
+        NodeExecutor actuatorExecutor = new NodeExecutor() {
             @Override
             public NodeType supports() {
                 return NodeType.ACTUATOR_CONTROL;
@@ -103,17 +104,19 @@ class FlowRunnerTest {
             @Override
             public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
                 ActuatorControlParams params = parser.parse(NodeType.ACTUATOR_CONTROL, node.configuration());
-                assertEquals(900L, params.deviceId());
+                assertEquals("VENTILATION_FAN", params.actuatorType());
+                assertEquals("power", params.command());
+                assertEquals("ON", params.commandValue());
                 executed.add(node.nodeType());
                 return NodeExecutionResult.complete();
             }
         };
         NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
                 executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
-                legacyActuatorExecutor
+                actuatorExecutor
         ));
         FlowRunner runner = new FlowRunner(
-                event -> List.of(legacyActuatorFlowDefinition()),
+                event -> List.of(actuatorFlowDefinition()),
                 registry,
                 new RecordingExecutionLogger());
 
@@ -138,6 +141,42 @@ class FlowRunnerTest {
         assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD), executed);
         assertNotNull(logger.failure);
         assertInstanceOf(IllegalStateException.class, logger.failure);
+    }
+
+    @Test
+    @DisplayName("센서 이벤트 없이 Schedule Trigger부터 Action까지 실행한다")
+    void runScheduledFlowWithoutSensorEvent() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutor scheduleExecutor = new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return NodeType.SCHEDULE;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                assertEquals(ExecutionTriggerType.SCHEDULE, context.triggerType());
+                assertEquals(Map.of(), context.metrics());
+                executed.add(node.nodeType());
+                return NodeExecutionResult.next("out");
+            }
+        };
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                scheduleExecutor,
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
+        ));
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(),
+                registry,
+                new RecordingExecutionLogger()
+        );
+
+        runner.runScheduled(
+                scheduledFlowDefinition(),
+                Instant.parse("2026-08-24T09:00:00Z")
+        );
+
+        assertEquals(List.of(NodeType.SCHEDULE, NodeType.ACTUATOR_CONTROL), executed);
     }
 
     private NodeExecutor executor(
@@ -208,7 +247,7 @@ class FlowRunnerTest {
         );
     }
 
-    private FlowDefinition legacyActuatorFlowDefinition() {
+    private FlowDefinition actuatorFlowDefinition() {
         return new FlowDefinition(
                 3L, 1L, 10L, "기존 액추에이터", null, FlowStatus.ACTIVE,
                 OffsetDateTime.parse("2026-08-03T00:00:00Z"),
@@ -216,7 +255,10 @@ class FlowRunnerTest {
                         new NodeDefinition(1L, NodeType.SENSOR,
                                 JsonNodeFactory.instance.objectNode().put("sensorId", 100L)),
                         new NodeDefinition(2L, NodeType.ACTUATOR_CONTROL,
-                                JsonNodeFactory.instance.objectNode().put("deviceId", 900L))
+                                JsonNodeFactory.instance.objectNode()
+                                        .put("actuatorType", "VENTILATION_FAN")
+                                        .put("command", "power")
+                                        .put("commandValue", "ON"))
                 ),
                 List.of(new LinkDefinition(1L, 3L, 1L, 2L, "out", "in"))
         );
@@ -234,6 +276,23 @@ class FlowRunnerTest {
                         new LinkDefinition(1L, 4L, 1L, 2L, "out", "in"),
                         new LinkDefinition(2L, 4L, 2L, 1L, "true", "in")
                 )
+        );
+    }
+
+    private FlowDefinition scheduledFlowDefinition() {
+        return new FlowDefinition(
+                5L, 1L, 10L, "정기 환기", null, FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        new NodeDefinition(1L, NodeType.SCHEDULE,
+                                JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")),
+                        new NodeDefinition(2L, NodeType.ACTUATOR_CONTROL,
+                                JsonNodeFactory.instance.objectNode()
+                                        .put("actuatorType", "VENTILATION_FAN")
+                                        .put("command", "power")
+                                        .put("commandValue", "ON"))
+                ),
+                List.of(new LinkDefinition(1L, 5L, 1L, 2L, "out", "in"))
         );
     }
 

@@ -26,6 +26,20 @@ class FlowExecutionContextTest {
         assertEquals(Map.of("temperature", 31.5), context.metrics());
         assertEquals(31.5, context.metric("temperature"));
         assertEquals(timestamp, context.timestamp());
+        assertEquals(ExecutionTriggerType.TELEMETRY, context.triggerType());
+    }
+
+    @Test
+    void exposesScheduleTriggerWithoutFakeSensorEvent() {
+        Instant triggeredAt = Instant.parse("2026-08-24T09:00:00Z");
+
+        FlowExecutionContext context = FlowExecutionContext.scheduled(flow(), triggeredAt);
+
+        assertEquals(ExecutionTriggerType.SCHEDULE, context.triggerType());
+        assertEquals(null, context.event());
+        assertEquals(Map.of(), context.metrics());
+        assertEquals(null, context.metric("temperature"));
+        assertEquals(triggeredAt, context.timestamp());
     }
 
     @Test

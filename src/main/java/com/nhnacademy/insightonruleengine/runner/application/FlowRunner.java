@@ -13,6 +13,7 @@ import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
+import java.time.Instant;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -48,9 +49,9 @@ public class FlowRunner {
         }
         executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
-            ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
+            ExecutionLogContext logContext = ExecutionLogContext.telemetry(flow, event);
             try {
-                runFlow(flow, event, logContext);
+                runFlow(flow, new FlowExecutionContext(flow, event), logContext);
             } catch (RuntimeException exception) {
                 executionLogger.flowFailed(logContext, exception);
             }
@@ -58,13 +59,41 @@ public class FlowRunner {
     }
 
     void runFlow(FlowDefinition flow, SensorEvent event) {
-        runFlow(flow, event, ExecutionLogContext.create(flow, event));
+        runFlow(
+                flow,
+                new FlowExecutionContext(flow, event),
+                ExecutionLogContext.telemetry(flow, event)
+        );
     }
 
-    private void runFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
+    public void runScheduled(FlowDefinition flow, Instant triggeredAt) {
+        if (flow == null) {
+            throw new IllegalArgumentException("flow는 필수입니다.");
+        }
+        if (triggeredAt == null) {
+            throw new IllegalArgumentException("triggeredAt은 필수입니다.");
+        }
+
+        ExecutionLogContext logContext = ExecutionLogContext.scheduled(flow, triggeredAt);
+        try {
+            NodeDefinition triggerNode = findTriggerNode(flow);
+            if (triggerNode.nodeType() != NodeType.SCHEDULE) {
+                throw new IllegalArgumentException(
+                        "Schedule Trigger Flow가 아닙니다. flowId=" + flow.flowId());
+            }
+            runFlow(flow, FlowExecutionContext.scheduled(flow, triggeredAt), logContext);
+        } catch (RuntimeException exception) {
+            executionLogger.flowFailed(logContext, exception);
+        }
+    }
+
+    private void runFlow(
+            FlowDefinition flow,
+            FlowExecutionContext context,
+            ExecutionLogContext logContext
+    ) {
         FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
         NodeDefinition current = findTriggerNode(flow);
-        FlowExecutionContext context = new FlowExecutionContext(flow, event);
         Set<Long> visitedNodeIds = new HashSet<>();
 
         executionLogger.flowStarted(logContext, current.nodeId());

@@ -82,15 +82,18 @@ class NodeConfigurationValidatorTest {
     }
 
     @Test
-    @DisplayName("deviceId만 포함한 기존 Actuator configuration은 호환 검증을 통과합니다.")
-    void legacyActuatorConfigurationTest() {
-        FlowNodeRequest legacyActuator = node(
+    @DisplayName("Core 계약에 맞는 Actuator configuration은 검증을 통과합니다.")
+    void validActuatorConfigurationTest() {
+        FlowNodeRequest actuator = node(
                 "actuator",
                 NodeType.ACTUATOR_CONTROL,
-                JsonNodeFactory.instance.objectNode().put("deviceId", 900L)
+                JsonNodeFactory.instance.objectNode()
+                        .put("actuatorType", "VENTILATION_FAN")
+                        .put("command", "power")
+                        .put("commandValue", "ON")
         );
 
-        assertTrue(validator.validate(List.of(legacyActuator)).isEmpty());
+        assertTrue(validator.validate(List.of(actuator)).isEmpty());
     }
 
     @Test
@@ -100,8 +103,23 @@ class NodeConfigurationValidatorTest {
                 "actuator",
                 NodeType.ACTUATOR_CONTROL,
                 JsonNodeFactory.instance.objectNode()
-                        .put("actuatorType", "HVAC")
-                        .put("command", "SET")
+                        .put("actuatorType", "AIRCON")
+                        .put("command", "temperature")
+        );
+
+        assertEquals(1, validator.validate(List.of(actuator)).size());
+    }
+
+    @Test
+    @DisplayName("Core에서 지원하지 않는 Actuator 명령 값은 거부합니다.")
+    void unsupportedActuatorCommandTest() {
+        FlowNodeRequest actuator = node(
+                "actuator",
+                NodeType.ACTUATOR_CONTROL,
+                JsonNodeFactory.instance.objectNode()
+                        .put("actuatorType", "VENTILATION_FAN")
+                        .put("command", "power")
+                        .put("commandValue", "EXPLODE")
         );
 
         assertEquals(1, validator.validate(List.of(actuator)).size());

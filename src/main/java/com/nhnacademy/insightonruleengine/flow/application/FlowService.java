@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.flow.application;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -24,7 +25,9 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +47,11 @@ public class FlowService {
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
+    private final NodeConfigurationValidator nodeConfigurationValidator;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private final ScheduleFlowScheduler scheduleFlowScheduler;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
@@ -130,6 +135,11 @@ public class FlowService {
         }
         flow.changeActivationStatus(request.status());
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        if (request.status() == FlowStatus.ACTIVE) {
+            scheduleFlowScheduler.registerAfterCommit(flow.getGroupId(), flow.getId());
+        } else {
+            scheduleFlowScheduler.cancelAfterCommit(flow.getId());
+        }
         return toResponse(flow);
     }
 
@@ -140,6 +150,7 @@ public class FlowService {
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(flow.getId());
         return toResponse(flow);
     }
 
@@ -155,6 +166,7 @@ public class FlowService {
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(flow.getId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -180,6 +192,7 @@ public class FlowService {
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(currentFlow.getId());
         return toResponse(savedFlow);
     }
 
@@ -211,9 +224,20 @@ public class FlowService {
     }
 
     private void validateStructure(List<FlowNodeRequest> nodes, List<FlowLinkRequest> links) {
-        List<FlowStructureValidationError> errors = flowStructureValidator.validate(nodes, links);
-        if (errors != null && !errors.isEmpty()) {
+        List<FlowStructureValidationError> errors = new ArrayList<>();
+        addErrors(errors, flowStructureValidator.validate(nodes, links));
+        addErrors(errors, nodeConfigurationValidator.validate(nodes));
+        if (!errors.isEmpty()) {
             throw new InvalidFlowStructureException(errors);
+        }
+    }
+
+    private void addErrors(
+            List<FlowStructureValidationError> target,
+            List<FlowStructureValidationError> source
+    ) {
+        if (source != null) {
+            target.addAll(source);
         }
     }
 

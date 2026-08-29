@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.nhnacademy.insightonruleengine.flow.FlowTestData;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
@@ -20,6 +21,7 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +53,9 @@ class FlowServiceRuntimeEventTest {
     private FlowStructureValidator flowStructureValidator;
 
     @Mock
+    private NodeConfigurationValidator nodeConfigurationValidator;
+
+    @Mock
     private FlowDefinitionAssembler flowDefinitionAssembler;
 
     @Mock
@@ -58,6 +63,9 @@ class FlowServiceRuntimeEventTest {
 
     @Mock
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @Mock
+    private ScheduleFlowScheduler scheduleFlowScheduler;
 
     @InjectMocks
     private FlowService flowService;
@@ -77,6 +85,8 @@ class FlowServiceRuntimeEventTest {
 
         verify(activeFlowDefinitionProvider, times(2))
                 .refreshAfterCommit(1L, 2L);
+        verify(scheduleFlowScheduler).registerAfterCommit(1L, 10L);
+        verify(scheduleFlowScheduler).cancelAfterCommit(10L);
     }
 
     @Test
@@ -95,6 +105,18 @@ class FlowServiceRuntimeEventTest {
                 FlowTestData.createValidUpdateRequest("수정 Flow", null));
 
         verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
+        verify(scheduleFlowScheduler).cancelAfterCommit(10L);
+    }
+
+    @Test
+    @DisplayName("Flow 보관은 기존 Schedule 등록을 취소합니다.")
+    void archiveScheduleCancellationTest() {
+        Flow activeFlow = flow(10L, FlowStatus.ACTIVE);
+        when(flowRepository.findById(10L)).thenReturn(Optional.of(activeFlow));
+
+        flowService.archive(1L, 100L, 10L);
+
+        verify(scheduleFlowScheduler).cancelAfterCommit(10L);
     }
 
     @Test
@@ -111,6 +133,7 @@ class FlowServiceRuntimeEventTest {
         order.verify(nodeRepository).deleteByFlowId(10L);
         order.verify(flowRepository).delete(archivedFlow);
         order.verify(activeFlowDefinitionProvider).refreshAfterCommit(1L, 2L);
+        verify(scheduleFlowScheduler).cancelAfterCommit(10L);
     }
 
     @Test

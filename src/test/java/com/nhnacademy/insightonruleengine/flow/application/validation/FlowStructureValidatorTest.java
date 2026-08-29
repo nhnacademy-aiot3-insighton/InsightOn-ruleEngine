@@ -155,6 +155,21 @@ class FlowStructureValidatorTest {
     }
 
     @Test
+    @DisplayName("Schedule Trigger를 Alert에 연결하면 구조 검증에서 거부한다")
+    void scheduledAlertFlowTest() {
+        List<FlowNodeRequest> nodes = List.of(
+                node("schedule", NodeType.SCHEDULE),
+                node("alert", NodeType.ALERT)
+        );
+        List<FlowLinkRequest> links = List.of(link("schedule", "alert", "out"));
+
+        List<FlowStructureValidationError> errors = validator.validate(nodes, links);
+
+        assertTrue(errors.stream().anyMatch(error ->
+                error.code() == FlowStructureErrorCode.INVALID_SCHEDULE_TARGET));
+    }
+
+    @Test
     @DisplayName("사전 구성 4: 이중 조건 직렬 검사 플로우가 구조 검증을 통과한다")
     void multiThresholdSerialFlowTest() {
         var request = FlowTestData.createMultiThresholdSerialFlowRequest(
