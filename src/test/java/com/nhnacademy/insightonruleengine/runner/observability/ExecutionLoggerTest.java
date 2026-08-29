@@ -114,6 +114,23 @@ class ExecutionLoggerTest {
                 .anyMatch(message -> message.contains("suppressedFailureCount=1")));
     }
 
+    @Test
+    @DisplayName("복구되지 않은 실패 상태는 설정된 최대 개수를 넘지 않습니다.")
+    void boundsUnrecoveredFailureScopes() {
+        ExecutionLogger boundedLogger = new ExecutionLogger(2);
+        RuntimeException exception = new IllegalStateException("unavailable");
+
+        boundedLogger.routingFailed(sensorEvent(1L, 10L), exception);
+        boundedLogger.routingFailed(sensorEvent(2L, 20L), exception);
+        boundedLogger.routingFailed(sensorEvent(3L, 30L), exception);
+        boundedLogger.flowFailed(executionContext(100L), null, exception);
+        boundedLogger.flowFailed(executionContext(200L), null, exception);
+        boundedLogger.flowFailed(executionContext(300L), null, exception);
+
+        assertEquals(2, boundedLogger.trackedRoutingFailureCount());
+        assertEquals(2, boundedLogger.trackedFlowFailureCount());
+    }
+
     private long count(Level level, String prefix) {
         return appender.list.stream()
                 .filter(event -> event.getLevel() == level)
@@ -128,9 +145,13 @@ class ExecutionLoggerTest {
     }
 
     private SensorEvent sensorEvent() {
+        return sensorEvent(1L, 10L);
+    }
+
+    private SensorEvent sensorEvent(Long groupId, Long locationId) {
         return new SensorEvent(
-                1L,
-                10L,
+                groupId,
+                locationId,
                 100L,
                 Map.of("temperature", 31.2),
                 Instant.parse("2026-08-03T00:00:00Z")
@@ -138,10 +159,14 @@ class ExecutionLoggerTest {
     }
 
     private ExecutionLogContext executionContext() {
+        return executionContext(200L);
+    }
+
+    private ExecutionLogContext executionContext(Long flowId) {
         return new ExecutionLogContext(
                 "execution-1",
                 ExecutionTriggerType.TELEMETRY,
-                200L,
+                flowId,
                 1L,
                 10L,
                 100L,

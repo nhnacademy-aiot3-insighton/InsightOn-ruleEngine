@@ -1,9 +1,11 @@
 package com.nhnacademy.insightonruleengine.runner.application.schedule;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -11,6 +13,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.config.ScheduleExecutionProperties;
@@ -30,6 +36,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +47,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.support.SimpleTriggerContext;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.slf4j.LoggerFactory;
 
 @ExtendWith(MockitoExtension.class)
 class ScheduleFlowSchedulerTest {
@@ -57,9 +65,19 @@ class ScheduleFlowSchedulerTest {
 
     private ScheduledFuture<?> future;
     private ScheduleFlowScheduler scheduler;
+    private final Logger logger = (Logger) LoggerFactory.getLogger(ScheduleFlowScheduler.class);
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    private Level originalLevel;
+    private boolean originalAdditive;
 
     @BeforeEach
     void setUp() {
+        originalLevel = logger.getLevel();
+        originalAdditive = logger.isAdditive();
+        logger.setLevel(Level.DEBUG);
+        logger.setAdditive(false);
+        appender.start();
+        logger.addAppender(appender);
         future = mock(ScheduledFuture.class);
         lenient().doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
         scheduler = new ScheduleFlowScheduler(
@@ -74,6 +92,14 @@ class ScheduleFlowSchedulerTest {
                 new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(10), 2),
                 taskScheduler
         );
+    }
+
+    @AfterEach
+    void tearDown() {
+        logger.detachAppender(appender);
+        appender.stop();
+        logger.setLevel(originalLevel);
+        logger.setAdditive(originalAdditive);
     }
 
     @Test
@@ -215,6 +241,102 @@ class ScheduleFlowSchedulerTest {
         assertTrue(scheduler.isRegistered(10L));
         assertTrue(scheduler.isRegistered(20L));
         verify(executionRedisRepository, never()).repairActive(20L, 8L);
+    }
+
+    @Test
+    void repeatedReconciliationFailureIsSuppressedUntilRecovery() {
+        RuntimeException exception = new IllegalStateException("DB unavailable");
+        when(executionRedisRepository.beginReconciliation()).thenReturn(9L);
+        when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
+                .thenThrow(exception)
+                .thenThrow(exception)
+                .thenReturn(List.of());
+
+        scheduler.reconcileActiveSchedules();
+        scheduler.reconcileActiveSchedules();
+        scheduler.reconcileActiveSchedules();
+
+        assertEquals(1L, count(Level.WARN, "활성 스케줄 플로우 재조정에 실패했습니다."));
+        assertEquals(1L, count(Level.INFO, "활성 스케줄 플로우 재조정이 복구됐습니다."));
+        assertTrue(formattedMessages().stream()
+                .anyMatch(message -> message.contains("suppressedFailureCount=1")));
+    }
+
+    @Test
+    void repeatedRegistrationFailureIsSuppressedUntilRecovery() {
+        RuntimeException exception = new IllegalStateException("invalid schedule definition");
+        FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
+        when(flowDefinitionAssembler.assembleActive(1L, 10L))
+                .thenThrow(exception)
+                .thenThrow(exception)
+                .thenReturn(definition);
+
+        scheduler.registerAfterCommit(1L, 10L);
+        scheduler.registerAfterCommit(1L, 10L);
+        scheduler.registerAfterCommit(1L, 10L);
+
+        assertEquals(1L, count(Level.ERROR, "스케줄 플로우 등록에 실패했습니다."));
+        assertEquals(1L, count(Level.INFO, "스케줄 플로우 등록 처리가 복구됐습니다."));
+        assertTrue(formattedMessages().stream()
+                .anyMatch(message -> message.contains("suppressedFailureCount=1")));
+    }
+
+    @Test
+    void repeatedRedisFailureLogsContextOnceAndReportsRecovery() {
+        FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
+        scheduler.register(definition);
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ArgumentCaptor<Trigger> triggerCaptor = ArgumentCaptor.forClass(Trigger.class);
+        verify(taskScheduler).schedule(taskCaptor.capture(), triggerCaptor.capture());
+        Instant scheduledAt = triggerCaptor.getValue().nextExecution(new SimpleTriggerContext());
+        RuntimeException exception = new IllegalStateException("Redis unavailable");
+        when(executionRedisRepository.claimIfActive(10L, scheduledAt))
+                .thenThrow(exception)
+                .thenThrow(exception)
+                .thenReturn(false);
+
+        taskCaptor.getValue().run();
+        taskCaptor.getValue().run();
+        taskCaptor.getValue().run();
+
+        assertEquals(1L, count(Level.ERROR, "스케줄 실행용 Redis에 접근할 수 없습니다."));
+        assertEquals(1L, count(Level.INFO, "스케줄 실행용 Redis 접근이 복구됐습니다."));
+        assertTrue(formattedMessages().stream().anyMatch(message ->
+                message.contains("flowId=10")
+                        && message.contains("scheduledAt=" + scheduledAt)));
+        assertTrue(formattedMessages().stream()
+                .anyMatch(message -> message.contains("suppressedFailureCount=1")));
+    }
+
+    @Test
+    void flowRunnerFailureIsNotReportedAsRedisFailure() {
+        FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
+        scheduler.register(definition);
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        ArgumentCaptor<Trigger> triggerCaptor = ArgumentCaptor.forClass(Trigger.class);
+        verify(taskScheduler).schedule(taskCaptor.capture(), triggerCaptor.capture());
+        Instant scheduledAt = triggerCaptor.getValue().nextExecution(new SimpleTriggerContext());
+        when(executionRedisRepository.claimIfActive(10L, scheduledAt)).thenReturn(true);
+        doThrow(new IllegalStateException("runner unavailable"))
+                .when(flowRunner).runScheduled(definition, scheduledAt);
+
+        taskCaptor.getValue().run();
+
+        assertEquals(1L, count(Level.ERROR, "스케줄 플로우 실행 위임에 실패했습니다."));
+        assertEquals(0L, count(Level.ERROR, "스케줄 실행용 Redis에 접근할 수 없습니다."));
+    }
+
+    private long count(Level level, String prefix) {
+        return appender.list.stream()
+                .filter(event -> event.getLevel() == level)
+                .filter(event -> event.getFormattedMessage().startsWith(prefix))
+                .count();
+    }
+
+    private List<String> formattedMessages() {
+        return appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .toList();
     }
 
     private Flow activeFlow(Long flowId, String name) {
