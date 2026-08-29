@@ -6,9 +6,12 @@ import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -28,32 +31,37 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 public class ActiveFlowDefinitionProvider {
 
+    static final int MAX_TRACKED_LOCAL_FALLBACK_FAILURES = 10_000;
+
     private final FlowRepository flowRepository;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
     private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
+    private final Map<RouteKey, LocalFallbackFailureState> localFallbackFailures =
+            new LinkedHashMap<>(16, 0.75f, true);
+    private final AtomicBoolean flowCacheDegraded = new AtomicBoolean();
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
+        Optional<List<FlowDefinition>> cachedDefinitions;
         try {
-            return flowDefinitionCache.find(groupId, locationId)
-                    .map(definitions -> remember(routeKey, definitions))
-                    .orElseGet(() -> rebuild(routeKey));
+            cachedDefinitions = flowDefinitionCache.find(groupId, locationId);
+            markFlowCacheRecovered();
         } catch (RuntimeException cacheException) {
-            log.warn("Flow 캐시 조회에 실패하여 DB 원본에서 다시 확인합니다. groupId={}, locationId={}",
-                    groupId, locationId, cacheException);
-            try {
-                return rebuild(routeKey);
-            } catch (RuntimeException databaseException) {
-                List<FlowDefinition> fallback = localFallback.get(routeKey);
-                if (fallback != null) {
-                    log.warn("Redis와 DB 조회가 모두 실패하여 로컬 캐시를 사용합니다. groupId={}, locationId={}",
-                            groupId, locationId, databaseException);
-                    return fallback;
-                }
-                databaseException.addSuppressed(cacheException);
-                throw databaseException;
-            }
+            logFlowCacheFailure("조회", routeKey, cacheException);
+            return rebuildOrFallback(routeKey, cacheException);
+        }
+
+        if (cachedDefinitions.isPresent()) {
+            markLocalFallbackRecovered(routeKey);
+            return remember(routeKey, cachedDefinitions.get());
+        }
+        try {
+            List<FlowDefinition> definitions = rebuild(routeKey);
+            markLocalFallbackRecovered(routeKey);
+            return definitions;
+        } catch (RuntimeException databaseException) {
+            return localFallbackOrThrow(routeKey, databaseException);
         }
     }
 
@@ -72,7 +80,7 @@ public class ActiveFlowDefinitionProvider {
         }
 
         grouped.forEach(this::replaceNow);
-        log.info("ACTIVE Flow 캐시 적재를 완료했습니다. routeCount={}", grouped.size());
+        log.info("활성 플로우 캐시 적재를 완료했습니다. routeCount={}", grouped.size());
     }
 
     public void refreshAfterCommit(Long groupId, Long locationId) {
@@ -84,14 +92,17 @@ public class ActiveFlowDefinitionProvider {
             try {
                 evictNow(groupId, locationId);
             } catch (RuntimeException exception) {
-                log.warn("Flow 캐시 삭제에 실패했습니다. groupId={}, locationId={}", groupId, locationId, exception);
+                logFlowCacheFailure("삭제", new RouteKey(groupId, locationId), exception);
             }
         });
     }
 
     public void evictNow(Long groupId, Long locationId) {
-        localFallback.remove(new RouteKey(groupId, locationId));
+        RouteKey routeKey = new RouteKey(groupId, locationId);
+        localFallback.remove(routeKey);
         flowDefinitionCache.evict(groupId, locationId);
+        removeLocalFallbackFailure(routeKey);
+        markFlowCacheRecovered();
     }
 
     private List<FlowDefinition> rebuild(RouteKey routeKey) {
@@ -120,9 +131,9 @@ public class ActiveFlowDefinitionProvider {
         try {
             // Redis SET은 한 키에 대한 원자적 교체이므로 갱신 중 빈 라우팅 상태를 만들지 않는다.
             flowDefinitionCache.replace(routeKey.groupId(), routeKey.locationId(), snapshot);
+            markRecovered(routeKey);
         } catch (RuntimeException exception) {
-            log.warn("Flow 캐시 저장에 실패했습니다. 로컬 fallback은 유지합니다. groupId={}, locationId={}",
-                    routeKey.groupId(), routeKey.locationId(), exception);
+            logFlowCacheFailure("저장", routeKey, exception);
         }
     }
 
@@ -130,6 +141,119 @@ public class ActiveFlowDefinitionProvider {
         List<FlowDefinition> snapshot = List.copyOf(definitions);
         localFallback.put(routeKey, snapshot);
         return snapshot;
+    }
+
+    private List<FlowDefinition> rebuildOrFallback(
+            RouteKey routeKey,
+            RuntimeException cacheException
+    ) {
+        try {
+            List<FlowDefinition> definitions = rebuild(routeKey);
+            markLocalFallbackRecovered(routeKey);
+            return definitions;
+        } catch (RuntimeException databaseException) {
+            databaseException.addSuppressed(cacheException);
+            return localFallbackOrThrow(routeKey, databaseException);
+        }
+    }
+
+    private List<FlowDefinition> localFallbackOrThrow(
+            RouteKey routeKey,
+            RuntimeException exception
+    ) {
+        List<FlowDefinition> fallback = localFallback.get(routeKey);
+        if (fallback == null) {
+            throw exception;
+        }
+        logLocalFallback(routeKey, exception);
+        return fallback;
+    }
+
+    private void logFlowCacheFailure(String operation, RouteKey routeKey, RuntimeException exception) {
+        if (flowCacheDegraded.compareAndSet(false, true)) {
+            log.warn(
+                    "플로우 캐시 {}에 실패해 대체 경로를 사용합니다. "
+                            + "groupId={}, locationId={}, errorType={}, message={}",
+                    operation,
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
+            log.debug("플로우 캐시 장애 상세.", exception);
+        }
+    }
+
+    private void logLocalFallback(RouteKey routeKey, RuntimeException exception) {
+        LocalFallbackFailureState failure;
+        synchronized (localFallbackFailures) {
+            makeRoomForLocalFallbackFailure(routeKey);
+            failure = localFallbackFailures.compute(routeKey, (ignored, current) -> {
+                if (current == null) {
+                    return LocalFallbackFailureState.first(exception);
+                }
+                return current.incremented(exception);
+            });
+        }
+        if (failure.suppressedFailureCount() == 0L) {
+            log.warn(
+                    "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
+                            + "groupId={}, locationId={}, errorType={}, message={}",
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage()
+            );
+            log.debug("로컬 플로우 캐시 사용 상세.", exception);
+        }
+    }
+
+    int trackedLocalFallbackFailureCount() {
+        synchronized (localFallbackFailures) {
+            return localFallbackFailures.size();
+        }
+    }
+
+    private void makeRoomForLocalFallbackFailure(RouteKey routeKey) {
+        if (localFallbackFailures.containsKey(routeKey)) {
+            return;
+        }
+        while (localFallbackFailures.size() >= MAX_TRACKED_LOCAL_FALLBACK_FAILURES) {
+            RouteKey evictionCandidate = localFallbackFailures.keySet().iterator().next();
+            // access-order LinkedHashMap의 가장 오래 사용하지 않은 라우트 상태부터 축출한다.
+            localFallbackFailures.remove(evictionCandidate);
+        }
+    }
+
+    private void markRecovered(RouteKey routeKey) {
+        markFlowCacheRecovered();
+        markLocalFallbackRecovered(routeKey);
+    }
+
+    private void markFlowCacheRecovered() {
+        if (flowCacheDegraded.compareAndSet(true, false)) {
+            log.info("플로우 캐시 접근이 정상화됐습니다.");
+        }
+    }
+
+    private void markLocalFallbackRecovered(RouteKey routeKey) {
+        LocalFallbackFailureState recovered = removeLocalFallbackFailure(routeKey);
+        if (recovered != null) {
+            log.info("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다. "
+                            + "groupId={}, locationId={}, lastErrorType={}, lastMessage={}, "
+                            + "suppressedFailureCount={}",
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    recovered.lastErrorType(),
+                    recovered.lastMessage(),
+                    recovered.suppressedFailureCount());
+        }
+    }
+
+    private LocalFallbackFailureState removeLocalFallbackFailure(RouteKey routeKey) {
+        synchronized (localFallbackFailures) {
+            return localFallbackFailures.remove(routeKey);
+        }
     }
 
     private void afterCommit(Runnable action) {
@@ -146,5 +270,28 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private record RouteKey(Long groupId, Long locationId) {
+    }
+
+    private record LocalFallbackFailureState(
+            String lastErrorType,
+            String lastMessage,
+            long suppressedFailureCount
+    ) {
+
+        private static LocalFallbackFailureState first(RuntimeException exception) {
+            return new LocalFallbackFailureState(
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    0L
+            );
+        }
+
+        private LocalFallbackFailureState incremented(RuntimeException exception) {
+            return new LocalFallbackFailureState(
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    suppressedFailureCount + 1L
+            );
+        }
     }
 }

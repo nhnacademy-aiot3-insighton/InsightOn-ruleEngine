@@ -3,6 +3,9 @@ package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -10,6 +13,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
@@ -21,11 +28,13 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRe
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -123,6 +132,99 @@ class ActiveFlowDefinitionProviderTest {
 
         assertEquals(List.of(definition), provider.find(1L, 10L));
         assertEquals(List.of(definition), provider.find(1L, 10L));
+    }
+
+    @Test
+    void recoversLocalFallbackOnlyForTheRouteThatActuallyRecovered() {
+        FlowDefinition definition = definition();
+        RedisConnectionFailureException redisFailure =
+                new RedisConnectionFailureException("Redis unavailable");
+        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(redisFailure)
+                .thenThrow(redisFailure)
+                .thenReturn(Optional.of(List.of(definition)));
+        when(flowDefinitionCache.find(2L, 20L))
+                .thenReturn(Optional.of(List.of(definition)));
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(
+                1L, 10L, FlowStatus.ACTIVE))
+                .thenThrow(databaseFailure);
+
+        Logger logger = (Logger) LoggerFactory.getLogger(ActiveFlowDefinitionProvider.class);
+        Level originalLevel = logger.getLevel();
+        boolean originalAdditive = logger.isAdditive();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        logger.setLevel(Level.DEBUG);
+        logger.setAdditive(false);
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            provider.find(1L, 10L);
+            provider.find(1L, 10L);
+            provider.find(2L, 20L);
+            provider.find(1L, 10L);
+
+            assertEquals(0L, appender.list.stream()
+                    .filter(event -> event.getFormattedMessage()
+                            .startsWith("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다."))
+                    .count());
+
+            provider.find(1L, 10L);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+            logger.setLevel(originalLevel);
+            logger.setAdditive(originalAdditive);
+        }
+
+        assertEquals(1L, appender.list.stream()
+                .filter(event -> event.getLevel() == Level.WARN)
+                .filter(event -> event.getFormattedMessage().startsWith(
+                        "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다."))
+                .count());
+        assertTrue(appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith(
+                        "플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다."))
+                .anyMatch(message -> message.contains("groupId=1")
+                        && message.contains("locationId=10")
+                        && message.contains("lastErrorType=IllegalStateException")
+                        && message.contains("lastMessage=DB unavailable")
+                        && message.contains("suppressedFailureCount=1")));
+    }
+
+    @Test
+    void boundsLocalFallbackFailureStatesAtTenThousandRoutes() {
+        AtomicInteger cacheReads = new AtomicInteger();
+        FlowDefinition definition = definition();
+        when(flowDefinitionCache.find(anyLong(), anyLong())).thenAnswer(invocation -> {
+            if (cacheReads.getAndIncrement() % 2 == 0) {
+                return Optional.of(List.of(definition));
+            }
+            throw new RedisConnectionFailureException("Redis unavailable");
+        });
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(
+                anyLong(), anyLong(), eq(FlowStatus.ACTIVE)))
+                .thenThrow(new IllegalStateException("DB unavailable"));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(ActiveFlowDefinitionProvider.class);
+        Level originalLevel = logger.getLevel();
+        logger.setLevel(Level.OFF);
+        try {
+            for (long routeId = 1L;
+                    routeId <= ActiveFlowDefinitionProvider.MAX_TRACKED_LOCAL_FALLBACK_FAILURES + 1L;
+                    routeId++) {
+                provider.find(routeId, routeId);
+                provider.find(routeId, routeId);
+            }
+        } finally {
+            logger.setLevel(originalLevel);
+        }
+
+        assertEquals(
+                ActiveFlowDefinitionProvider.MAX_TRACKED_LOCAL_FALLBACK_FAILURES,
+                provider.trackedLocalFallbackFailureCount());
     }
 
     @Test

@@ -1,67 +1,219 @@
 package com.nhnacademy.insightonruleengine.runner.observability;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
-public interface ExecutionLogger {
+@Slf4j
+@Component
+public class ExecutionLogger {
 
-    /**
-     * 센서 이벤트가 수신되고 실행 대상 Flow 목록이 결정된 시점의 로그 발생
-     *
-     * @param event 수신한 센서 텔레메트리 이벤트
-     * @param flowCount 해당 이벤트로 라우팅된 실행 대상 Flow 개수
-     */
-    void eventRouted(SensorEvent event, int flowCount);
+    private static final int DEFAULT_MAX_TRACKED_FAILURE_SCOPES = 10_000;
 
-    /**
-     * 단일 Flow 실행이 시작된 시점의 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param triggerNodeId Flow 실행을 시작하는 Trigger Node ID
-     */
-    void flowStarted(ExecutionLogContext context, Long triggerNodeId);
+    private final int maxTrackedFailureScopes;
+    private final ConcurrentMap<RoutingFailureScope, FailureCounter> routingFailures =
+            new ConcurrentHashMap<>();
+    private final ConcurrentMap<FlowFailureScope, FlowFailureState> flowFailures =
+            new ConcurrentHashMap<>();
 
-    /**
-     * 단일 Flow 실행이 정상 종료된 시점의 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param terminalNodeId Flow 실행을 종료시킨 마지막 Node ID
-     * @param terminalActionReached terminal Action Node 도달 여부
-     */
-    void flowFinished(ExecutionLogContext context, Long terminalNodeId, boolean terminalActionReached);
+    public ExecutionLogger() {
+        this(DEFAULT_MAX_TRACKED_FAILURE_SCOPES);
+    }
 
-    /**
-     * Node 실행 직전의 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param node 실행할 Node 정의
-     */
-    void nodeStarted(ExecutionLogContext context, NodeDefinition node);
+    ExecutionLogger(int maxTrackedFailureScopes) {
+        if (maxTrackedFailureScopes <= 0) {
+            throw new IllegalArgumentException("maxTrackedFailureScopes는 양수여야 합니다.");
+        }
+        this.maxTrackedFailureScopes = maxTrackedFailureScopes;
+    }
 
-    /**
-     * Node 실행이 정상 완료된 시점의 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param node 실행이 완료된 Node 정의
-     * @param result Node 실행 결과와 다음 output port 정보
-     */
-    void nodeFinished(ExecutionLogContext context, NodeDefinition node, NodeExecutionResult result);
+    public void eventRouted(SensorEvent event, int flowCount) {
+        FailureCounter recovered = routingFailures.remove(RoutingFailureScope.from(event));
+        if (recovered != null) {
+            log.info(
+                    "센서 이벤트 라우팅이 복구됐습니다. groupId={}, locationId={}, sensorId={}, "
+                            + "timestamp={}, suppressedFailureCount={}",
+                    event.groupId(),
+                    event.locationId(),
+                    event.sensorId(),
+                    event.timestamp(),
+                    recovered.suppressedCount()
+            );
+        }
+        log.debug(
+                "센서 이벤트 라우팅 완료. groupId={}, locationId={}, sensorId={}, flowCount={}, timestamp={}",
+                event.groupId(),
+                event.locationId(),
+                event.sensorId(),
+                flowCount,
+                event.timestamp()
+        );
+    }
 
-    /**
-     * Flow 실행 중 오류가 발생한 경우 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param exception 발생한 예외
-     */
-    void flowFailed(ExecutionLogContext context, RuntimeException exception);
+    public void routingFailed(SensorEvent event, RuntimeException exception) {
+        AtomicBoolean shouldLog = new AtomicBoolean();
+        RoutingFailureScope scope = RoutingFailureScope.from(event);
+        synchronized (routingFailures) {
+            makeRoomForNewScope(routingFailures, scope);
+            routingFailures.compute(scope, (ignored, current) -> {
+                if (current == null) {
+                    shouldLog.set(true);
+                    return new FailureCounter(0L);
+                }
+                return current.incremented();
+            });
+        }
+        if (!shouldLog.get()) {
+            return;
+        }
+        log.error(
+                "센서 이벤트 라우팅에 실패했습니다. groupId={}, locationId={}, sensorId={}, timestamp={}, "
+                        + "exceptionType={}, message={}",
+                event.groupId(),
+                event.locationId(),
+                event.sensorId(),
+                event.timestamp(),
+                exception.getClass().getSimpleName(),
+                exception.getMessage(),
+                exception
+        );
+    }
 
-    /**
-     * Node 실행 중 오류가 발생한 경우 로그 발생
-     *
-     * @param context Flow 실행 1건의 공통 로그 컨텍스트
-     * @param node 오류가 발생한 Node 정의
-     * @param exception 발생한 예외
-     */
-    void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception);
+    public void flowFinished(
+            ExecutionLogContext context,
+            Long terminalNodeId,
+            boolean terminalActionReached
+    ) {
+        FlowFailureState recovered = flowFailures.remove(FlowFailureScope.from(context));
+        if (recovered != null) {
+            log.info(
+                    "플로우 실행이 복구됐습니다. triggerType={}, flowId={}, groupId={}, locationId={}, "
+                            + "sensorId={}, triggeredAt={}, lastNodeId={}, lastExceptionType={}, "
+                            + "suppressedFailureCount={}",
+                    context.triggerType(),
+                    context.flowId(),
+                    context.groupId(),
+                    context.locationId(),
+                    context.sensorId(),
+                    context.timestamp(),
+                    recovered.signature().nodeId(),
+                    recovered.signature().exceptionType(),
+                    recovered.suppressedCount()
+            );
+        }
+        log.debug(
+                "플로우 실행 완료. executionId={}, triggerType={}, flowId={}, groupId={}, locationId={}, "
+                        + "sensorId={}, triggeredAt={}, terminalNodeId={}, actionReached={}",
+                context.executionId(),
+                context.triggerType(),
+                context.flowId(),
+                context.groupId(),
+                context.locationId(),
+                context.sensorId(),
+                context.timestamp(),
+                terminalNodeId,
+                terminalActionReached
+        );
+    }
+
+    public void flowFailed(
+            ExecutionLogContext context,
+            NodeDefinition node,
+            RuntimeException exception
+    ) {
+        FlowFailureScope scope = FlowFailureScope.from(context);
+        FlowFailureSignature signature = new FlowFailureSignature(
+                node == null ? null : node.nodeId(),
+                node == null ? null : node.nodeType(),
+                exception.getClass().getSimpleName()
+        );
+        AtomicBoolean shouldLog = new AtomicBoolean();
+        synchronized (flowFailures) {
+            makeRoomForNewScope(flowFailures, scope);
+            flowFailures.compute(scope, (ignored, current) -> {
+                if (current == null || !current.signature().equals(signature)) {
+                    shouldLog.set(true);
+                    return new FlowFailureState(signature, 0L);
+                }
+                return current.incremented();
+            });
+        }
+        if (!shouldLog.get()) {
+            return;
+        }
+        log.error(
+                "플로우 실행 실패. executionId={}, triggerType={}, flowId={}, groupId={}, locationId={}, "
+                        + "sensorId={}, triggeredAt={}, nodeId={}, nodeType={}, exceptionType={}, message={}",
+                context.executionId(),
+                context.triggerType(),
+                context.flowId(),
+                context.groupId(),
+                context.locationId(),
+                context.sensorId(),
+                context.timestamp(),
+                signature.nodeId(),
+                signature.nodeType(),
+                signature.exceptionType(),
+                exception.getMessage(),
+                exception
+        );
+    }
+
+    int trackedRoutingFailureCount() {
+        return routingFailures.size();
+    }
+
+    int trackedFlowFailureCount() {
+        return flowFailures.size();
+    }
+
+    private <K, V> void makeRoomForNewScope(ConcurrentMap<K, V> failures, K scope) {
+        if (failures.containsKey(scope)) {
+            return;
+        }
+        while (failures.size() >= maxTrackedFailureScopes) {
+            K evictionCandidate = failures.keySet().stream().findFirst().orElse(null);
+            if (evictionCandidate == null) {
+                return;
+            }
+            failures.remove(evictionCandidate);
+        }
+    }
+
+    private record FailureCounter(long suppressedCount) {
+
+        private FailureCounter incremented() {
+            return new FailureCounter(suppressedCount + 1L);
+        }
+    }
+
+    private record RoutingFailureScope(Long groupId, Long locationId) {
+
+        private static RoutingFailureScope from(SensorEvent event) {
+            return new RoutingFailureScope(event.groupId(), event.locationId());
+        }
+    }
+
+    private record FlowFailureScope(ExecutionTriggerType triggerType, Long flowId) {
+
+        private static FlowFailureScope from(ExecutionLogContext context) {
+            return new FlowFailureScope(context.triggerType(), context.flowId());
+        }
+    }
+
+    private record FlowFailureSignature(Long nodeId, NodeType nodeType, String exceptionType) {
+    }
+
+    private record FlowFailureState(FlowFailureSignature signature, long suppressedCount) {
+
+        private FlowFailureState incremented() {
+            return new FlowFailureState(signature, suppressedCount + 1L);
+        }
+    }
 }

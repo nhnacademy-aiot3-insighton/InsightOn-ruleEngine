@@ -30,12 +30,10 @@ public class RabbitActionPublisher implements ActionPublisher {
                     properties.alertRoutingKey(),
                     event
             );
-            log.info("Published ALERT action event. eventId={}, flowId={}, locationId={}, title={}",
-                    event.eventId(), event.flowId(), event.locationId(), event.title());
+            log.debug("알림 액션 이벤트 발행 완료. eventId={}, flowId={}, locationId={}",
+                    event.eventId(), event.flowId(), event.locationId());
         } catch (Exception exception) {
-            log.error("Failed to publish ALERT action event. eventId={}, flowId={}, locationId={}",
-                    event.eventId(), event.flowId(), event.locationId(), exception);
-            throw new IllegalArgumentException("publish ALERT action event가 실패 했습니다.", exception);
+            throw new IllegalStateException("알림 액션 이벤트 발행에 실패했습니다.", exception);
         }
     }
 
@@ -51,11 +49,10 @@ public class RabbitActionPublisher implements ActionPublisher {
                     properties.suggestionRoutingKey(),
                     event
             );
-            log.info("Published AI_SUGGESTION action event. locationId={}, metricKey={}",
+            log.debug("AI 제안 액션 이벤트 발행 완료. locationId={}, metricKey={}",
                     event.locationId(), event.metricKey());
         } catch (Exception exception) {
-            log.error("Failed to publish AI_SUGGESTION action event. locationId={}, metricKey={}",
-                    event.locationId(), event.metricKey(), exception);
+            throw new IllegalStateException("AI 제안 액션 이벤트 발행에 실패했습니다.", exception);
         }
     }
 }

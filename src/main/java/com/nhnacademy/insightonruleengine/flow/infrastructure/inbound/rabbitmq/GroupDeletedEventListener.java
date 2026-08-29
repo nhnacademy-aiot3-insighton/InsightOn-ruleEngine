@@ -26,9 +26,7 @@ public class GroupDeletedEventListener {
     )
     public void consume(GroupDeletedEvent event) {
         event.validate();
-        log.info("GROUP_DELETED cleanup started. groupId={}, locationIds={}",
-                event.groupId(), event.locationIds());
         cleanupService.cleanupByGroup(event.groupId(), event.locationIds());
-        log.info("GROUP_DELETED cleanup completed. groupId={}", event.groupId());
+        log.info("그룹 삭제에 따른 플로우 정리 완료. groupId={}", event.groupId());
     }
 }

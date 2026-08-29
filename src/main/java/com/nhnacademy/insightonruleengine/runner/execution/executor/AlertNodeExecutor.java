@@ -33,7 +33,7 @@ public class AlertNodeExecutor implements NodeExecutor {
     public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
         AlertParams params = nodeParamsParser.parse(NodeType.ALERT, node.configuration());
         if (!alertCountService.shouldPublish(context.flow().flowId(), node.nodeId(), params)) {
-            log.info("ALERT action suppressed by COUNT threshold or Cooldown. flowId={}, nodeId={}",
+            log.debug("알림 액션이 횟수 조건 또는 대기 시간에 따라 생략됐습니다. flowId={}, nodeId={}",
                     context.flow().flowId(), node.nodeId());
             return NodeExecutionResult.complete();
         }

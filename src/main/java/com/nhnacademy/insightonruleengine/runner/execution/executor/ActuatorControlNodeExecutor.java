@@ -9,10 +9,12 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsPars
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class ActuatorControlNodeExecutor implements NodeExecutor {
 
     private final NodeParamsParser nodeParamsParser;
@@ -32,6 +34,13 @@ public class ActuatorControlNodeExecutor implements NodeExecutor {
         coreActuatorClient.updateActuatorState(
                 context.flow().locationId(),
                 ActuatorCommandRequest.from(params)
+        );
+        log.debug(
+                "액추에이터 명령 전달 완료. flowId={}, locationId={}, actuatorType={}, command={}",
+                context.flow().flowId(),
+                context.flow().locationId(),
+                params.actuatorType(),
+                params.command()
         );
         return NodeExecutionResult.complete();
     }

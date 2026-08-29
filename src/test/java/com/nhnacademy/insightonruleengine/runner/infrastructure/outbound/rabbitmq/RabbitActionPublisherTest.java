@@ -7,7 +7,9 @@ import static org.mockito.Mockito.verify;
 
 import com.nhnacademy.insightonruleengine.config.ActionPublisherProperties;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
+import com.nhnacademy.insightonruleengine.runner.model.action.AiSuggestionActionEvent;
 import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +59,24 @@ class RabbitActionPublisherTest {
                 .when(rabbitTemplate)
                 .convertAndSend(properties.exchange(), properties.alertRoutingKey(), event);
 
-        assertThrows(IllegalArgumentException.class, () -> publisher.publishAlert(event));
+        assertThrows(IllegalStateException.class, () -> publisher.publishAlert(event));
+    }
+
+    @Test
+    void propagatesSuggestionPublishFailure() {
+        AiSuggestionActionEvent event = new AiSuggestionActionEvent(
+                1L,
+                10L,
+                100L,
+                "temperature",
+                31.5,
+                OffsetDateTime.parse("2026-08-28T00:00:00Z")
+        );
+        doThrow(new IllegalStateException("RabbitMQ unavailable"))
+                .when(rabbitTemplate)
+                .convertAndSend(properties.exchange(), properties.suggestionRoutingKey(), event);
+
+        assertThrows(IllegalStateException.class, () -> publisher.publishSuggestion(event));
     }
 
     private EngineAlertActionEvent event() {

@@ -86,6 +86,7 @@ class FlowRunnerTest {
         assertEquals(List.of(NodeType.SENSOR), executed);
         assertNotNull(logger.failure);
         assertInstanceOf(IllegalStateException.class, logger.failure);
+        assertEquals(1, logger.failureCount);
     }
 
     @Test
@@ -141,6 +142,7 @@ class FlowRunnerTest {
         assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD), executed);
         assertNotNull(logger.failure);
         assertInstanceOf(IllegalStateException.class, logger.failure);
+        assertEquals(1, logger.failureCount);
     }
 
     @Test
@@ -310,21 +312,12 @@ class FlowRunnerTest {
         );
     }
 
-    private static class RecordingExecutionLogger implements ExecutionLogger {
+    private static class RecordingExecutionLogger extends ExecutionLogger {
 
         private Long terminalNodeId;
         private boolean terminalActionReached;
         private RuntimeException failure;
-
-        @Override
-        public void eventRouted(SensorEvent event, int flowCount) {
-            // This test logger only records terminal execution outcomes.
-        }
-
-        @Override
-        public void flowStarted(ExecutionLogContext context, Long triggerNodeId) {
-            // This test logger only records terminal execution outcomes.
-        }
+        private int failureCount;
 
         @Override
         public void flowFinished(
@@ -337,23 +330,13 @@ class FlowRunnerTest {
         }
 
         @Override
-        public void nodeStarted(ExecutionLogContext context, NodeDefinition node) {
-            // This test logger only records terminal execution outcomes.
-        }
-
-        @Override
-        public void nodeFinished(ExecutionLogContext context, NodeDefinition node, NodeExecutionResult result) {
-            // This test logger only records terminal execution outcomes.
-        }
-
-        @Override
-        public void flowFailed(ExecutionLogContext context, RuntimeException exception) {
+        public void flowFailed(
+                ExecutionLogContext context,
+                NodeDefinition node,
+                RuntimeException exception
+        ) {
             this.failure = exception;
-        }
-
-        @Override
-        public void nodeFailed(ExecutionLogContext context, NodeDefinition node, RuntimeException exception) {
-            // This test logger only records terminal execution outcomes.
+            this.failureCount++;
         }
     }
 }
