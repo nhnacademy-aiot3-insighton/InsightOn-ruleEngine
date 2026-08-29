@@ -13,6 +13,8 @@ public class RedisKeyFactory {
     private static final String ROUTE_KEY_FORMAT = "route:%d:%d";
     private static final String COUNT_KEY_FORMAT = "count:%d:%d";
     private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
+    private static final String SCHEDULE_STATE_KEY_FORMAT = "schedule-state:%d";
+    private static final String SCHEDULE_STATE_VERSION_KEY = "schedule-state-version";
     private static final String SCHEDULE_EXECUTION_KEY_FORMAT = "schedule-execution:%d:%d";
 
     private static final String FIELD_GROUP_ID = "groupId";
@@ -61,6 +63,15 @@ public class RedisKeyFactory {
             throw new IllegalArgumentException(FIELD_SCHEDULED_AT + "은 필수입니다.");
         }
         return SCHEDULE_EXECUTION_KEY_FORMAT.formatted(flowId, scheduledAt.getEpochSecond());
+    }
+
+    public String scheduleState(Long flowId) {
+        validateId(flowId, FIELD_FLOW_ID);
+        return SCHEDULE_STATE_KEY_FORMAT.formatted(flowId);
+    }
+
+    public String scheduleStateVersion() {
+        return SCHEDULE_STATE_VERSION_KEY;
     }
 
     private void validateId(Long id, String fileName) {
