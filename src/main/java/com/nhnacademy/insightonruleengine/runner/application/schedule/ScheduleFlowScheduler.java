@@ -18,11 +18,13 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -46,7 +48,10 @@ public class ScheduleFlowScheduler {
     private final ScheduleExecutionProperties properties;
     private final TaskScheduler taskScheduler;
     private final Map<Long, ScheduledFuture<?>> registrations = new ConcurrentHashMap<>();
-    private final AtomicBoolean redisUnavailable = new AtomicBoolean();
+    private final ConcurrentMap<Long, RegistrationFailureState> registrationFailures =
+            new ConcurrentHashMap<>();
+    private final AtomicReference<RepeatedFailureState> reconciliationFailure = new AtomicReference<>();
+    private final AtomicReference<RepeatedFailureState> redisFailure = new AtomicReference<>();
 
     public ScheduleFlowScheduler(
             FlowRepository flowRepository,
@@ -77,9 +82,15 @@ public class ScheduleFlowScheduler {
             fixedDelayString = "${rule-engine.schedule.reconciliation-interval:60000}",
             initialDelayString = "${rule-engine.schedule.reconciliation-interval:60000}"
     )
-    @Transactional(readOnly = true)
     public void reconcileActiveSchedules() {
-        ReconciliationResult result = reconcileNow();
+        ReconciliationResult result;
+        try {
+            result = reconcileNow();
+            reportReconciliationRecovery();
+        } catch (RuntimeException exception) {
+            reportReconciliationFailure(exception);
+            return;
+        }
         if (result.registeredCount() > 0
                 || result.cancelledCount() > 0
                 || result.repairedStateCount() > 0) {
@@ -162,6 +173,7 @@ public class ScheduleFlowScheduler {
         if (flowId == null) {
             return;
         }
+        registrationFailures.remove(flowId);
         boolean registered = cancelLocalRegistration(flowId);
         markInactiveSafely(flowId, registered);
     }
@@ -201,7 +213,7 @@ public class ScheduleFlowScheduler {
                     }
                 } catch (RuntimeException exception) {
                     canRepairRedisState = false;
-                    reportRedisFailure("활성 상태 재조정", exception);
+                    reportRedisFailure("활성 상태 재조정", flow.getId(), null, exception);
                 }
             }
             if (registrations.containsKey(flow.getId())) {
@@ -234,18 +246,30 @@ public class ScheduleFlowScheduler {
             log.error("스케줄 실행 예정 시각을 확인할 수 없습니다. flowId={}", flowId);
             return;
         }
+        boolean claimed;
         try {
-            if (!executionRedisRepository.claimIfActive(flowId, scheduledAt)) {
-                reportRedisRecovery();
-                log.debug("비활성 상태이거나 다른 Rule Engine 인스턴스가 스케줄 플로우를 실행합니다. "
-                                + "flowId={}, scheduledAt={}",
-                        flowId, scheduledAt);
-                return;
-            }
+            claimed = executionRedisRepository.claimIfActive(flowId, scheduledAt);
             reportRedisRecovery();
+        } catch (RuntimeException exception) {
+            reportRedisFailure("스케줄 실행 선점", flowId, scheduledAt, exception);
+            return;
+        }
+        if (!claimed) {
+            log.debug("비활성 상태이거나 다른 Rule Engine 인스턴스가 스케줄 플로우를 실행합니다. "
+                            + "flowId={}, scheduledAt={}",
+                    flowId, scheduledAt);
+            return;
+        }
+        try {
             flowRunner.runScheduled(definition, scheduledAt);
         } catch (RuntimeException exception) {
-            reportRedisFailure("스케줄 실행 선점", exception);
+            log.error("스케줄 플로우 실행 위임에 실패했습니다. flowId={}, scheduledAt={}, "
+                            + "exceptionType={}, message={}",
+                    flowId,
+                    scheduledAt,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    exception);
         }
     }
 
@@ -258,9 +282,9 @@ public class ScheduleFlowScheduler {
     private void registerActiveSafely(Long groupId, Long flowId, boolean publishActiveState) {
         try {
             registerActive(groupId, flowId, publishActiveState);
+            reportRegistrationRecovery(groupId, flowId);
         } catch (RuntimeException exception) {
-            log.error("스케줄 플로우 등록에 실패했습니다. groupId={}, flowId={}",
-                    groupId, flowId, exception);
+            reportRegistrationFailure(groupId, flowId, exception);
         }
     }
 
@@ -268,7 +292,7 @@ public class ScheduleFlowScheduler {
         try {
             return executionRedisRepository.beginReconciliation();
         } catch (RuntimeException exception) {
-            reportRedisFailure("스케줄 상태 재조정 시작", exception);
+            reportRedisFailure("스케줄 상태 재조정 시작", null, null, exception);
             return null;
         }
     }
@@ -278,7 +302,7 @@ public class ScheduleFlowScheduler {
             executionRedisRepository.markActive(flowId);
             reportRedisRecovery();
         } catch (RuntimeException exception) {
-            reportRedisFailure("스케줄 활성 상태 반영", exception);
+            reportRedisFailure("스케줄 활성 상태 반영", flowId, null, exception);
         }
     }
 
@@ -291,22 +315,107 @@ public class ScheduleFlowScheduler {
             }
             reportRedisRecovery();
         } catch (RuntimeException exception) {
-            reportRedisFailure("스케줄 비활성 상태 반영", exception);
+            reportRedisFailure("스케줄 비활성 상태 반영", flowId, null, exception);
         }
     }
 
-    private void reportRedisFailure(String operation, RuntimeException exception) {
-        if (redisUnavailable.compareAndSet(false, true)) {
-            log.error("스케줄 실행용 Redis에 접근할 수 없습니다. operation={}", operation, exception);
-            return;
+    private void reportReconciliationFailure(RuntimeException exception) {
+        if (recordFailure(reconciliationFailure, "DB 기반 스케줄 재조정", null, null, exception)) {
+            log.warn("활성 스케줄 플로우 재조정에 실패했습니다. exceptionType={}, message={}",
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage());
+            log.debug("활성 스케줄 플로우 재조정 실패 상세.", exception);
         }
-        log.debug("스케줄 실행용 Redis 장애가 지속 중입니다. operation={}, exceptionType={}",
-                operation, exception.getClass().getSimpleName());
+    }
+
+    private void reportReconciliationRecovery() {
+        RepeatedFailureState recovered = reconciliationFailure.getAndSet(null);
+        if (recovered != null) {
+            log.info("활성 스케줄 플로우 재조정이 복구됐습니다. lastExceptionType={}, "
+                            + "suppressedFailureCount={}",
+                    recovered.lastExceptionType(),
+                    recovered.suppressedFailureCount());
+        }
+    }
+
+    private void reportRegistrationFailure(Long groupId, Long flowId, RuntimeException exception) {
+        RegistrationFailureState failure = registrationFailures.compute(flowId, (ignored, current) -> {
+            if (current == null || !current.matches(exception)) {
+                return RegistrationFailureState.first(exception);
+            }
+            return current.incremented();
+        });
+        if (failure.suppressedFailureCount() == 0L) {
+            log.error("스케줄 플로우 등록에 실패했습니다. groupId={}, flowId={}, "
+                            + "exceptionType={}, message={}",
+                    groupId,
+                    flowId,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    exception);
+        }
+    }
+
+    private void reportRegistrationRecovery(Long groupId, Long flowId) {
+        RegistrationFailureState recovered = registrationFailures.remove(flowId);
+        if (recovered != null) {
+            log.info("스케줄 플로우 등록 처리가 복구됐습니다. groupId={}, flowId={}, "
+                            + "lastExceptionType={}, suppressedFailureCount={}",
+                    groupId,
+                    flowId,
+                    recovered.exceptionType(),
+                    recovered.suppressedFailureCount());
+        }
+    }
+
+    private void reportRedisFailure(
+            String operation,
+            Long flowId,
+            Instant scheduledAt,
+            RuntimeException exception
+    ) {
+        if (recordFailure(redisFailure, operation, flowId, scheduledAt, exception)) {
+            log.error("스케줄 실행용 Redis에 접근할 수 없습니다. operation={}, flowId={}, "
+                            + "scheduledAt={}, exceptionType={}, message={}",
+                    operation,
+                    flowId,
+                    scheduledAt,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    exception);
+        }
     }
 
     private void reportRedisRecovery() {
-        if (redisUnavailable.compareAndSet(true, false)) {
-            log.info("스케줄 실행용 Redis 접근이 복구됐습니다.");
+        RepeatedFailureState recovered = redisFailure.getAndSet(null);
+        if (recovered != null) {
+            log.info("스케줄 실행용 Redis 접근이 복구됐습니다. firstOperation={}, lastOperation={}, "
+                            + "lastFlowId={}, lastScheduledAt={}, lastExceptionType={}, "
+                            + "suppressedFailureCount={}",
+                    recovered.firstOperation(),
+                    recovered.lastOperation(),
+                    recovered.lastFlowId(),
+                    recovered.lastScheduledAt(),
+                    recovered.lastExceptionType(),
+                    recovered.suppressedFailureCount());
+        }
+    }
+
+    private boolean recordFailure(
+            AtomicReference<RepeatedFailureState> target,
+            String operation,
+            Long flowId,
+            Instant scheduledAt,
+            RuntimeException exception
+    ) {
+        while (true) {
+            RepeatedFailureState current = target.get();
+            RepeatedFailureState next = current == null
+                    ? RepeatedFailureState.first(operation, flowId, scheduledAt, exception)
+                    : current.incremented(operation, flowId, scheduledAt, exception);
+            if (target.compareAndSet(current, next)) {
+                return current == null;
+            }
         }
     }
 
@@ -335,5 +444,75 @@ public class ScheduleFlowScheduler {
             int repairedStateCount,
             int totalCount
     ) {
+    }
+
+    private record RegistrationFailureState(
+            String exceptionType,
+            String message,
+            long suppressedFailureCount
+    ) {
+
+        private static RegistrationFailureState first(RuntimeException exception) {
+            return new RegistrationFailureState(
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    0L
+            );
+        }
+
+        private boolean matches(RuntimeException exception) {
+            return exceptionType.equals(exception.getClass().getSimpleName())
+                    && Objects.equals(message, exception.getMessage());
+        }
+
+        private RegistrationFailureState incremented() {
+            return new RegistrationFailureState(
+                    exceptionType,
+                    message,
+                    suppressedFailureCount + 1L
+            );
+        }
+    }
+
+    private record RepeatedFailureState(
+            String firstOperation,
+            String lastOperation,
+            Long lastFlowId,
+            Instant lastScheduledAt,
+            String lastExceptionType,
+            long suppressedFailureCount
+    ) {
+
+        private static RepeatedFailureState first(
+                String operation,
+                Long flowId,
+                Instant scheduledAt,
+                RuntimeException exception
+        ) {
+            return new RepeatedFailureState(
+                    operation,
+                    operation,
+                    flowId,
+                    scheduledAt,
+                    exception.getClass().getSimpleName(),
+                    0L
+            );
+        }
+
+        private RepeatedFailureState incremented(
+                String operation,
+                Long flowId,
+                Instant scheduledAt,
+                RuntimeException exception
+        ) {
+            return new RepeatedFailureState(
+                    firstOperation,
+                    operation,
+                    flowId,
+                    scheduledAt,
+                    exception.getClass().getSimpleName(),
+                    suppressedFailureCount + 1L
+            );
+        }
     }
 }

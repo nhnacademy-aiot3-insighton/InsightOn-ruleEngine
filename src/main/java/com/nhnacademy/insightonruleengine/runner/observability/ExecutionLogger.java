@@ -14,10 +14,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class ExecutionLogger {
 
+    private static final int DEFAULT_MAX_TRACKED_FAILURE_SCOPES = 10_000;
+
+    private final int maxTrackedFailureScopes;
     private final ConcurrentMap<RoutingFailureScope, FailureCounter> routingFailures =
             new ConcurrentHashMap<>();
     private final ConcurrentMap<FlowFailureScope, FlowFailureState> flowFailures =
             new ConcurrentHashMap<>();
+
+    public ExecutionLogger() {
+        this(DEFAULT_MAX_TRACKED_FAILURE_SCOPES);
+    }
+
+    ExecutionLogger(int maxTrackedFailureScopes) {
+        if (maxTrackedFailureScopes <= 0) {
+            throw new IllegalArgumentException("maxTrackedFailureScopes는 양수여야 합니다.");
+        }
+        this.maxTrackedFailureScopes = maxTrackedFailureScopes;
+    }
 
     public void eventRouted(SensorEvent event, int flowCount) {
         FailureCounter recovered = routingFailures.remove(RoutingFailureScope.from(event));
@@ -44,13 +58,17 @@ public class ExecutionLogger {
 
     public void routingFailed(SensorEvent event, RuntimeException exception) {
         AtomicBoolean shouldLog = new AtomicBoolean();
-        routingFailures.compute(RoutingFailureScope.from(event), (ignored, current) -> {
-            if (current == null) {
-                shouldLog.set(true);
-                return new FailureCounter(0L);
-            }
-            return current.incremented();
-        });
+        RoutingFailureScope scope = RoutingFailureScope.from(event);
+        synchronized (routingFailures) {
+            makeRoomForNewScope(routingFailures, scope);
+            routingFailures.compute(scope, (ignored, current) -> {
+                if (current == null) {
+                    shouldLog.set(true);
+                    return new FailureCounter(0L);
+                }
+                return current.incremented();
+            });
+        }
         if (!shouldLog.get()) {
             return;
         }
@@ -116,13 +134,16 @@ public class ExecutionLogger {
                 exception.getClass().getSimpleName()
         );
         AtomicBoolean shouldLog = new AtomicBoolean();
-        flowFailures.compute(scope, (ignored, current) -> {
-            if (current == null || !current.signature().equals(signature)) {
-                shouldLog.set(true);
-                return new FlowFailureState(signature, 0L);
-            }
-            return current.incremented();
-        });
+        synchronized (flowFailures) {
+            makeRoomForNewScope(flowFailures, scope);
+            flowFailures.compute(scope, (ignored, current) -> {
+                if (current == null || !current.signature().equals(signature)) {
+                    shouldLog.set(true);
+                    return new FlowFailureState(signature, 0L);
+                }
+                return current.incremented();
+            });
+        }
         if (!shouldLog.get()) {
             return;
         }
@@ -142,6 +163,27 @@ public class ExecutionLogger {
                 exception.getMessage(),
                 exception
         );
+    }
+
+    int trackedRoutingFailureCount() {
+        return routingFailures.size();
+    }
+
+    int trackedFlowFailureCount() {
+        return flowFailures.size();
+    }
+
+    private <K, V> void makeRoomForNewScope(ConcurrentMap<K, V> failures, K scope) {
+        if (failures.containsKey(scope)) {
+            return;
+        }
+        while (failures.size() >= maxTrackedFailureScopes) {
+            K evictionCandidate = failures.keySet().stream().findFirst().orElse(null);
+            if (evictionCandidate == null) {
+                return;
+            }
+            failures.remove(evictionCandidate);
+        }
     }
 
     private record FailureCounter(long suppressedCount) {
