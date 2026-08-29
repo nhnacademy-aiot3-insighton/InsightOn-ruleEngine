@@ -26,8 +26,8 @@ public class TelemetryQueueFailoverMonitor {
     private final TelemetryListenerContainerManager listenerContainerManager;
     private final TelemetryRoutingProperties routingProperties;
     private final HeartbeatProperties heartbeatProperties;
-    private boolean heartbeatCheckFailed;
-    private boolean queueTransitionFailed;
+    private FailureState heartbeatCheckFailure;
+    private FailureState queueTransitionFailure;
 
     @Scheduled(fixedDelayString = "${rule-engine.heartbeat.failover-check-interval:5000}")
     public void checkPeerStatus() {
@@ -48,14 +48,18 @@ public class TelemetryQueueFailoverMonitor {
     private EngineStatus getPeerEngineStatus() {
         try {
             EngineStatus engineStatus = engineHeartbeatService.getEngineStatus();
-            if (heartbeatCheckFailed) {
-                log.info("상대 엔진의 하트비트 확인이 복구됐습니다. peerEngineId={}",
-                        heartbeatProperties.peerEngineId());
-                heartbeatCheckFailed = false;
+            if (heartbeatCheckFailure != null) {
+                log.info("상대 엔진의 하트비트 확인이 복구됐습니다. peerEngineId={}, "
+                                + "lastErrorType={}, lastMessage={}, suppressedFailureCount={}",
+                        heartbeatProperties.peerEngineId(),
+                        heartbeatCheckFailure.lastErrorType(),
+                        heartbeatCheckFailure.lastMessage(),
+                        heartbeatCheckFailure.suppressedFailureCount());
+                heartbeatCheckFailure = null;
             }
             return engineStatus;
         } catch (RuntimeException exception) {
-            if (!heartbeatCheckFailed) {
+            if (heartbeatCheckFailure == null) {
                 log.warn(
                         "상대 엔진의 하트비트 확인에 실패했습니다. peerEngineId={}, errorType={}, message={}",
                         heartbeatProperties.peerEngineId(),
@@ -63,7 +67,9 @@ public class TelemetryQueueFailoverMonitor {
                         exception.getMessage()
                 );
                 log.debug("상대 엔진 하트비트 확인 실패 상세.", exception);
-                heartbeatCheckFailed = true;
+                heartbeatCheckFailure = FailureState.first(null, exception);
+            } else {
+                heartbeatCheckFailure = heartbeatCheckFailure.incremented(null, exception);
             }
             return null;
         }
@@ -72,13 +78,20 @@ public class TelemetryQueueFailoverMonitor {
     private void transitionQueue(String action, Runnable transition) {
         try {
             transition.run();
-            if (queueTransitionFailed) {
-                log.info("Telemetry 큐 전환 재시도가 성공했습니다. peerEngineId={}, action={}",
-                        heartbeatProperties.peerEngineId(), action);
-                queueTransitionFailed = false;
+            if (queueTransitionFailure != null) {
+                log.info("Telemetry 큐 전환 재시도가 성공했습니다. peerEngineId={}, action={}, "
+                                + "lastFailedAction={}, lastErrorType={}, lastMessage={}, "
+                                + "suppressedFailureCount={}",
+                        heartbeatProperties.peerEngineId(),
+                        action,
+                        queueTransitionFailure.lastAction(),
+                        queueTransitionFailure.lastErrorType(),
+                        queueTransitionFailure.lastMessage(),
+                        queueTransitionFailure.suppressedFailureCount());
+                queueTransitionFailure = null;
             }
         } catch (RuntimeException exception) {
-            if (!queueTransitionFailed) {
+            if (queueTransitionFailure == null) {
                 log.error(
                         "Telemetry 큐 전환에 실패했습니다. peerEngineId={}, action={}, errorType={}, message={}",
                         heartbeatProperties.peerEngineId(),
@@ -87,8 +100,36 @@ public class TelemetryQueueFailoverMonitor {
                         exception.getMessage(),
                         exception
                 );
-                queueTransitionFailed = true;
+                queueTransitionFailure = FailureState.first(action, exception);
+            } else {
+                queueTransitionFailure = queueTransitionFailure.incremented(action, exception);
             }
+        }
+    }
+
+    private record FailureState(
+            String lastAction,
+            String lastErrorType,
+            String lastMessage,
+            long suppressedFailureCount
+    ) {
+
+        private static FailureState first(String action, RuntimeException exception) {
+            return new FailureState(
+                    action,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    0L
+            );
+        }
+
+        private FailureState incremented(String action, RuntimeException exception) {
+            return new FailureState(
+                    action,
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    suppressedFailureCount + 1L
+            );
         }
     }
 }

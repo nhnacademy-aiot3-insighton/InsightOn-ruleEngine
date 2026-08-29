@@ -17,12 +17,12 @@ import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redi
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +40,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 public class ScheduleFlowScheduler {
 
+    private static final int MAX_TRACKED_REGISTRATION_FAILURES = 10_000;
+
     private final FlowRepository flowRepository;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final NodeParamsParser nodeParamsParser;
@@ -48,8 +50,8 @@ public class ScheduleFlowScheduler {
     private final ScheduleExecutionProperties properties;
     private final TaskScheduler taskScheduler;
     private final Map<Long, ScheduledFuture<?>> registrations = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Long, RegistrationFailureState> registrationFailures =
-            new ConcurrentHashMap<>();
+    private final Map<Long, RegistrationFailureState> registrationFailures =
+            new LinkedHashMap<>(16, 0.75f, true);
     private final AtomicReference<RepeatedFailureState> reconciliationFailure = new AtomicReference<>();
     private final AtomicReference<RepeatedFailureState> redisFailure = new AtomicReference<>();
 
@@ -173,7 +175,7 @@ public class ScheduleFlowScheduler {
         if (flowId == null) {
             return;
         }
-        registrationFailures.remove(flowId);
+        removeRegistrationFailure(flowId);
         boolean registered = cancelLocalRegistration(flowId);
         markInactiveSafely(flowId, registered);
     }
@@ -339,12 +341,16 @@ public class ScheduleFlowScheduler {
     }
 
     private void reportRegistrationFailure(Long groupId, Long flowId, RuntimeException exception) {
-        RegistrationFailureState failure = registrationFailures.compute(flowId, (ignored, current) -> {
-            if (current == null || !current.matches(exception)) {
-                return RegistrationFailureState.first(exception);
-            }
-            return current.incremented();
-        });
+        RegistrationFailureState failure;
+        synchronized (registrationFailures) {
+            makeRoomForRegistrationFailure(flowId);
+            failure = registrationFailures.compute(flowId, (ignored, current) -> {
+                if (current == null || !current.matches(exception)) {
+                    return RegistrationFailureState.first(exception);
+                }
+                return current.incremented();
+            });
+        }
         if (failure.suppressedFailureCount() == 0L) {
             log.error("스케줄 플로우 등록에 실패했습니다. groupId={}, flowId={}, "
                             + "exceptionType={}, message={}",
@@ -356,8 +362,31 @@ public class ScheduleFlowScheduler {
         }
     }
 
+    int trackedRegistrationFailureCount() {
+        synchronized (registrationFailures) {
+            return registrationFailures.size();
+        }
+    }
+
+    private void makeRoomForRegistrationFailure(Long flowId) {
+        if (registrationFailures.containsKey(flowId)) {
+            return;
+        }
+        while (registrationFailures.size() >= MAX_TRACKED_REGISTRATION_FAILURES) {
+            Long evictionCandidate = registrationFailures.keySet().iterator().next();
+            // access-order LinkedHashMap의 가장 오래 사용하지 않은 실패 상태부터 축출한다.
+            registrationFailures.remove(evictionCandidate);
+        }
+    }
+
+    private RegistrationFailureState removeRegistrationFailure(Long flowId) {
+        synchronized (registrationFailures) {
+            return registrationFailures.remove(flowId);
+        }
+    }
+
     private void reportRegistrationRecovery(Long groupId, Long flowId) {
-        RegistrationFailureState recovered = registrationFailures.remove(flowId);
+        RegistrationFailureState recovered = removeRegistrationFailure(flowId);
         if (recovered != null) {
             log.info("스케줄 플로우 등록 처리가 복구됐습니다. groupId={}, flowId={}, "
                             + "lastExceptionType={}, suppressedFailureCount={}",

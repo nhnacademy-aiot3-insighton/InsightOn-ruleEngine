@@ -6,6 +6,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,12 +31,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 public class ActiveFlowDefinitionProvider {
 
+    static final int MAX_TRACKED_LOCAL_FALLBACK_FAILURES = 10_000;
+
     private final FlowRepository flowRepository;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
     private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
+    private final Map<RouteKey, LocalFallbackFailureState> localFallbackFailures =
+            new LinkedHashMap<>(16, 0.75f, true);
     private final AtomicBoolean flowCacheDegraded = new AtomicBoolean();
-    private final AtomicBoolean localFallbackActive = new AtomicBoolean();
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
@@ -49,12 +53,12 @@ public class ActiveFlowDefinitionProvider {
         }
 
         if (cachedDefinitions.isPresent()) {
-            markLocalFallbackRecovered();
+            markLocalFallbackRecovered(routeKey);
             return remember(routeKey, cachedDefinitions.get());
         }
         try {
             List<FlowDefinition> definitions = rebuild(routeKey);
-            markLocalFallbackRecovered();
+            markLocalFallbackRecovered(routeKey);
             return definitions;
         } catch (RuntimeException databaseException) {
             return localFallbackOrThrow(routeKey, databaseException);
@@ -94,9 +98,11 @@ public class ActiveFlowDefinitionProvider {
     }
 
     public void evictNow(Long groupId, Long locationId) {
-        localFallback.remove(new RouteKey(groupId, locationId));
+        RouteKey routeKey = new RouteKey(groupId, locationId);
+        localFallback.remove(routeKey);
         flowDefinitionCache.evict(groupId, locationId);
-        markRecovered();
+        removeLocalFallbackFailure(routeKey);
+        markFlowCacheRecovered();
     }
 
     private List<FlowDefinition> rebuild(RouteKey routeKey) {
@@ -125,7 +131,7 @@ public class ActiveFlowDefinitionProvider {
         try {
             // Redis SET은 한 키에 대한 원자적 교체이므로 갱신 중 빈 라우팅 상태를 만들지 않는다.
             flowDefinitionCache.replace(routeKey.groupId(), routeKey.locationId(), snapshot);
-            markRecovered();
+            markRecovered(routeKey);
         } catch (RuntimeException exception) {
             logFlowCacheFailure("저장", routeKey, exception);
         }
@@ -143,7 +149,7 @@ public class ActiveFlowDefinitionProvider {
     ) {
         try {
             List<FlowDefinition> definitions = rebuild(routeKey);
-            markLocalFallbackRecovered();
+            markLocalFallbackRecovered(routeKey);
             return definitions;
         } catch (RuntimeException databaseException) {
             databaseException.addSuppressed(cacheException);
@@ -179,7 +185,17 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private void logLocalFallback(RouteKey routeKey, RuntimeException exception) {
-        if (localFallbackActive.compareAndSet(false, true)) {
+        LocalFallbackFailureState failure;
+        synchronized (localFallbackFailures) {
+            makeRoomForLocalFallbackFailure(routeKey);
+            failure = localFallbackFailures.compute(routeKey, (ignored, current) -> {
+                if (current == null) {
+                    return LocalFallbackFailureState.first(exception);
+                }
+                return current.incremented(exception);
+            });
+        }
+        if (failure.suppressedFailureCount() == 0L) {
             log.warn(
                     "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
                             + "groupId={}, locationId={}, errorType={}, message={}",
@@ -192,9 +208,26 @@ public class ActiveFlowDefinitionProvider {
         }
     }
 
-    private void markRecovered() {
+    int trackedLocalFallbackFailureCount() {
+        synchronized (localFallbackFailures) {
+            return localFallbackFailures.size();
+        }
+    }
+
+    private void makeRoomForLocalFallbackFailure(RouteKey routeKey) {
+        if (localFallbackFailures.containsKey(routeKey)) {
+            return;
+        }
+        while (localFallbackFailures.size() >= MAX_TRACKED_LOCAL_FALLBACK_FAILURES) {
+            RouteKey evictionCandidate = localFallbackFailures.keySet().iterator().next();
+            // access-order LinkedHashMap의 가장 오래 사용하지 않은 라우트 상태부터 축출한다.
+            localFallbackFailures.remove(evictionCandidate);
+        }
+    }
+
+    private void markRecovered(RouteKey routeKey) {
         markFlowCacheRecovered();
-        markLocalFallbackRecovered();
+        markLocalFallbackRecovered(routeKey);
     }
 
     private void markFlowCacheRecovered() {
@@ -203,9 +236,23 @@ public class ActiveFlowDefinitionProvider {
         }
     }
 
-    private void markLocalFallbackRecovered() {
-        if (localFallbackActive.compareAndSet(true, false)) {
-            log.info("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다.");
+    private void markLocalFallbackRecovered(RouteKey routeKey) {
+        LocalFallbackFailureState recovered = removeLocalFallbackFailure(routeKey);
+        if (recovered != null) {
+            log.info("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다. "
+                            + "groupId={}, locationId={}, lastErrorType={}, lastMessage={}, "
+                            + "suppressedFailureCount={}",
+                    routeKey.groupId(),
+                    routeKey.locationId(),
+                    recovered.lastErrorType(),
+                    recovered.lastMessage(),
+                    recovered.suppressedFailureCount());
+        }
+    }
+
+    private LocalFallbackFailureState removeLocalFallbackFailure(RouteKey routeKey) {
+        synchronized (localFallbackFailures) {
+            return localFallbackFailures.remove(routeKey);
         }
     }
 
@@ -223,5 +270,28 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private record RouteKey(Long groupId, Long locationId) {
+    }
+
+    private record LocalFallbackFailureState(
+            String lastErrorType,
+            String lastMessage,
+            long suppressedFailureCount
+    ) {
+
+        private static LocalFallbackFailureState first(RuntimeException exception) {
+            return new LocalFallbackFailureState(
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    0L
+            );
+        }
+
+        private LocalFallbackFailureState incremented(RuntimeException exception) {
+            return new LocalFallbackFailureState(
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage(),
+                    suppressedFailureCount + 1L
+            );
+        }
     }
 }
