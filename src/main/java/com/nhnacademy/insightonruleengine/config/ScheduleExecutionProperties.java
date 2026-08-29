@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record ScheduleExecutionProperties(
         @DefaultValue("Asia/Seoul") String zone,
         @DefaultValue("PT10M") Duration executionKeyTtl,
-        @DefaultValue("2") int poolSize
+        @DefaultValue("8") int poolSize
 ) {
 
     public ScheduleExecutionProperties {
@@ -22,8 +22,8 @@ public record ScheduleExecutionProperties(
         } catch (DateTimeException exception) {
             throw new IllegalArgumentException("Schedule zone이 올바르지 않습니다: " + zone, exception);
         }
-        if (executionKeyTtl == null || executionKeyTtl.isZero() || executionKeyTtl.isNegative()) {
-            throw new IllegalArgumentException("Schedule executionKeyTtl은 양수여야 합니다.");
+        if (executionKeyTtl == null || executionKeyTtl.toMillis() <= 0L) {
+            throw new IllegalArgumentException("Schedule executionKeyTtl은 1ms 이상이어야 합니다.");
         }
         if (poolSize <= 0) {
             throw new IllegalArgumentException("Schedule poolSize는 양수여야 합니다.");
