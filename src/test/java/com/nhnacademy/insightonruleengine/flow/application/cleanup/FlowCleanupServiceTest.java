@@ -82,6 +82,7 @@ class FlowCleanupServiceTest {
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L, 300L)))
                 .thenReturn(List.of(countAndCooldown, cooldownOnly, defaultCountAndCooldown, nonAlert));
         doAnswer(invocation -> {
+            verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L, 300L));
             verify(flowRouteRedisRepository).delete(1L, 10L);
             verify(flowRouteRedisRepository).delete(1L, 20L);
             verify(flowRouteRedisRepository).delete(1L, 30L);
@@ -122,6 +123,7 @@ class FlowCleanupServiceTest {
         when(flowRepository.findAllByLocationId(10L)).thenReturn(List.of(second, first));
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L))).thenReturn(List.of());
         doAnswer(invocation -> {
+            verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L));
             verify(flowRouteRedisRepository).delete(1L, 10L);
             verify(flowRouteRedisRepository).delete(2L, 10L);
             verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
@@ -142,6 +144,7 @@ class FlowCleanupServiceTest {
         verify(alertCountRedisRepository, times(2)).deleteStates(100L, Set.of(), Set.of());
         verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
         verify(databaseCleanupService).deleteByLocationId(10L);
+        verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L));
     }
 
     @Test
@@ -198,6 +201,7 @@ class FlowCleanupServiceTest {
         verify(activeFlowRedisRepository, times(3)).delete(1L, 100L);
         verify(alertCountRedisRepository, times(3)).deleteStates(100L, Set.of(), Set.of());
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
+        verify(scheduleFlowScheduler, times(2)).cancelAll(List.of(100L));
     }
 
     @Test

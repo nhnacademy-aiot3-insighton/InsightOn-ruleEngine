@@ -50,9 +50,9 @@ public class FlowCleanupService {
         List<Node> nodes = flowIds.isEmpty() ? List.of() : nodeRepository.findByFlowIdIn(flowIds);
         Set<RouteKey> eventRouteKeys = new HashSet<>();
         locationIds.forEach(locationId -> eventRouteKeys.add(new RouteKey(groupId, locationId)));
+        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, eventRouteKeys);
         databaseCleanupService.deleteByGroupId(groupId);
-        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, eventRouteKeys);
     }
 
@@ -66,9 +66,9 @@ public class FlowCleanupService {
                 .toList();
         List<Long> flowIds = flows.stream().map(Flow::getId).toList();
         List<Node> nodes = flowIds.isEmpty() ? List.of() : nodeRepository.findByFlowIdIn(flowIds);
+        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, Set.of());
         databaseCleanupService.deleteByLocationId(locationId);
-        scheduleFlowScheduler.cancelAll(flowIds);
         cleanupRuntime(flows, nodes, Set.of());
     }
 
