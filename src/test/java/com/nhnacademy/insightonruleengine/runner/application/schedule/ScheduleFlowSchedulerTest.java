@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -23,7 +23,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.runner.application.FlowRunner;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ScheduleExecutionLockRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ScheduleExecutionRedisRepository;
 import jakarta.validation.Validation;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,7 +42,7 @@ import org.springframework.scheduling.support.SimpleTriggerContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class ScheduleFlowCoordinatorTest {
+class ScheduleFlowSchedulerTest {
 
     @Mock
     private FlowRepository flowRepository;
@@ -51,18 +51,18 @@ class ScheduleFlowCoordinatorTest {
     @Mock
     private FlowRunner flowRunner;
     @Mock
-    private ScheduleExecutionLockRepository executionLockRepository;
+    private ScheduleExecutionRedisRepository executionRedisRepository;
     @Mock
     private TaskScheduler taskScheduler;
 
     private ScheduledFuture<?> future;
-    private ScheduleFlowCoordinator coordinator;
+    private ScheduleFlowScheduler scheduler;
 
     @BeforeEach
     void setUp() {
         future = mock(ScheduledFuture.class);
-        doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
-        coordinator = new ScheduleFlowCoordinator(
+        lenient().doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
+        scheduler = new ScheduleFlowScheduler(
                 flowRepository,
                 flowDefinitionAssembler,
                 new NodeParamsParser(
@@ -70,43 +70,41 @@ class ScheduleFlowCoordinatorTest {
                         Validation.buildDefaultValidatorFactory().getValidator()
                 ),
                 flowRunner,
-                executionLockRepository,
+                executionRedisRepository,
                 new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(10), 2),
                 taskScheduler
         );
     }
 
     @Test
-    void registeredCronExecutesOnlyAfterDistributedLockAcquisition() {
+    void registeredCronExecutesOnlyAfterDistributedClaim() {
         FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
-        when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
-
-        coordinator.register(definition);
+        scheduler.register(definition);
 
         ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
         ArgumentCaptor<Trigger> triggerCaptor = ArgumentCaptor.forClass(Trigger.class);
         verify(taskScheduler).schedule(taskCaptor.capture(), triggerCaptor.capture());
         Instant scheduledAt = triggerCaptor.getValue().nextExecution(new SimpleTriggerContext());
         assertNotNull(scheduledAt);
-        when(executionLockRepository.acquire(10L, scheduledAt)).thenReturn(true);
+        when(executionRedisRepository.claimIfActive(10L, scheduledAt)).thenReturn(true);
 
         taskCaptor.getValue().run();
 
-        assertTrue(coordinator.isRegistered(10L));
+        assertTrue(scheduler.isRegistered(10L));
         verify(flowRunner).runScheduled(definition, scheduledAt);
+        verifyNoInteractions(flowDefinitionAssembler);
     }
 
     @Test
     void duplicateEngineSkipsTheSameScheduledOccurrence() {
         FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
-        when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
-        coordinator.register(definition);
+        scheduler.register(definition);
 
         ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
         ArgumentCaptor<Trigger> triggerCaptor = ArgumentCaptor.forClass(Trigger.class);
         verify(taskScheduler).schedule(taskCaptor.capture(), triggerCaptor.capture());
         Instant scheduledAt = triggerCaptor.getValue().nextExecution(new SimpleTriggerContext());
-        when(executionLockRepository.acquire(10L, scheduledAt)).thenReturn(false);
+        when(executionRedisRepository.claimIfActive(10L, scheduledAt)).thenReturn(false);
 
         taskCaptor.getValue().run();
 
@@ -115,74 +113,114 @@ class ScheduleFlowCoordinatorTest {
 
     @Test
     void cancellationAfterCommitDoesNotReassembleFlowDefinition() {
-        FlowDefinition active = scheduleFlow(FlowStatus.ACTIVE);
-        coordinator.register(active);
+        scheduler.register(scheduleFlow(FlowStatus.ACTIVE));
 
-        coordinator.cancelAfterCommit(10L);
+        scheduler.cancelAfterCommit(10L);
 
-        assertFalse(coordinator.isRegistered(10L));
+        assertFalse(scheduler.isRegistered(10L));
         verify(future).cancel(false);
+        verify(executionRedisRepository).markInactive(10L);
         verify(flowDefinitionAssembler, never()).assembleActive(any(), any());
     }
 
     @Test
-    void activeFlowRegistrationAssemblesOnlyActiveDefinition() {
-        FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
-        when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
+    void cancellationWithoutLocalScheduleOnlyUpdatesExistingRedisState() {
+        scheduler.cancelAfterCommit(10L);
 
-        coordinator.registerAfterCommit(1L, 10L);
-
-        assertTrue(coordinator.isRegistered(10L));
-        verify(flowDefinitionAssembler).assembleActive(1L, 10L);
+        verify(executionRedisRepository).markInactiveIfPresent(10L);
+        verify(executionRedisRepository, never()).markInactive(10L);
     }
 
     @Test
-    void applicationReadyRestoresActiveScheduleFlows() {
-        Flow flow = new Flow(1L, 20L, "정기 실행", null, FlowStatus.ACTIVE);
-        ReflectionTestUtils.setField(flow, "id", 10L);
+    void activeFlowRegistrationPublishesStateAfterDefinitionValidation() {
         FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
+        when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
+
+        scheduler.registerAfterCommit(1L, 10L);
+
+        assertTrue(scheduler.isRegistered(10L));
+        verify(flowDefinitionAssembler).assembleActive(1L, 10L);
+        verify(executionRedisRepository).markActive(10L);
+    }
+
+    @Test
+    void applicationReadyRestoresActiveScheduleFlowsAndMissingRedisState() {
+        Flow flow = activeFlow(10L, "정기 실행");
+        FlowDefinition definition = scheduleFlow(FlowStatus.ACTIVE);
+        when(executionRedisRepository.beginReconciliation()).thenReturn(5L);
+        when(executionRedisRepository.repairActive(10L, 5L)).thenReturn(true);
         when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
                 .thenReturn(List.of(flow));
         when(flowDefinitionAssembler.assembleActive(1L, 10L)).thenReturn(definition);
 
-        coordinator.warmUp();
+        scheduler.warmUp();
 
-        assertTrue(coordinator.isRegistered(10L));
+        assertTrue(scheduler.isRegistered(10L));
         verify(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
-        verify(flowRepository).findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE);
+        verify(executionRedisRepository).repairActive(10L, 5L);
     }
 
     @Test
     void reconciliationRegistersNewSchedulesAndCancelsStaleSchedules() {
-        coordinator.register(scheduleFlow(10L, FlowStatus.ACTIVE));
-        Flow newSchedule = new Flow(1L, 20L, "새 정기 실행", null, FlowStatus.ACTIVE);
-        ReflectionTestUtils.setField(newSchedule, "id", 20L);
+        scheduler.register(scheduleFlow(10L, FlowStatus.ACTIVE));
+        Flow newSchedule = activeFlow(20L, "새 정기 실행");
         FlowDefinition newDefinition = scheduleFlow(20L, FlowStatus.ACTIVE);
+        when(executionRedisRepository.beginReconciliation()).thenReturn(6L);
         when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
                 .thenReturn(List.of(newSchedule));
         when(flowDefinitionAssembler.assembleActive(1L, 20L)).thenReturn(newDefinition);
 
-        coordinator.reconcileActiveSchedules();
+        scheduler.reconcileActiveSchedules();
 
-        assertFalse(coordinator.isRegistered(10L));
-        assertTrue(coordinator.isRegistered(20L));
+        assertFalse(scheduler.isRegistered(10L));
+        assertTrue(scheduler.isRegistered(20L));
         verify(future).cancel(false);
-        verify(flowDefinitionAssembler).assembleActive(1L, 20L);
+        verify(executionRedisRepository).repairActive(20L, 6L);
+        verify(executionRedisRepository).markInactive(10L);
     }
 
     @Test
-    void reconciliationKeepsExistingRegistrationWithoutReassembly() {
-        coordinator.register(scheduleFlow(10L, FlowStatus.ACTIVE));
-        Flow existingSchedule = new Flow(1L, 20L, "정기 실행", null, FlowStatus.ACTIVE);
-        ReflectionTestUtils.setField(existingSchedule, "id", 10L);
+    void reconciliationKeepsExistingRegistrationWithoutReassemblyOrStateRewrite() {
+        scheduler.register(scheduleFlow(10L, FlowStatus.ACTIVE));
+        Flow existingSchedule = activeFlow(10L, "정기 실행");
+        when(executionRedisRepository.beginReconciliation()).thenReturn(7L);
         when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
                 .thenReturn(List.of(existingSchedule));
 
-        coordinator.reconcileActiveSchedules();
+        scheduler.reconcileActiveSchedules();
 
-        assertTrue(coordinator.isRegistered(10L));
+        assertTrue(scheduler.isRegistered(10L));
+        verify(executionRedisRepository).repairActive(10L, 7L);
+        verify(executionRedisRepository, never()).markActive(10L);
         verifyNoInteractions(flowDefinitionAssembler);
         verify(future, never()).cancel(false);
+    }
+
+    @Test
+    void reconciliationStopsRedisRepairAfterFirstFailureButKeepsLocalRegistration() {
+        Flow first = activeFlow(10L, "첫 번째");
+        Flow second = activeFlow(20L, "두 번째");
+        when(executionRedisRepository.beginReconciliation()).thenReturn(8L);
+        when(executionRedisRepository.repairActive(10L, 8L))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+        when(flowRepository.findAllByStatusAndNodeType(FlowStatus.ACTIVE, NodeType.SCHEDULE))
+                .thenReturn(List.of(first, second));
+        when(flowDefinitionAssembler.assembleActive(1L, 10L))
+                .thenReturn(scheduleFlow(10L, FlowStatus.ACTIVE));
+        when(flowDefinitionAssembler.assembleActive(1L, 20L))
+                .thenReturn(scheduleFlow(20L, FlowStatus.ACTIVE));
+
+        scheduler.reconcileActiveSchedules();
+
+        assertTrue(scheduler.isRegistered(10L));
+        assertTrue(scheduler.isRegistered(20L));
+        verify(executionRedisRepository, never()).repairActive(20L, 8L);
+    }
+
+    private Flow activeFlow(Long flowId, String name) {
+        Flow flow = new Flow(1L, 20L, name, null, FlowStatus.ACTIVE);
+        ReflectionTestUtils.setField(flow, "id", flowId);
+        return flow;
     }
 
     private FlowDefinition scheduleFlow(FlowStatus status) {

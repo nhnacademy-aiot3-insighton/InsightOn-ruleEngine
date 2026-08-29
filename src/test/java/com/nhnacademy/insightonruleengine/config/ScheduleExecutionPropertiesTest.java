@@ -31,6 +31,8 @@ class ScheduleExecutionPropertiesTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ZERO, 1));
         assertThrows(IllegalArgumentException.class,
+                () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ofNanos(1), 1));
+        assertThrows(IllegalArgumentException.class,
                 () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(1), 0));
     }
 }

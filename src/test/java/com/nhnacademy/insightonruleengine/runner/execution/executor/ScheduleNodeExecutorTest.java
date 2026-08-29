@@ -2,16 +2,13 @@ package com.nhnacademy.insightonruleengine.runner.execution.executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
-import jakarta.validation.Validation;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -19,15 +16,10 @@ import org.junit.jupiter.api.Test;
 
 class ScheduleNodeExecutorTest {
 
-    private final ScheduleNodeExecutor executor = new ScheduleNodeExecutor(
-            new NodeParamsParser(
-                    new ObjectMapper(),
-                    Validation.buildDefaultValidatorFactory().getValidator()
-            )
-    );
+    private final ScheduleNodeExecutor executor = new ScheduleNodeExecutor();
 
     @Test
-    void validatesConfigurationAndContinuesThroughOutPort() {
+    void continuesThroughOutPort() {
         FlowDefinition flow = flow();
         NodeDefinition node = flow.nodes().getFirst();
 

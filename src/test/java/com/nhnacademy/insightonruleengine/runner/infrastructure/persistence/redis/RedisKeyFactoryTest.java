@@ -49,6 +49,8 @@ class RedisKeyFactoryTest {
     @Test
     @DisplayName("Schedule 실행 Key는 Flow와 예정 실행 초를 구분한다")
     void scheduleExecutionKeyTest() {
+        assertEquals("schedule-state:10", keyFactory.scheduleState(10L));
+        assertEquals("schedule-state-version", keyFactory.scheduleStateVersion());
         assertEquals(
                 "schedule-execution:10:1787558400",
                 keyFactory.scheduleExecution(10L, Instant.parse("2026-08-24T08:00:00Z"))
