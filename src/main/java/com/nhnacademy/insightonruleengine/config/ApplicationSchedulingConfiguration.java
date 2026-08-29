@@ -9,7 +9,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties(ScheduleExecutionProperties.class)
-public class ScheduleExecutionConfiguration {
+public class ApplicationSchedulingConfiguration {
 
     @Bean(name = "taskScheduler")
     ThreadPoolTaskScheduler applicationTaskScheduler() {
