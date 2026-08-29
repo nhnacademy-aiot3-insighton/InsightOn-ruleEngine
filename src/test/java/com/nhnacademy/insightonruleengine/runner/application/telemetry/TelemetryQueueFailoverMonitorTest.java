@@ -1,6 +1,7 @@
 package com.nhnacademy.insightonruleengine.runner.application.telemetry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -18,6 +19,7 @@ import com.nhnacademy.insightonruleengine.heartbeat.HeartbeatProperties;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.inbound.rabbitmq.TelemetryListenerContainerManager;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,10 @@ class TelemetryQueueFailoverMonitorTest {
 
     private TelemetryRoutingProperties enabledRoutingProperties;
     private HeartbeatProperties enabledHeartbeatProperties;
+    private Logger logger;
+    private Level originalLevel;
+    private boolean originalAdditive;
+    private ListAppender<ILoggingEvent> appender;
 
     @BeforeEach
     void setUp() {
@@ -55,6 +61,22 @@ class TelemetryQueueFailoverMonitorTest {
                 Duration.ofSeconds(5),
                 Duration.ofSeconds(15)
         );
+        logger = (Logger) LoggerFactory.getLogger(TelemetryQueueFailoverMonitor.class);
+        originalLevel = logger.getLevel();
+        originalAdditive = logger.isAdditive();
+        appender = new ListAppender<>();
+        logger.setLevel(Level.DEBUG);
+        logger.setAdditive(false);
+        appender.start();
+        logger.addAppender(appender);
+    }
+
+    @AfterEach
+    void tearDown() {
+        logger.detachAppender(appender);
+        appender.stop();
+        logger.setLevel(originalLevel);
+        logger.setAdditive(originalAdditive);
     }
 
     @Test
@@ -131,24 +153,9 @@ class TelemetryQueueFailoverMonitorTest {
                 .doNothing()
                 .when(listenerContainerManager).takeover();
 
-        Logger logger = (Logger) LoggerFactory.getLogger(TelemetryQueueFailoverMonitor.class);
-        Level originalLevel = logger.getLevel();
-        boolean originalAdditive = logger.isAdditive();
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        logger.setLevel(Level.DEBUG);
-        logger.setAdditive(false);
-        appender.start();
-        logger.addAppender(appender);
-        try {
-            monitor.checkPeerStatus();
-            monitor.checkPeerStatus();
-            monitor.checkPeerStatus();
-        } finally {
-            logger.detachAppender(appender);
-            appender.stop();
-            logger.setLevel(originalLevel);
-            logger.setAdditive(originalAdditive);
-        }
+        monitor.checkPeerStatus();
+        monitor.checkPeerStatus();
+        monitor.checkPeerStatus();
 
         assertEquals(1L, appender.list.stream()
                 .filter(event -> event.getLevel() == Level.ERROR)
@@ -161,8 +168,47 @@ class TelemetryQueueFailoverMonitorTest {
         assertEquals(0L, appender.list.stream()
                 .filter(event -> event.getFormattedMessage().contains("하트비트 확인에 실패했습니다."))
                 .count());
+        assertTrue(appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith("Telemetry 큐 전환 재시도가 성공했습니다."))
+                .anyMatch(message -> message.contains("lastFailedAction=인계")
+                        && message.contains("lastErrorType=IllegalStateException")
+                        && message.contains("lastMessage=RabbitMQ unavailable")
+                        && message.contains("suppressedFailureCount=1")));
         verify(engineHeartbeatService, times(3)).getEngineStatus();
         verify(listenerContainerManager, times(3)).takeover();
+    }
+
+    @Test
+    @DisplayName("반복된 하트비트 조회 실패의 마지막 문맥과 억제 횟수를 복구 로그에 남깁니다.")
+    void heartbeatRecoveryIncludesSuppressedFailureContext() {
+        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
+                engineHeartbeatService,
+                listenerContainerManager,
+                enabledRoutingProperties,
+                enabledHeartbeatProperties
+        );
+        when(engineHeartbeatService.getEngineStatus())
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .thenThrow(new IllegalStateException("heartbeat read unavailable"))
+                .thenReturn(EngineStatus.UP);
+        when(listenerContainerManager.isTakingOver()).thenReturn(false);
+
+        monitor.checkPeerStatus();
+        monitor.checkPeerStatus();
+        monitor.checkPeerStatus();
+
+        assertEquals(1L, appender.list.stream()
+                .filter(event -> event.getLevel() == Level.WARN)
+                .filter(event -> event.getFormattedMessage()
+                        .startsWith("상대 엔진의 하트비트 확인에 실패했습니다."))
+                .count());
+        assertTrue(appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith("상대 엔진의 하트비트 확인이 복구됐습니다."))
+                .anyMatch(message -> message.contains("lastErrorType=IllegalStateException")
+                        && message.contains("lastMessage=heartbeat read unavailable")
+                        && message.contains("suppressedFailureCount=1")));
     }
 
     @Test

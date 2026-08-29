@@ -326,6 +326,19 @@ class ScheduleFlowSchedulerTest {
         assertEquals(0L, count(Level.ERROR, "스케줄 실행용 Redis에 접근할 수 없습니다."));
     }
 
+    @Test
+    void boundsRegistrationFailuresAtTenThousandFlows() {
+        logger.setLevel(Level.OFF);
+        when(flowDefinitionAssembler.assembleActive(any(), any()))
+                .thenThrow(new IllegalStateException("invalid schedule definition"));
+
+        for (long flowId = 1L; flowId <= 10_001L; flowId++) {
+            scheduler.registerAfterCommit(1L, flowId);
+        }
+
+        assertEquals(10_000, scheduler.trackedRegistrationFailureCount());
+    }
+
     private long count(Level level, String prefix) {
         return appender.list.stream()
                 .filter(event -> event.getLevel() == level)
