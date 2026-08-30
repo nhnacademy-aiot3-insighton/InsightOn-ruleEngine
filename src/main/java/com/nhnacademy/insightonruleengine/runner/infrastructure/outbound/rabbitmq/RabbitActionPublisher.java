@@ -2,7 +2,6 @@ package com.nhnacademy.insightonruleengine.runner.infrastructure.outbound.rabbit
 
 import com.nhnacademy.insightonruleengine.config.ActionPublisherProperties;
 import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
-import com.nhnacademy.insightonruleengine.runner.model.action.AiSuggestionActionEvent;
 import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,22 +36,4 @@ public class RabbitActionPublisher implements ActionPublisher {
         }
     }
 
-    //AI_SUGGESTION 액션 이벤트를 Topic Exchange 및 ai.suggestion.action 라우팅 키로 발행합니다.
-    @Override
-    public void publishSuggestion(AiSuggestionActionEvent event) {
-        if (event == null) {
-            throw new IllegalArgumentException("event는 필수입니다.");
-        }
-        try {
-            rabbitTemplate.convertAndSend(
-                    properties.exchange(),
-                    properties.suggestionRoutingKey(),
-                    event
-            );
-            log.debug("AI 제안 액션 이벤트 발행 완료. locationId={}, metricKey={}",
-                    event.locationId(), event.metricKey());
-        } catch (Exception exception) {
-            throw new IllegalStateException("AI 제안 액션 이벤트 발행에 실패했습니다.", exception);
-        }
-    }
 }
