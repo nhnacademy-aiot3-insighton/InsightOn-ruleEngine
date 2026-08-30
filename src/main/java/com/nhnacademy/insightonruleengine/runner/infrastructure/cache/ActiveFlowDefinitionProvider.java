@@ -5,6 +5,7 @@ import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefiniti
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -26,20 +28,22 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * 이벤트 실행 경로에서 ACTIVE Flow를 제공한다.
  * 정상 경로는 Redis이며, Redis 장애 시 최근 로컬 스냅샷을 짧게 사용해 DB 집중 조회를 막는다.
- * 로컬 스냅샷이 없는 라우트만 DB 원본으로 복구한다.
+ * 로컬 스냅샷이 없거나 최대 사용 시간을 넘긴 라우트는 DB 원본으로 복구한다.
  */
 @Component
 @Slf4j
 public class ActiveFlowDefinitionProvider {
 
     static final int MAX_TRACKED_LOCAL_FALLBACK_FAILURES = 10_000;
-    static final long CACHE_RETRY_DELAY_NANOS = java.time.Duration.ofSeconds(5).toNanos();
+    static final long CACHE_RETRY_DELAY_NANOS = Duration.ofSeconds(5).toNanos();
+    static final Duration DEFAULT_LOCAL_FALLBACK_MAX_AGE = Duration.ofMinutes(1);
 
     private final FlowRepository flowRepository;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
     private final LongSupplier nanoTime;
-    private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
+    private final long localFallbackMaxAgeNanos;
+    private final Map<RouteKey, LocalSnapshot> localFallback = new ConcurrentHashMap<>();
     private final Map<RouteKey, Object> rebuildLocks = new ConcurrentHashMap<>();
     private final Map<RouteKey, LocalFallbackFailureState> localFallbackFailures =
             new LinkedHashMap<>(16, 0.75f, true);
@@ -50,9 +54,31 @@ public class ActiveFlowDefinitionProvider {
     public ActiveFlowDefinitionProvider(
             FlowRepository flowRepository,
             FlowDefinitionAssembler flowDefinitionAssembler,
+            FlowDefinitionCache flowDefinitionCache,
+            @Value("${rule-engine.flow-cache.local-fallback-max-age:1m}")
+            Duration localFallbackMaxAge
+    ) {
+        this(
+                flowRepository,
+                flowDefinitionAssembler,
+                flowDefinitionCache,
+                System::nanoTime,
+                localFallbackMaxAge
+        );
+    }
+
+    public ActiveFlowDefinitionProvider(
+            FlowRepository flowRepository,
+            FlowDefinitionAssembler flowDefinitionAssembler,
             FlowDefinitionCache flowDefinitionCache
     ) {
-        this(flowRepository, flowDefinitionAssembler, flowDefinitionCache, System::nanoTime);
+        this(
+                flowRepository,
+                flowDefinitionAssembler,
+                flowDefinitionCache,
+                System::nanoTime,
+                DEFAULT_LOCAL_FALLBACK_MAX_AGE
+        );
     }
 
     ActiveFlowDefinitionProvider(
@@ -61,17 +87,39 @@ public class ActiveFlowDefinitionProvider {
             FlowDefinitionCache flowDefinitionCache,
             LongSupplier nanoTime
     ) {
+        this(
+                flowRepository,
+                flowDefinitionAssembler,
+                flowDefinitionCache,
+                nanoTime,
+                DEFAULT_LOCAL_FALLBACK_MAX_AGE
+        );
+    }
+
+    ActiveFlowDefinitionProvider(
+            FlowRepository flowRepository,
+            FlowDefinitionAssembler flowDefinitionAssembler,
+            FlowDefinitionCache flowDefinitionCache,
+            LongSupplier nanoTime,
+            Duration localFallbackMaxAge
+    ) {
+        if (localFallbackMaxAge == null
+                || localFallbackMaxAge.isZero()
+                || localFallbackMaxAge.isNegative()) {
+            throw new IllegalArgumentException("로컬 Flow 캐시 최대 사용 시간은 양수여야 합니다.");
+        }
         this.flowRepository = flowRepository;
         this.flowDefinitionAssembler = flowDefinitionAssembler;
         this.flowDefinitionCache = flowDefinitionCache;
         this.nanoTime = nanoTime;
+        this.localFallbackMaxAgeNanos = localFallbackMaxAge.toNanos();
     }
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
-        List<FlowDefinition> fallback = localFallback.get(routeKey);
-        if (fallback != null && shouldDelayCacheRetry()) {
-            return fallback;
+        LocalSnapshot fallback = localFallback.get(routeKey);
+        if (isUsable(fallback) && shouldDelayCacheRetry()) {
+            return fallback.definitions();
         }
         Optional<List<FlowDefinition>> cachedDefinitions;
         try {
@@ -150,16 +198,16 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private List<FlowDefinition> rebuildSingleFlight(RouteKey routeKey) {
-        List<FlowDefinition> snapshotBeforeLock = localFallback.get(routeKey);
+        LocalSnapshot snapshotBeforeLock = localFallback.get(routeKey);
         Object lock = rebuildLocks.computeIfAbsent(routeKey, ignored -> new Object());
         try {
             synchronized (lock) {
-                List<FlowDefinition> fallback = localFallback.get(routeKey);
-                if (fallback != null && fallback != snapshotBeforeLock) {
-                    return fallback;
+                LocalSnapshot fallback = localFallback.get(routeKey);
+                if (isUsable(fallback) && fallback != snapshotBeforeLock) {
+                    return fallback.definitions();
                 }
-                if (fallback != null && flowCacheDegraded.get()) {
-                    return fallback;
+                if (isUsable(fallback) && flowCacheDegraded.get()) {
+                    return fallback.definitions();
                 }
                 return rebuild(routeKey);
             }
@@ -179,7 +227,7 @@ public class ActiveFlowDefinitionProvider {
 
     private void replaceNow(RouteKey routeKey, List<FlowDefinition> definitions) {
         List<FlowDefinition> snapshot = List.copyOf(definitions);
-        localFallback.put(routeKey, snapshot);
+        localFallback.put(routeKey, new LocalSnapshot(snapshot, nanoTime.getAsLong()));
         try {
             // Redis SET은 한 키에 대한 원자적 교체이므로 갱신 중 빈 라우팅 상태를 만들지 않는다.
             flowDefinitionCache.replace(routeKey.groupId(), routeKey.locationId(), snapshot);
@@ -191,7 +239,7 @@ public class ActiveFlowDefinitionProvider {
 
     private List<FlowDefinition> remember(RouteKey routeKey, List<FlowDefinition> definitions) {
         List<FlowDefinition> snapshot = List.copyOf(definitions);
-        localFallback.put(routeKey, snapshot);
+        localFallback.put(routeKey, new LocalSnapshot(snapshot, nanoTime.getAsLong()));
         return snapshot;
     }
 
@@ -199,10 +247,10 @@ public class ActiveFlowDefinitionProvider {
             RouteKey routeKey,
             RuntimeException cacheException
     ) {
-        List<FlowDefinition> fallback = localFallback.get(routeKey);
-        if (fallback != null) {
+        LocalSnapshot fallback = localFallback.get(routeKey);
+        if (isUsable(fallback)) {
             logLocalFallback(routeKey, cacheException);
-            return fallback;
+            return fallback.definitions();
         }
         try {
             List<FlowDefinition> definitions = rebuildSingleFlight(routeKey);
@@ -218,12 +266,17 @@ public class ActiveFlowDefinitionProvider {
             RouteKey routeKey,
             RuntimeException exception
     ) {
-        List<FlowDefinition> fallback = localFallback.get(routeKey);
-        if (fallback == null) {
+        LocalSnapshot fallback = localFallback.get(routeKey);
+        if (!isUsable(fallback)) {
             throw exception;
         }
         logLocalFallback(routeKey, exception);
-        return fallback;
+        return fallback.definitions();
+    }
+
+    private boolean isUsable(LocalSnapshot snapshot) {
+        return snapshot != null
+                && nanoTime.getAsLong() - snapshot.createdAtNanos() <= localFallbackMaxAgeNanos;
     }
 
     private void logFlowCacheFailure(String operation, RouteKey routeKey, RuntimeException exception) {
@@ -333,6 +386,9 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private record RouteKey(Long groupId, Long locationId) {
+    }
+
+    private record LocalSnapshot(List<FlowDefinition> definitions, long createdAtNanos) {
     }
 
     private record LocalFallbackFailureState(

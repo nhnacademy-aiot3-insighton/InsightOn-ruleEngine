@@ -24,6 +24,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -134,6 +135,64 @@ class ActiveFlowDefinitionProviderTest {
         assertEquals(List.of(definition), provider.find(1L, 10L));
 
         verifyNoInteractions(flowRepository, flowDefinitionAssembler);
+    }
+
+    @Test
+    void expiredLocalSnapshotRebuildsFromDatabaseAfterRemoteDeactivation() {
+        Duration maxAge = Duration.ofSeconds(30);
+        provider = new ActiveFlowDefinitionProvider(
+                flowRepository,
+                flowDefinitionAssembler,
+                flowDefinitionCache,
+                nanoTime::get,
+                maxAge
+        );
+        FlowDefinition definition = definition();
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"));
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        nanoTime.addAndGet(maxAge.toNanos() + 1L);
+
+        assertEquals(List.of(), provider.find(1L, 10L));
+
+        verify(flowRepository)
+                .findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE);
+    }
+
+    @Test
+    void expiredLocalSnapshotIsNotUsedWhenRedisAndDatabaseAreUnavailable() {
+        Duration maxAge = Duration.ofSeconds(30);
+        provider = new ActiveFlowDefinitionProvider(
+                flowRepository,
+                flowDefinitionAssembler,
+                flowDefinitionCache,
+                nanoTime::get,
+                maxAge
+        );
+        FlowDefinition definition = definition();
+        RedisConnectionFailureException redisFailure =
+                new RedisConnectionFailureException("Redis unavailable");
+        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
+        when(flowDefinitionCache.find(1L, 10L))
+                .thenReturn(Optional.of(List.of(definition)))
+                .thenThrow(redisFailure);
+        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
+                .thenThrow(databaseFailure);
+
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        nanoTime.addAndGet(maxAge.toNanos() + 1L);
+
+        IllegalStateException thrown = assertThrows(
+                IllegalStateException.class,
+                () -> provider.find(1L, 10L)
+        );
+
+        assertSame(databaseFailure, thrown);
+        assertEquals(List.of(redisFailure), List.of(thrown.getSuppressed()));
     }
 
     @Test
