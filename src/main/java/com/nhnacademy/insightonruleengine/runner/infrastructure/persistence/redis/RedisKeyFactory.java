@@ -11,12 +11,15 @@ public class RedisKeyFactory {
     private static final String HEARTBEAT_KEY_FORMAT = "heartbeat:%s";
     private static final String COUNT_KEY_FORMAT = "count:%d:%d";
     private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
+    private static final String TIMER_KEY_FORMAT = "timer:%d:%d";
     private static final String SCHEDULE_STATE_KEY_FORMAT = "schedule-state:%d";
     private static final String SCHEDULE_STATE_VERSION_KEY = "schedule-state-version";
     private static final String SCHEDULE_EXECUTION_KEY_FORMAT = "schedule-execution:%d:%d";
 
     private static final String FIELD_FLOW_ID = "flowId";
     private static final String FIELD_ACTION_NODE_ID = "actionNodeId";
+    private static final String FIELD_NODE_ID = "nodeId";
+    private static final String FIELD_LOCATION_ID = "locationId";
     private static final String FIELD_SCHEDULED_AT = "scheduledAt";
 
     //각 엔진이 살아있는지 확인할 때 사용하는 heartbeat key를 만듭니다.
@@ -37,6 +40,12 @@ public class RedisKeyFactory {
         validateId(flowId, FIELD_FLOW_ID);
         validateId(actionNodeId, FIELD_ACTION_NODE_ID);
         return COOLDOWN_KEY_FORMAT.formatted(flowId, actionNodeId);
+    }
+
+    public String timer(Long nodeId, Long locationId) {
+        validateId(nodeId, FIELD_NODE_ID);
+        validateId(locationId, FIELD_LOCATION_ID);
+        return TIMER_KEY_FORMAT.formatted(nodeId, locationId);
     }
 
     public String scheduleExecution(Long flowId, java.time.Instant scheduledAt) {
