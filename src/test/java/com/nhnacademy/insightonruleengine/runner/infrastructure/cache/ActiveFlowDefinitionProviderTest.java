@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -29,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,13 +52,16 @@ class ActiveFlowDefinitionProviderTest {
     private FlowDefinitionCache flowDefinitionCache;
 
     private ActiveFlowDefinitionProvider provider;
+    private AtomicLong nanoTime;
 
     @BeforeEach
     void setUp() {
+        nanoTime = new AtomicLong();
         provider = new ActiveFlowDefinitionProvider(
                 flowRepository,
                 flowDefinitionAssembler,
-                flowDefinitionCache);
+                flowDefinitionCache,
+                nanoTime::get);
     }
 
     @Test
@@ -104,34 +107,33 @@ class ActiveFlowDefinitionProviderTest {
     }
 
     @Test
-    void redisFailureOnAnotherInstanceRechecksDatabaseBeforeUsingLocalFallback() {
+    void redisFailureUsesRecentLocalSnapshotWithoutReadingDatabase() {
         FlowDefinition definition = definition();
         when(flowDefinitionCache.find(1L, 10L))
                 .thenReturn(Optional.of(List.of(definition)))
                 .thenThrow(new RedisConnectionFailureException("Redis unavailable"));
-        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
-                .thenReturn(List.of());
 
         assertEquals(List.of(definition), provider.find(1L, 10L));
-        assertEquals(List.of(), provider.find(1L, 10L));
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+        assertEquals(List.of(definition), provider.find(1L, 10L));
 
-        verify(flowDefinitionCache).replace(1L, 10L, List.of());
+        verifyNoInteractions(flowRepository, flowDefinitionAssembler);
     }
 
     @Test
-    void usesLocalFallbackOnlyWhenRedisAndDatabaseBothFail() {
+    void usesRecentLocalFallbackDuringCacheRetryDelay() {
         FlowDefinition definition = definition();
         RedisConnectionFailureException redisFailure =
                 new RedisConnectionFailureException("Redis unavailable");
-        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
         when(flowDefinitionCache.find(1L, 10L))
                 .thenReturn(Optional.of(List.of(definition)))
                 .thenThrow(redisFailure);
-        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(1L, 10L, FlowStatus.ACTIVE))
-                .thenThrow(databaseFailure);
 
         assertEquals(List.of(definition), provider.find(1L, 10L));
         assertEquals(List.of(definition), provider.find(1L, 10L));
+        assertEquals(List.of(definition), provider.find(1L, 10L));
+
+        verifyNoInteractions(flowRepository, flowDefinitionAssembler);
     }
 
     @Test
@@ -139,7 +141,6 @@ class ActiveFlowDefinitionProviderTest {
         FlowDefinition definition = definition();
         RedisConnectionFailureException redisFailure =
                 new RedisConnectionFailureException("Redis unavailable");
-        IllegalStateException databaseFailure = new IllegalStateException("DB unavailable");
         when(flowDefinitionCache.find(1L, 10L))
                 .thenReturn(Optional.of(List.of(definition)))
                 .thenThrow(redisFailure)
@@ -147,9 +148,6 @@ class ActiveFlowDefinitionProviderTest {
                 .thenReturn(Optional.of(List.of(definition)));
         when(flowDefinitionCache.find(2L, 20L))
                 .thenReturn(Optional.of(List.of(definition)));
-        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(
-                1L, 10L, FlowStatus.ACTIVE))
-                .thenThrow(databaseFailure);
 
         Logger logger = (Logger) LoggerFactory.getLogger(ActiveFlowDefinitionProvider.class);
         Level originalLevel = logger.getLevel();
@@ -161,8 +159,10 @@ class ActiveFlowDefinitionProviderTest {
         logger.addAppender(appender);
         try {
             provider.find(1L, 10L);
+            advancePastCacheRetryDelay();
             provider.find(1L, 10L);
             provider.find(2L, 20L);
+            advancePastCacheRetryDelay();
             provider.find(1L, 10L);
 
             assertEquals(0L, appender.list.stream()
@@ -170,6 +170,7 @@ class ActiveFlowDefinitionProviderTest {
                             .startsWith("플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다."))
                     .count());
 
+            advancePastCacheRetryDelay();
             provider.find(1L, 10L);
         } finally {
             logger.detachAppender(appender);
@@ -181,7 +182,7 @@ class ActiveFlowDefinitionProviderTest {
         assertEquals(1L, appender.list.stream()
                 .filter(event -> event.getLevel() == Level.WARN)
                 .filter(event -> event.getFormattedMessage().startsWith(
-                        "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다."))
+                        "공유 실행 원본 대신 최근 로컬 플로우 캐시를 사용합니다."))
                 .count());
         assertTrue(appender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
@@ -189,8 +190,8 @@ class ActiveFlowDefinitionProviderTest {
                         "플로우 라우팅의 캐시 또는 DB 조회가 정상화됐습니다."))
                 .anyMatch(message -> message.contains("groupId=1")
                         && message.contains("locationId=10")
-                        && message.contains("lastErrorType=IllegalStateException")
-                        && message.contains("lastMessage=DB unavailable")
+                        && message.contains("lastErrorType=RedisConnectionFailureException")
+                        && message.contains("lastMessage=Redis unavailable")
                         && message.contains("suppressedFailureCount=1")));
     }
 
@@ -204,10 +205,6 @@ class ActiveFlowDefinitionProviderTest {
             }
             throw new RedisConnectionFailureException("Redis unavailable");
         });
-        when(flowRepository.findAllByGroupIdAndLocationIdAndStatus(
-                anyLong(), anyLong(), eq(FlowStatus.ACTIVE)))
-                .thenThrow(new IllegalStateException("DB unavailable"));
-
         Logger logger = (Logger) LoggerFactory.getLogger(ActiveFlowDefinitionProvider.class);
         Level originalLevel = logger.getLevel();
         logger.setLevel(Level.OFF);
@@ -216,6 +213,7 @@ class ActiveFlowDefinitionProviderTest {
                     routeId <= ActiveFlowDefinitionProvider.MAX_TRACKED_LOCAL_FALLBACK_FAILURES + 1L;
                     routeId++) {
                 provider.find(routeId, routeId);
+                advancePastCacheRetryDelay();
                 provider.find(routeId, routeId);
             }
         } finally {
@@ -327,6 +325,10 @@ class ActiveFlowDefinitionProviderTest {
         lenient().when(flow.getLocationId()).thenReturn(10L);
         when(flow.getId()).thenReturn(flowId);
         return flow;
+    }
+
+    private void advancePastCacheRetryDelay() {
+        nanoTime.addAndGet(ActiveFlowDefinitionProvider.CACHE_RETRY_DELAY_NANOS + 1L);
     }
 
     private FlowDefinition definition() {

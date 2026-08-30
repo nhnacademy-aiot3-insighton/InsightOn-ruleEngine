@@ -12,8 +12,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -23,26 +25,54 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * 이벤트 실행 경로에서 ACTIVE Flow를 제공한다.
- * 정상 경로는 Redis이며, Redis 장애 시 DB 원본을 먼저 확인하고 DB도 실패할 때만
- * 같은 인스턴스의 최근 값을 제한적으로 사용한다.
+ * 정상 경로는 Redis이며, Redis 장애 시 최근 로컬 스냅샷을 짧게 사용해 DB 집중 조회를 막는다.
+ * 로컬 스냅샷이 없는 라우트만 DB 원본으로 복구한다.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ActiveFlowDefinitionProvider {
 
     static final int MAX_TRACKED_LOCAL_FALLBACK_FAILURES = 10_000;
+    static final long CACHE_RETRY_DELAY_NANOS = java.time.Duration.ofSeconds(5).toNanos();
 
     private final FlowRepository flowRepository;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowDefinitionCache flowDefinitionCache;
+    private final LongSupplier nanoTime;
     private final Map<RouteKey, List<FlowDefinition>> localFallback = new ConcurrentHashMap<>();
+    private final Map<RouteKey, Object> rebuildLocks = new ConcurrentHashMap<>();
     private final Map<RouteKey, LocalFallbackFailureState> localFallbackFailures =
             new LinkedHashMap<>(16, 0.75f, true);
     private final AtomicBoolean flowCacheDegraded = new AtomicBoolean();
+    private final AtomicLong cacheRetryAfterNanos = new AtomicLong();
+
+    @Autowired
+    public ActiveFlowDefinitionProvider(
+            FlowRepository flowRepository,
+            FlowDefinitionAssembler flowDefinitionAssembler,
+            FlowDefinitionCache flowDefinitionCache
+    ) {
+        this(flowRepository, flowDefinitionAssembler, flowDefinitionCache, System::nanoTime);
+    }
+
+    ActiveFlowDefinitionProvider(
+            FlowRepository flowRepository,
+            FlowDefinitionAssembler flowDefinitionAssembler,
+            FlowDefinitionCache flowDefinitionCache,
+            LongSupplier nanoTime
+    ) {
+        this.flowRepository = flowRepository;
+        this.flowDefinitionAssembler = flowDefinitionAssembler;
+        this.flowDefinitionCache = flowDefinitionCache;
+        this.nanoTime = nanoTime;
+    }
 
     public List<FlowDefinition> find(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
+        List<FlowDefinition> fallback = localFallback.get(routeKey);
+        if (fallback != null && shouldDelayCacheRetry()) {
+            return fallback;
+        }
         Optional<List<FlowDefinition>> cachedDefinitions;
         try {
             cachedDefinitions = flowDefinitionCache.find(groupId, locationId);
@@ -57,7 +87,7 @@ public class ActiveFlowDefinitionProvider {
             return remember(routeKey, cachedDefinitions.get());
         }
         try {
-            List<FlowDefinition> definitions = rebuild(routeKey);
+            List<FlowDefinition> definitions = rebuildSingleFlight(routeKey);
             markLocalFallbackRecovered(routeKey);
             return definitions;
         } catch (RuntimeException databaseException) {
@@ -100,9 +130,12 @@ public class ActiveFlowDefinitionProvider {
     public void evictNow(Long groupId, Long locationId) {
         RouteKey routeKey = new RouteKey(groupId, locationId);
         localFallback.remove(routeKey);
-        flowDefinitionCache.evict(groupId, locationId);
-        removeLocalFallbackFailure(routeKey);
-        markFlowCacheRecovered();
+        try {
+            flowDefinitionCache.evict(groupId, locationId);
+            markFlowCacheRecovered();
+        } finally {
+            removeLocalFallbackFailure(routeKey);
+        }
     }
 
     private List<FlowDefinition> rebuild(RouteKey routeKey) {
@@ -114,6 +147,25 @@ public class ActiveFlowDefinitionProvider {
                 .toList();
         replaceNow(routeKey, definitions);
         return definitions;
+    }
+
+    private List<FlowDefinition> rebuildSingleFlight(RouteKey routeKey) {
+        List<FlowDefinition> snapshotBeforeLock = localFallback.get(routeKey);
+        Object lock = rebuildLocks.computeIfAbsent(routeKey, ignored -> new Object());
+        try {
+            synchronized (lock) {
+                List<FlowDefinition> fallback = localFallback.get(routeKey);
+                if (fallback != null && fallback != snapshotBeforeLock) {
+                    return fallback;
+                }
+                if (fallback != null && flowCacheDegraded.get()) {
+                    return fallback;
+                }
+                return rebuild(routeKey);
+            }
+        } finally {
+            rebuildLocks.remove(routeKey, lock);
+        }
     }
 
     private void replaceNow(RouteKey routeKey) {
@@ -147,8 +199,13 @@ public class ActiveFlowDefinitionProvider {
             RouteKey routeKey,
             RuntimeException cacheException
     ) {
+        List<FlowDefinition> fallback = localFallback.get(routeKey);
+        if (fallback != null) {
+            logLocalFallback(routeKey, cacheException);
+            return fallback;
+        }
         try {
-            List<FlowDefinition> definitions = rebuild(routeKey);
+            List<FlowDefinition> definitions = rebuildSingleFlight(routeKey);
             markLocalFallbackRecovered(routeKey);
             return definitions;
         } catch (RuntimeException databaseException) {
@@ -170,6 +227,7 @@ public class ActiveFlowDefinitionProvider {
     }
 
     private void logFlowCacheFailure(String operation, RouteKey routeKey, RuntimeException exception) {
+        cacheRetryAfterNanos.set(nanoTime.getAsLong() + CACHE_RETRY_DELAY_NANOS);
         if (flowCacheDegraded.compareAndSet(false, true)) {
             log.warn(
                     "플로우 캐시 {}에 실패해 대체 경로를 사용합니다. "
@@ -197,7 +255,7 @@ public class ActiveFlowDefinitionProvider {
         }
         if (failure.suppressedFailureCount() == 0L) {
             log.warn(
-                    "플로우 캐시 또는 DB 원본을 사용할 수 없어 로컬 플로우 캐시를 사용합니다. "
+                    "공유 실행 원본 대신 최근 로컬 플로우 캐시를 사용합니다. "
                             + "groupId={}, locationId={}, errorType={}, message={}",
                     routeKey.groupId(),
                     routeKey.locationId(),
@@ -232,8 +290,13 @@ public class ActiveFlowDefinitionProvider {
 
     private void markFlowCacheRecovered() {
         if (flowCacheDegraded.compareAndSet(true, false)) {
+            cacheRetryAfterNanos.set(0L);
             log.info("플로우 캐시 접근이 정상화됐습니다.");
         }
+    }
+
+    private boolean shouldDelayCacheRetry() {
+        return flowCacheDegraded.get() && nanoTime.getAsLong() < cacheRetryAfterNanos.get();
     }
 
     private void markLocalFallbackRecovered(RouteKey routeKey) {
