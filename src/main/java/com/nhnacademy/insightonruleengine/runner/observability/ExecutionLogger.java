@@ -20,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.NonTransientDataAccessException;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.expression.ExpressionException;
 import org.springframework.stereotype.Component;
 
@@ -248,10 +252,18 @@ public class ExecutionLogger {
         while (current != null) {
             if (current instanceof RetryableException
                     || current instanceof AmqpException
-                    || current instanceof DataAccessException
+                    || current instanceof RedisConnectionFailureException
+                    || current instanceof TransientDataAccessException
+                    || current instanceof RecoverableDataAccessException
                     || current instanceof SocketTimeoutException
                     || current instanceof TimeoutException) {
                 return FailureKind.TRANSIENT_DEPENDENCY;
+            }
+            if (current instanceof NonTransientDataAccessException) {
+                return FailureKind.PERMANENT_REJECTED;
+            }
+            if (current instanceof DataAccessException) {
+                return FailureKind.INTERNAL;
             }
             if (current instanceof FeignException feignException) {
                 int status = feignException.status();

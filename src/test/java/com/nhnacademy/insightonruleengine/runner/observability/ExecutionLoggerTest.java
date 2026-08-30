@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 
 class ExecutionLoggerTest {
@@ -170,6 +171,30 @@ class ExecutionLoggerTest {
                         "rule_engine.execution.failures",
                         "stage", "routing",
                         "kind", "transient_dependency"
+                ).count()
+        );
+    }
+
+    @Test
+    @DisplayName("영구적인 데이터 무결성 오류는 ERROR와 permanent_rejected로 기록합니다.")
+    void recordsNonTransientDataAccessFailureAsPermanent() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        ExecutionLogger loggerWithMetrics = new ExecutionLogger(10, meterRegistry);
+
+        loggerWithMetrics.routingFailed(
+                sensorEvent(),
+                new DataIntegrityViolationException("duplicate flow")
+        );
+
+        assertEquals(1L, count(Level.ERROR, "센서 이벤트 라우팅에 실패했습니다."));
+        assertTrue(formattedMessages().stream().anyMatch(message ->
+                message.contains("failureKind=PERMANENT_REJECTED")));
+        assertEquals(
+                1.0,
+                meterRegistry.counter(
+                        "rule_engine.execution.failures",
+                        "stage", "routing",
+                        "kind", "permanent_rejected"
                 ).count()
         );
     }
