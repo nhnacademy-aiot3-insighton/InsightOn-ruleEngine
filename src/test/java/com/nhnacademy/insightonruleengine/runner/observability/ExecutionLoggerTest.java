@@ -12,6 +12,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 class ExecutionLoggerTest {
 
@@ -89,6 +92,21 @@ class ExecutionLoggerTest {
     }
 
     @Test
+    @DisplayName("같은 장소라도 실패 유형이 달라지면 새 장애로 기록합니다.")
+    void logsChangedRoutingFailureKind() {
+        SensorEvent event = sensorEvent();
+
+        executionLogger.routingFailed(
+                event,
+                new RedisConnectionFailureException("Redis unavailable")
+        );
+        executionLogger.routingFailed(event, new IllegalArgumentException("invalid route"));
+
+        assertEquals(1L, count(Level.WARN, "센서 이벤트 라우팅에 실패했습니다."));
+        assertEquals(1L, count(Level.ERROR, "센서 이벤트 라우팅에 실패했습니다."));
+    }
+
+    @Test
     @DisplayName("동일한 플로우 실행 실패는 억제하고 복구 로그에 실행 문맥을 남깁니다.")
     void suppressesRepeatedFlowFailuresAndLogsContext() {
         ExecutionLogContext context = executionContext();
@@ -129,6 +147,56 @@ class ExecutionLoggerTest {
 
         assertEquals(2, boundedLogger.trackedRoutingFailureCount());
         assertEquals(2, boundedLogger.trackedFlowFailureCount());
+    }
+
+    @Test
+    @DisplayName("일시적인 의존 서비스 장애는 WARN과 고정 태그 메트릭으로 기록합니다.")
+    void recordsTransientDependencyFailureWithoutRetry() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        ExecutionLogger loggerWithMetrics = new ExecutionLogger(10, meterRegistry);
+
+        loggerWithMetrics.routingFailed(
+                sensorEvent(),
+                new RedisConnectionFailureException("Redis unavailable")
+        );
+
+        assertEquals(1L, count(Level.WARN, "센서 이벤트 라우팅에 실패했습니다."));
+        assertTrue(formattedMessages().stream().anyMatch(message ->
+                message.contains("packetDropped=true")
+                        && message.contains("retry=false")
+                        && message.contains("failureKind=TRANSIENT_DEPENDENCY")));
+        assertEquals(
+                1.0,
+                meterRegistry.counter(
+                        "rule_engine.execution.failures",
+                        "stage", "routing",
+                        "kind", "transient_dependency"
+                ).count()
+        );
+    }
+
+    @Test
+    @DisplayName("영구적인 데이터 무결성 오류는 ERROR와 permanent_rejected로 기록합니다.")
+    void recordsNonTransientDataAccessFailureAsPermanent() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        ExecutionLogger loggerWithMetrics = new ExecutionLogger(10, meterRegistry);
+
+        loggerWithMetrics.routingFailed(
+                sensorEvent(),
+                new DataIntegrityViolationException("duplicate flow")
+        );
+
+        assertEquals(1L, count(Level.ERROR, "센서 이벤트 라우팅에 실패했습니다."));
+        assertTrue(formattedMessages().stream().anyMatch(message ->
+                message.contains("failureKind=PERMANENT_REJECTED")));
+        assertEquals(
+                1.0,
+                meterRegistry.counter(
+                        "rule_engine.execution.failures",
+                        "stage", "routing",
+                        "kind", "permanent_rejected"
+                ).count()
+        );
     }
 
     private long count(Level level, String prefix) {

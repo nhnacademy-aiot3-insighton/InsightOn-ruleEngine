@@ -3,6 +3,7 @@ package com.nhnacademy.insightonruleengine.runner.application.telemetry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +64,18 @@ class StaleTelemetryDetectorTest {
         detector.clear();
 
         assertThat(detector.isStale(1L, 10L, 101L, timestamp)).isFalse();
+    }
+
+    @Test
+    @DisplayName("추적하는 Sensor 상태는 설정된 최대 크기를 넘지 않습니다")
+    void boundsTrackedSensorStateTest() {
+        StaleTelemetryDetector boundedDetector =
+                new StaleTelemetryDetector(2L, Duration.ofHours(1));
+
+        boundedDetector.isStale(1L, 10L, 101L, Instant.parse("2026-08-20T01:05:00Z"));
+        boundedDetector.isStale(1L, 10L, 102L, Instant.parse("2026-08-20T01:05:00Z"));
+        boundedDetector.isStale(1L, 10L, 103L, Instant.parse("2026-08-20T01:05:00Z"));
+
+        assertThat(boundedDetector.trackedSensorCount()).isEqualTo(2L);
     }
 }

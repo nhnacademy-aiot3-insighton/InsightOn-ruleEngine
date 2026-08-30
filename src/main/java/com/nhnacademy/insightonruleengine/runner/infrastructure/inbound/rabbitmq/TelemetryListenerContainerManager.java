@@ -9,7 +9,7 @@ import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.DirectMessageListenerContainer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -25,8 +25,8 @@ public class TelemetryListenerContainerManager {
     private final TelemetryMessageConsumer messageConsumer;
     private final AmqpAdmin amqpAdmin;
 
-    private SimpleMessageListenerContainer normalContainer;
-    private SimpleMessageListenerContainer takeoverContainer;
+    private DirectMessageListenerContainer normalContainer;
+    private DirectMessageListenerContainer takeoverContainer;
 
     public TelemetryListenerContainerManager(
             ConnectionFactory connectionFactory,
@@ -57,10 +57,11 @@ public class TelemetryListenerContainerManager {
         }
     }
 
-    private SimpleMessageListenerContainer createContainer(List<String> queueNames, String listenerName) {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
+    private DirectMessageListenerContainer createContainer(List<String> queueNames, String listenerName) {
+        DirectMessageListenerContainer container =
+                new DirectMessageListenerContainer(connectionFactory);
         container.setQueueNames(queueNames.toArray(new String[0]));
+        container.setConsumersPerQueue(1);
         container.setMessageListener(messageConsumer);
         container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
         container.setAutoStartup(false);

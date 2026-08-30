@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +39,7 @@ class RedisFlowDefinitionCacheTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper().findAndRegisterModules();
-        cache = new RedisFlowDefinitionCache(redisTemplate, objectMapper);
+        cache = new RedisFlowDefinitionCache(redisTemplate, objectMapper, Duration.ofMinutes(30));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
@@ -64,7 +65,11 @@ class RedisFlowDefinitionCacheTest {
         cache.replace(1L, 10L, List.of(definition));
         cache.evict(1L, 10L);
 
-        verify(valueOperations).set(org.mockito.ArgumentMatchers.eq(KEY), anyString());
+        verify(valueOperations).set(
+                org.mockito.ArgumentMatchers.eq(KEY),
+                anyString(),
+                org.mockito.ArgumentMatchers.eq(Duration.ofMinutes(30))
+        );
         verify(redisTemplate).delete(KEY);
     }
 
@@ -78,6 +83,45 @@ class RedisFlowDefinitionCacheTest {
         );
 
         assertTrue(exception.getMessage().contains("Redis의 FlowDefinition"));
+    }
+
+    @Test
+    void rejectsDefinitionForAnotherRoute() throws Exception {
+        FlowDefinition wrongRoute = new FlowDefinition(
+                100L,
+                1L,
+                20L,
+                "잘못된 장소의 Flow",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-24T00:00:00Z"),
+                List.of(),
+                List.of()
+        );
+        when(valueOperations.get(KEY)).thenReturn(objectMapper.writeValueAsString(List.of(wrongRoute)));
+
+        assertThrows(IllegalStateException.class, () -> cache.find(1L, 10L));
+    }
+
+    @Test
+    void rejectsInactiveOrDuplicateDefinitions() throws Exception {
+        FlowDefinition inactive = new FlowDefinition(
+                100L,
+                1L,
+                10L,
+                "비활성 Flow",
+                null,
+                FlowStatus.INACTIVE,
+                OffsetDateTime.parse("2026-08-24T00:00:00Z"),
+                List.of(),
+                List.of()
+        );
+        when(valueOperations.get(KEY))
+                .thenReturn(objectMapper.writeValueAsString(List.of(inactive)))
+                .thenReturn(objectMapper.writeValueAsString(List.of(definition(), definition())));
+
+        assertThrows(IllegalStateException.class, () -> cache.find(1L, 10L));
+        assertThrows(IllegalStateException.class, () -> cache.find(1L, 10L));
     }
 
     private FlowDefinition definition() {

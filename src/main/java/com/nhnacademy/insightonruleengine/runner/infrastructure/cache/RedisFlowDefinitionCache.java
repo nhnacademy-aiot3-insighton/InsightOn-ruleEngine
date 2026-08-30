@@ -3,10 +3,14 @@ package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -16,7 +20,6 @@ import org.springframework.stereotype.Component;
  * Definition과 라우팅 인덱스를 분리하지 않아 갱신 중 부분 상태를 줄인다.
  */
 @Component
-@RequiredArgsConstructor
 @ConditionalOnProperty(
         name = "rule-engine.flow-cache.type",
         havingValue = "redis",
@@ -30,6 +33,20 @@ public class RedisFlowDefinitionCache implements FlowDefinitionCache {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final Duration ttl;
+
+    public RedisFlowDefinitionCache(
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            @Value("${rule-engine.flow-cache.ttl:30m}") Duration ttl
+    ) {
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("Flow 캐시 TTL은 양수여야 합니다.");
+        }
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.ttl = ttl;
+    }
 
     @Override
     public Optional<List<FlowDefinition>> find(Long groupId, Long locationId) {
@@ -37,13 +54,16 @@ public class RedisFlowDefinitionCache implements FlowDefinitionCache {
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(read(value));
+        List<FlowDefinition> definitions = read(value);
+        validateDefinitions(groupId, locationId, definitions);
+        return Optional.of(definitions);
     }
 
     @Override
     public void replace(Long groupId, Long locationId, List<FlowDefinition> definitions) {
+        validateDefinitions(groupId, locationId, definitions);
         String value = write(definitions);
-        redisTemplate.opsForValue().set(key(groupId, locationId), value);
+        redisTemplate.opsForValue().set(key(groupId, locationId), value, ttl);
     }
 
     @Override
@@ -68,6 +88,30 @@ public class RedisFlowDefinitionCache implements FlowDefinitionCache {
             return List.copyOf(objectMapper.readValue(value, FLOW_LIST_TYPE));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Redis의 FlowDefinition을 읽을 수 없습니다.", exception);
+        }
+    }
+
+    private void validateDefinitions(
+            Long groupId,
+            Long locationId,
+            List<FlowDefinition> definitions
+    ) {
+        if (groupId == null || locationId == null || definitions == null) {
+            throw new IllegalArgumentException("Flow 캐시의 라우트와 정의 목록은 필수입니다.");
+        }
+        Set<Long> flowIds = new HashSet<>();
+        for (FlowDefinition definition : definitions) {
+            if (definition == null
+                    || definition.flowId() == null
+                    || definition.flowId() <= 0L
+                    || !groupId.equals(definition.groupId())
+                    || !locationId.equals(definition.locationId())
+                    || definition.status() != FlowStatus.ACTIVE
+                    || !flowIds.add(definition.flowId())) {
+                throw new IllegalStateException(
+                        "Redis FlowDefinition이 라우트 또는 ACTIVE 계약과 일치하지 않습니다."
+                );
+            }
         }
     }
 }
