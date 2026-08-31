@@ -42,14 +42,11 @@ class NodeParamsValidationTest {
     }
 
     @Test
-    @DisplayName("TimeWindowParams startTime이 endTime보다 늦으면 예외가 발생한다")
-    void rejectTimeWindowStartAfterEnd() {
-        LocalTime start = LocalTime.of(18, 0);
-        LocalTime end = LocalTime.of(9, 0);
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new TimeWindowParams(start, end)
-        );
+    @DisplayName("TimeWindowParams는 자정을 지나는 시간 범위를 허용한다")
+    void createOvernightTimeWindowParams() {
+        TimeWindowParams params = new TimeWindowParams(LocalTime.of(22, 0), LocalTime.of(6, 0));
+
+        assertTrue(validator.validate(params).isEmpty());
     }
 
     @Test
