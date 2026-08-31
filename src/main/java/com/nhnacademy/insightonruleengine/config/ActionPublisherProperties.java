@@ -7,7 +7,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "rule-engine.action-publisher")
 public record ActionPublisherProperties(
         @DefaultValue("insighton.rule-engine-events") String exchange,
-        @DefaultValue("ai.alert.action") String alertRoutingKey,
-        @DefaultValue("ai.suggestion.action") String suggestionRoutingKey
+        @DefaultValue("ai.alert.action") String alertRoutingKey
 ) {
 }
