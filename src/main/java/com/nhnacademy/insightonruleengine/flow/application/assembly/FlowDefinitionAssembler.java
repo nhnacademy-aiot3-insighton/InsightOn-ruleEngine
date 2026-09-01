@@ -12,6 +12,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundExce
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -42,7 +43,10 @@ public class FlowDefinitionAssembler {
                 flow.getStatus(),
                 flow.getCreatedDate(),
                 nodes.stream().map(this::assembleNode).toList(),
-                links.stream().map(this::assembleLink).toList()
+                links.stream()
+                        .sorted(Comparator.comparing(Link::getId))
+                        .map(this::assembleLink)
+                        .toList()
         );
     }
 

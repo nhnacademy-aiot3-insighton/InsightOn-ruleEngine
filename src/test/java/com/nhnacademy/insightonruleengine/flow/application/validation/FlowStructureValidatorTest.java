@@ -53,6 +53,28 @@ class FlowStructureValidatorTest {
     }
 
     @Test
+    @DisplayName("동일 조건 결과에서 복수 Action으로 fan-out하는 Flow가 구조 검증을 통과한다")
+    void validActionFanOutStructureTest() {
+        List<FlowNodeRequest> nodes = List.of(
+                node("trigger", NodeType.SENSOR),
+                node("filter", NodeType.THRESHOLD),
+                node("alert", NodeType.ALERT),
+                node("actuator", NodeType.ACTUATOR_CONTROL),
+                node("false-alert", NodeType.ALERT)
+        );
+        List<FlowLinkRequest> links = List.of(
+                link("trigger", "filter", "out"),
+                link("filter", "alert", "true"),
+                link("filter", "actuator", "true"),
+                link("filter", "false-alert", "false")
+        );
+
+        List<FlowStructureValidationError> errors = validator.validate(nodes, links);
+
+        assertTrue(errors.isEmpty(), "Action fan-out Flow 검증 에러: " + errors);
+    }
+
+    @Test
     @DisplayName("Node와 Link가 모두 없으면 Element 에러들을 통합 수집합니다.")
     void emptyNodesAndLinksTest() {
         List<FlowStructureValidationError> errors = validator.validate(null, null);
