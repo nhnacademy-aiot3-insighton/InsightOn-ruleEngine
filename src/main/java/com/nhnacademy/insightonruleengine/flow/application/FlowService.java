@@ -31,7 +31,6 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActiva
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
-import feign.FeignException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -111,9 +110,10 @@ public class FlowService {
         try {
             savedFlow = flowRepository.save(flow);
         } catch (DataIntegrityViolationException exception) {
-            // 유니크 제약 위반 시점부터는 같은 트랜잭션의 영속성 컨텍스트를 더 쓸 수 없어(재조회도 위험),
-            // 여기서 재조회하지 않고 실패로 응답합니다. 동시에 들어온 같은 요청이 이미 저장을 마쳤다는 뜻이라
-            // 호출자가 다시 요청하면 위의 findByGroupIdAndLocationIdAndName에서 그 결과를 그대로 돌려받습니다.
+            // 이름 유니크 제약상 이 요청과 완전히 같은 자동화가 이미 존재한다는 뜻입니다. 동시에 들어온
+            // 같은 요청이 먼저 저장을 마친 경우이므로, 재조회를 시도하지 않고 그대로 충돌로 응답합니다.
+            // 이 엔드포인트를 호출하는 쪽은 AI뿐이고 이름을 항상 같은 규칙으로 만들기 때문에, 여기서
+            // 발생하는 409는 "이미 존재함" 외의 다른 의미를 가질 수 없습니다.
             throw new DuplicateFlowNameException(groupId, request.locationId(), request.name());
         }
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
@@ -147,7 +147,9 @@ public class FlowService {
             return location != null
                     && groupId.equals(location.groupId())
                     && location.autoControlMode() == LocationResponse.AutoControlMode.AI_DIRECT;
-        } catch (FeignException exception) {
+        } catch (RuntimeException exception) {
+            // FeignException뿐 아니라 응답 디코딩 실패 등 Core 위치 조회 과정에서 생길 수 있는 예외를
+            // 전부 안전하게 실패로 취급합니다. 이 조회 하나 때문에 draft 생성 자체가 실패하면 안 됩니다.
             log.warn(
                     "AI_DIRECT 여부 확인을 위한 Core 위치 조회에 실패해 INACTIVE로 생성합니다. locationId={}",
                     locationId,

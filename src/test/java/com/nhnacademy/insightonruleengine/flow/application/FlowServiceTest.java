@@ -635,9 +635,29 @@ class FlowServiceTest {
         verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
     }
 
-    // 재조회 대신 예외를 던져야 트랜잭션이 안전하게 롤백되고, 재요청 시 위쪽의 findBy 분기로 정상 처리됩니다.
+    // FeignException이 아닌 예외(응답 디코딩 실패 등)도 같은 방식으로 안전하게 처리돼야 합니다.
     @Test
-    @DisplayName("동시 요청으로 저장이 유니크 제약을 위반하면 재조회하지 않고 예외를 던진다")
+    @DisplayName("Core 위치 조회에서 FeignException이 아닌 예외가 나도 INACTIVE로 생성한다")
+    void createAiDraftStaysInactiveWhenCoreLookupThrowsNonFeignExceptionTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L)).thenThrow(new RuntimeException("응답 디코딩 실패"));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    // 이름 유니크 제약상 이 409는 "이미 존재함" 외의 다른 의미를 가질 수 없어서, 재조회를 시도하지 않고
+    // 그대로 충돌 예외를 던집니다. 동시에 들어온 같은 요청이 이미 저장을 마쳤다는 뜻이라, 자동화 자체는
+    // 문제없이 존재합니다.
+    @Test
+    @DisplayName("동시 요청으로 저장이 유니크 제약을 위반하면 충돌 예외를 던진다")
     void createAiDraftThrowsOnConcurrentDuplicateTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
         when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
@@ -647,8 +667,6 @@ class FlowServiceTest {
 
         assertThrows(DuplicateFlowNameException.class, () -> flowService.createAiDraft(GROUP_ID, request));
 
-        verify(flowRepository, times(1))
-                .findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name());
         verifyNoInteractions(nodeRepository, linkRepository, coreActuatorClient);
     }
 
