@@ -14,8 +14,9 @@ import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogConte
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
 import java.time.Instant;
-import java.util.List;
+import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -86,6 +87,7 @@ public class FlowRunner {
             FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
             current = findTriggerNode(flow);
             Set<Long> visitedNodeIds = new HashSet<>();
+            ArrayDeque<NodeDefinition> pendingActions = new ArrayDeque<>();
 
             while (current != null) {
                 if (!visitedNodeIds.add(current.nodeId())) {
@@ -93,38 +95,67 @@ public class FlowRunner {
                             "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
                                     + ", nodeId=" + current.nodeId());
                 }
-                current = executeNode(index, current, context, logContext);
+                NodeExecutionResult result = executeNode(current, context);
+                if (result.terminal()) {
+                    if (pendingActions.isEmpty()) {
+                        executionLogger.flowFinished(logContext, current.nodeId(), true);
+                        return;
+                    }
+                    current = pendingActions.removeFirst();
+                    continue;
+                }
+
+                List<LinkDefinition> nextLinks = index.findLinks(current.nodeId(), result.outputPort());
+                if (nextLinks.isEmpty()
+                        && current.nodeType().getCategory() == NodeType.Category.FILTER
+                        && "false".equals(result.outputPort())) {
+                    executionLogger.flowFinished(logContext, current.nodeId(), false);
+                    return;
+                }
+                if (nextLinks.isEmpty()) {
+                    nextLinks = index.requireLinks(current.nodeId(), result.outputPort());
+                }
+
+                List<NodeDefinition> nextNodes = nextLinks.stream()
+                        .map(link -> index.requireNode(link.targetNodeId()))
+                        .toList();
+                validateFanOutTargets(current, result.outputPort(), nextNodes);
+                current = nextNodes.getFirst();
+                if (nextNodes.size() > 1) {
+                    pendingActions.addAll(nextNodes.subList(1, nextNodes.size()));
+                }
             }
         } catch (RuntimeException exception) {
             executionLogger.flowFailed(logContext, current, exception);
         }
     }
 
-    private NodeDefinition executeNode(
-            FlowDefinitionIndex index,
+    private NodeExecutionResult executeNode(
             NodeDefinition current,
-            FlowExecutionContext context,
-            ExecutionLogContext logContext
+            FlowExecutionContext context
     ) {
         NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
         NodeExecutionResult result = executor.execute(current, context);
         validateExecutionResult(current, result);
-        if (result.terminal()) {
-            executionLogger.flowFinished(logContext, current.nodeId(), true);
-            return null;
-        }
+        return result;
+    }
 
-        LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
-        if (nextLink == null
-                && current.nodeType().getCategory() == NodeType.Category.FILTER
-                && "false".equals(result.outputPort())) {
-            executionLogger.flowFinished(logContext, current.nodeId(), false);
-            return null;
+    private void validateFanOutTargets(
+            NodeDefinition source,
+            String sourcePort,
+            List<NodeDefinition> targets
+    ) {
+        if (targets.size() <= 1) {
+            return;
         }
-        if (nextLink == null) {
-            nextLink = index.requireLink(current.nodeId(), result.outputPort());
+        boolean actionTargetsOnly = targets.stream()
+                .allMatch(target -> target.nodeType().getCategory() == NodeType.Category.ACTION);
+        if (!actionTargetsOnly) {
+            throw new IllegalStateException(
+                    "Action이 아닌 Node로의 fan-out은 지원하지 않습니다. sourceNodeId="
+                            + source.nodeId() + ", sourcePort=" + sourcePort
+            );
         }
-        return index.requireNode(nextLink.targetNodeId());
     }
 
     private void validateExecutionResult(NodeDefinition node, NodeExecutionResult result) {

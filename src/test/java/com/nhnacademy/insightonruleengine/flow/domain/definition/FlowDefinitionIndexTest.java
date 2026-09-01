@@ -36,9 +36,9 @@ class FlowDefinitionIndexTest {
                 List.of(link)
         ));
 
-        LinkDefinition result = index.requireLink(10L, "out");
+        List<LinkDefinition> result = index.requireLinks(10L, "out");
 
-        assertEquals(link, result);
+        assertEquals(List.of(link), result);
     }
 
     @Test
@@ -61,7 +61,7 @@ class FlowDefinitionIndexTest {
         ));
 
         LinkNotFoundException exception =
-                assertThrows(LinkNotFoundException.class, () -> index.requireLink(10L, "out"));
+                assertThrows(LinkNotFoundException.class, () -> index.requireLinks(10L, "out"));
 
         assertEquals(
                 "링크를 찾을 수 없습니다. sourceNodeId=10, sourcePort=out",
@@ -95,7 +95,7 @@ class FlowDefinitionIndexTest {
         FlowDefinitionIndex index = new FlowDefinitionIndex(definition(List.of(), List.of()));
 
         IllegalArgumentException exception =
-                assertThrows(IllegalArgumentException.class, () -> index.requireLink(null, "out"));
+                assertThrows(IllegalArgumentException.class, () -> index.requireLinks(null, "out"));
 
         assertEquals("sourceNodeId는 null이면 안됩니다.", exception.getMessage());
     }
@@ -106,7 +106,7 @@ class FlowDefinitionIndexTest {
         FlowDefinitionIndex index = new FlowDefinitionIndex(definition(List.of(), List.of()));
 
         IllegalArgumentException exception =
-                assertThrows(IllegalArgumentException.class, () -> index.requireLink(10L, null));
+                assertThrows(IllegalArgumentException.class, () -> index.requireLinks(10L, null));
 
         assertEquals("sourcePort는 null이면 안됩니다.", exception.getMessage());
     }
@@ -132,8 +132,8 @@ class FlowDefinitionIndexTest {
     }
 
     @Test
-    @DisplayName("중복 Source Node와 Port는 기존 Link를 덮어쓰지 않고 거부한다")
-    void duplicateSourcePortTest() {
+    @DisplayName("같은 Source Node와 Port의 복수 Link를 요청 순서대로 색인한다")
+    void actionFanOutLinkTest() {
         FlowDefinition definition = definition(
                 List.of(
                         node(10L, NodeType.SENSOR),
@@ -145,15 +145,29 @@ class FlowDefinitionIndexTest {
                         link(101L, 10L, "out", 30L)
                 )
         );
+        FlowDefinitionIndex index = new FlowDefinitionIndex(definition);
 
-        DuplicateFlowDefinitionKeyException exception =
-                assertThrows(
-                        DuplicateFlowDefinitionKeyException.class,
-                        () -> new FlowDefinitionIndex(definition)
-                );
+        assertEquals(definition.links(), index.requireLinks(10L, "out"));
+        assertEquals(definition.links(), index.findLinks(10L, "out"));
+    }
+
+    @Test
+    @DisplayName("출발·도착 Node와 Port가 모두 같은 중복 Link는 거부한다")
+    void duplicateLinkTest() {
+        LinkDefinition duplicate = link(100L, 10L, "out", 20L);
+        FlowDefinition definition = definition(
+                List.of(node(10L, NodeType.SENSOR), node(20L, NodeType.ALERT)),
+                List.of(duplicate, link(101L, 10L, "out", 20L))
+        );
+
+        DuplicateFlowDefinitionKeyException exception = assertThrows(
+                DuplicateFlowDefinitionKeyException.class,
+                () -> new FlowDefinitionIndex(definition)
+        );
 
         assertEquals(
-                "FlowDefinition에 중복된 Link Key가 있습니다: sourceNodeId=10, sourcePort=out",
+                "FlowDefinition에 중복된 Link가 있습니다: sourceNodeId=10, sourcePort=out, "
+                        + "targetNodeId=20, targetPort=in",
                 exception.getMessage()
         );
     }

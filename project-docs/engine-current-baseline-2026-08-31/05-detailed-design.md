@@ -11,7 +11,7 @@
 | `flow.application.assembly` | Flow/Node/Link를 불변 `FlowDefinition`으로 조립 | 캐시 정책 |
 | `runner.infrastructure.cache` | route별 ACTIVE Flow snapshot과 Redis 장애 fallback | 영구 원본 역할 |
 | `runner.application.router` | 이벤트에 맞는 SENSOR/LOCATION Flow 선택 | Schedule route |
-| `runner.application.FlowRunner` | 단일 경로 순회와 executor 호출·격리 | retry와 실행 이력 저장 |
+| `runner.application.FlowRunner` | 경로 순회, Action fan-out과 executor 호출·격리 | retry와 실행 이력 저장 |
 | `runner.execution.executor` | NodeType별 작은 실행 단위 | Flow 전체 순회 |
 | `runner.application.schedule` | cron 등록·취소·재조정·실행 선점 | RabbitMQ 재라우팅 |
 | `runner.application.telemetry` | stale 검사와 queue failover 조정 | 메시지 재시도 |
@@ -83,20 +83,23 @@ stateDiagram-v2
 
 - Trigger 정확히 1개, Action 1개 이상
 - Trigger 입력 금지, Action 출력 금지
-- 동일 `(source node, source port)`에서 Link 1개만 허용
+- 동일 `(source node, source port)`의 복수 Link는 모든 target이 Action일 때만 허용
+- 출발·도착 Node와 Port가 모두 같은 Link 중복은 금지
 - 모든 Node는 Trigger에서 도달 가능
 - 모든 비Action Node는 적어도 하나의 Action으로 이어짐
 - self-loop와 cycle 금지
 - Trigger는 `out` Link 필수
 - Filter는 `true` Link 필수, `false` Link 선택
-- Schedule의 `out`은 ACTUATOR_CONTROL로 직접 연결
+- Schedule의 `out`은 하나 이상의 ACTUATOR_CONTROL로 직접 연결
 
-따라서 유효한 Schedule Flow는 실질적으로 `SCHEDULE → ACTUATOR_CONTROL` 두 Node와 한 Link로 제한된다.
+따라서 Schedule Flow는 Filter를 거치지 않지만 복수 ACTUATOR_CONTROL로 fan-out할 수 있다.
 
 ### 3.3 분기·합류 의미
 
 - 한 executor는 한 output port만 반환한다.
-- 한 source port에서 fan-out할 수 없으므로 한 실행은 경로 하나만 진행한다.
+- 한 source port가 여러 Action으로 연결되면 Link ID 순서대로 Action을 모두 실행한다.
+- Action이 아닌 target이 하나라도 포함된 fan-out은 검증과 실행 방어에서 거부한다.
+- Action 하나가 실패하면 현재 실행은 실패로 종료하고 아직 실행하지 않은 Action은 실행하지 않는다. 실패 격리와 부분 성공 기록은 후속 범위다.
 - Filter의 true와 false가 서로 다른 Action으로 갈 수는 있지만 한 실행에서 둘 중 하나만 실행된다.
 - 여러 Link가 같은 target으로 들어오는 구조는 명시적으로 금지되지 않는다. 다만 join·AND·여러 입력 대기 의미는 없고, 현재 실행 경로가 도달했을 때 한 번 실행할 뿐이다.
 - `ErrorCode.FLOW_FAN_IN_NOT_ALLOWED`는 현재 검증 코드에서 사용되지 않는 과거 잔여 값이다.
@@ -116,14 +119,15 @@ validate message
          reject revisiting node
          execute NodeExecutor
          if Action result is terminal: finish
-         select link by output port
+         select links by output port
          if false Filter has no link: finish normally
-         move to target node
+         if one target: move to target node
+         if multiple Action targets: execute all in Link ID order
      catch and log this flow's failure
 → ACK original message
 ```
 
-한 packet 안의 Flow 목록과 한 Flow의 node 실행은 순차적이다. 다만 repository 조회에 `ORDER BY`가 없고 Flow priority 모델도 없어 여러 Flow의 상대 실행 순서는 계약상 비결정적이다. 서로 다른 Rabbit queue는 별도 consumer에서 병렬 처리되므로 location이 다른 패킷까지 전역 순차 실행되는 것은 아니다.
+한 packet 안의 Flow 목록과 한 Flow의 node 실행은 순차적이다. Action fan-out도 병렬화하지 않고 Link ID 오름차순으로 실행한다. 다만 Flow repository 조회에 `ORDER BY`가 없고 Flow priority 모델도 없어 여러 Flow의 상대 실행 순서는 계약상 비결정적이다. 서로 다른 Rabbit queue는 별도 consumer에서 병렬 처리되므로 location이 다른 패킷까지 전역 순차 실행되는 것은 아니다.
 
 stale watermark는 Flow 실행 전에 인스턴스 로컬 Caffeine에 기록된다. 이후 Flow가 실패해도 같은 인스턴스에 같은 timestamp가 다시 오면 stale로 폐기된다. 재시작·failover 때 watermark는 사라지며, takeover/handback 전환 중 두 consumer가 잠시 공존하는 경우까지 전역 중복 차단을 보장하지 않는다.
 
@@ -136,7 +140,7 @@ local CronTrigger fires
               and execution key must not exist
 → claim success: runScheduled(cached FlowDefinition)
 → execute ScheduleNode(out)
-→ call ActuatorControlNode
+→ call one or more ActuatorControlNode in Link ID order
 ```
 
 실행 중 DB 재조회는 없다. 비활성화·삭제 경합은 Redis ACTIVE state와 local cancel, 주기 재조정으로 줄인다. 다만 DB 상태 commit과 afterCommit callback은 한 transaction이 아니므로 commit 직후 Redis INACTIVE·local cancel 전까지 기존 작업이 마지막 한 번 선점할 수 있고, callback 실패 시 다음 재조정까지 stale 상태가 남을 수 있다. 취소는 `ScheduledFuture.cancel(false)`이므로 이미 시작해 claim까지 얻은 작업은 중단되지 않고 Core 호출까지 진행할 수 있다.

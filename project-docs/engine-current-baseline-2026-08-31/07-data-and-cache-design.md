@@ -76,9 +76,9 @@ Schedule 재조정은 ACTIVE Flow 중 SCHEDULE Node가 존재하는지 subquery�
 
 - `link_id` identity PK
 - `flow_id`, source/target node ID, source/target port 모두 not null
-- unique `uk_links_flow_source_port(flow_id, source_node_id, source_port)`
+- unique `uk_links_flow_source_port_target(flow_id, source_node_id, source_port, target_node_id, target_port)`
 
-이 unique는 한 output port에서 여러 Link로 fan-out하는 것을 DB에서도 막는 역할을 한다.
+이 unique는 Action fan-out에 필요한 복수 Link를 허용하면서 출발·도착 Node와 Port가 모두 같은 Link 중복을 DB에서 막는다. 기존 `uk_links_flow_source_port` 제약은 배포 전 `db-migrations/2026-09-01-action-fan-out.sql`로 교체한다.
 
 ## 3. Schema 관리 현황
 

@@ -11,7 +11,7 @@
 | DEC-001 | PostgreSQL을 Flow 원본, Redis를 route snapshot과 runtime state로 사용한다. | 패킷마다 DB 조회하는 병목을 피하면서 DB 원본성을 유지 | 확정 |
 | DEC-002 | Schedule은 모든 인스턴스에 로컬 cron을 등록하고 Redis로 동일 시각 실행을 선점한다. | queue mapping과 무관하게 중복 실행을 억제 | 확정 |
 | DEC-003 | Schedule 실행은 RabbitMQ를 왕복하지 않고 FlowRunner를 직접 호출한다. | Engine→AMQ→Engine 불필요한 사이클 제거 | 확정 |
-| DEC-004 | Schedule Flow는 `SCHEDULE → ACTUATOR_CONTROL`만 허용한다. | 시간+Alert만 있는 목적 없는 Flow 방지, 예약 동작 목적 명확화 | 확정 |
+| DEC-004 | Schedule Flow는 `SCHEDULE → ACTUATOR_CONTROL` 직접 연결만 허용하며 복수 Actuator fan-out을 지원한다. | 시간+Alert만 있는 목적 없는 Flow 방지, 예약 동작 목적 명확화 | 확정 |
 | DEC-005 | Schedule 중단 시간의 missed run을 보정하지 않는다. | 재기동 폭주·늦은 장치 동작보다 누락 선택 | 확정 |
 | DEC-006 | Schedule Redis 장애 시 실행하지 않는다. | 중복 장치 제어보다 미실행을 선택하는 fail-closed | 확정 |
 | DEC-007 | Telemetry 오류는 ACK/drop하고 Engine retry·DLQ를 두지 않는다. | 패킷 손실 허용 정책과 재처리 폭주 방지 | 확정 |
@@ -24,6 +24,7 @@
 | DEC-014 | queue ownership은 16개를 두 인스턴스가 홀짝 8개씩 나눈다. | location hash 안정성과 단순 failover | 현행 운영 제약 |
 | DEC-015 | Flow 수정은 기존 보관 + 새 INACTIVE ID 생성 방식이다. | 실행 중 정의의 불변성과 버전 흔적 유지. 같은 이름 수정 UX는 DEF-001로 보류 | 정책 확정·동일 이름 UX 보류 |
 | DEC-016 | Core group/location 삭제 시 Flow를 영구 cleanup한다. | 존재하지 않는 scope의 실행 방지 | 확정 |
+| DEC-017 | 같은 output port의 복수 Link는 모든 target이 Action일 때만 허용하고 Link ID 순서대로 실행한다. | 일반 DAG 의미를 도입하지 않고 하나의 판단 결과로 여러 부작용을 수행 | 확정. 실패 격리·부분 성공은 후속 |
 
 ## 3. 초기 기획 대비 변화
 
@@ -43,7 +44,7 @@
 | Cache 동기화 | Outbox/poller/pub-sub/local swap | Redis route snapshot + 최대 사용 시간이 제한된 local snapshot과 DB fallback | 대체 |
 | Location 데이터 | 장소별 최신 metric aggregation | 현재 단일 packet metrics | 제거·단순화 |
 | Schedule | 실행 방식 미정/Rabbit 재진입 가능성 | local cron + Redis state/version/NX | 완료 |
-| Schedule graph | 일반 Filter/Alert 가능성 | 직접 Actuator 전용 | 정책 변경 |
+| Schedule graph | 일반 Filter/Alert 가능성 | 직접 Actuator 전용, 복수 Actuator fan-out 허용 | 정책 변경 |
 | 일회성 예약 | `executeAt` 후보 | 없음 | 보류 |
 | missed run | 재기동 보정 후보 | 건너뜀 | 확정 |
 | 장치 삭제 | Flow ERROR 전환 계획 | group/location만 cleanup, ERROR 진입 없음 | 미구현·재결정 필요 |
