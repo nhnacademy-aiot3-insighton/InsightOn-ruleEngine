@@ -4,6 +4,8 @@ import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;
 import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -123,26 +125,56 @@ public class ThresholdEvaluator {
 
         @Override
         public Object get(Object key) {
-            Object value = metrics.get(key);
-            if (!isValidNumber(value)) {
-                invalidMetricTracker.markInvalid();
-                return null;
-            }
-            return value;
+            return validatedValue(metrics.get(key));
         }
 
         @Override
         public boolean containsKey(Object key) {
             boolean containsKey = metrics.containsKey(key);
-            if (!containsKey || !isValidNumber(metrics.get(key))) {
+            if (!containsKey) {
                 invalidMetricTracker.markInvalid();
+                return false;
             }
-            return containsKey;
+            validatedValue(metrics.get(key));
+            return true;
         }
 
         @Override
         public Set<Entry<String, Object>> entrySet() {
-            return metrics.entrySet();
+            return new AbstractSet<>() {
+                @Override
+                public Iterator<Entry<String, Object>> iterator() {
+                    Iterator<Entry<String, Object>> iterator = metrics.entrySet().iterator();
+                    return new Iterator<>() {
+                        @Override
+                        public boolean hasNext() {
+                            return iterator.hasNext();
+                        }
+
+                        @Override
+                        public Entry<String, Object> next() {
+                            Entry<String, Object> entry = iterator.next();
+                            return new SimpleImmutableEntry<>(
+                                    entry.getKey(),
+                                    validatedValue(entry.getValue())
+                            );
+                        }
+                    };
+                }
+
+                @Override
+                public int size() {
+                    return metrics.size();
+                }
+            };
+        }
+
+        private Object validatedValue(Object value) {
+            if (!isValidNumber(value)) {
+                invalidMetricTracker.markInvalid();
+                return null;
+            }
+            return value;
         }
 
         private boolean isValidNumber(Object value) {

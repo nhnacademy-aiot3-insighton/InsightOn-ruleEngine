@@ -16,9 +16,12 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class ThresholdEvaluatorTest {
@@ -115,6 +118,15 @@ class ThresholdEvaluatorTest {
                 "#metrics['temperature'] > 50",
                 context(Map.of("temperature", Double.POSITIVE_INFINITY))
         ));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidProjectionMetrics")
+    @DisplayName("Map projection으로 접근한 유효하지 않은 metric도 false를 반환한다")
+    void invalidMetricFromEntrySetNeverMatches(String caseName, Object invalidMetric) {
+        FlowExecutionContext context = context(Map.of("temperature", invalidMetric));
+
+        assertFalse(evaluator.evaluate("#metrics.![value][0] != 50", context));
     }
 
     @Test
@@ -215,6 +227,15 @@ class ThresholdEvaluatorTest {
                 100L,
                 metrics,
                 Instant.parse("2026-08-03T00:00:00Z")
+        );
+    }
+
+    private static Stream<Arguments> invalidProjectionMetrics() {
+        return Stream.of(
+                Arguments.of("비숫자", "not-a-number"),
+                Arguments.of("NaN", Double.NaN),
+                Arguments.of("양의 infinity", Double.POSITIVE_INFINITY),
+                Arguments.of("음의 infinity", Float.NEGATIVE_INFINITY)
         );
     }
 }
