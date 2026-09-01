@@ -1,13 +1,19 @@
 package com.nhnacademy.insightonruleengine.runner.execution.evaluator;
 
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
+import java.time.Instant;
+import java.util.AbstractMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.expression.Expression;
+import org.springframework.expression.EvaluationException;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.stereotype.Component;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 @Component
 public class ThresholdEvaluator {
@@ -27,11 +33,27 @@ public class ThresholdEvaluator {
         }
 
         Expression expression = parse(expressionText);
+        InvalidMetricTracker invalidMetricTracker = new InvalidMetricTracker();
+        Map<String, Object> metrics = new NumericMetricsView(
+                flowContext.metrics(),
+                invalidMetricTracker
+        );
         SimpleEvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
-        context.setVariable("event", flowContext.event());
-        context.setVariable("metrics", flowContext.metrics());
+        context.setVariable("event", evaluationEvent(flowContext.event(), metrics));
+        context.setVariable("metrics", metrics);
 
-        Boolean result = expression.getValue(context, Boolean.class);
+        Boolean result;
+        try {
+            result = expression.getValue(context, Boolean.class);
+        } catch (EvaluationException exception) {
+            if (invalidMetricTracker.hasInvalidMetric()) {
+                return false;
+            }
+            throw exception;
+        }
+        if (invalidMetricTracker.hasInvalidMetric()) {
+            return false;
+        }
         if (result == null) {
             throw new IllegalArgumentException("Threshold expression은 boolean 결과여야 합니다.");
         }
@@ -59,5 +81,94 @@ public class ThresholdEvaluator {
         }
         expressionCache.putIfAbsent(expressionText, parsed);
         return expressionCache.get(expressionText);
+    }
+
+    private EvaluationEvent evaluationEvent(
+            SensorEvent event,
+            Map<String, Object> metrics
+    ) {
+        if (event == null) {
+            return null;
+        }
+        return new EvaluationEvent(
+                event.groupId(),
+                event.locationId(),
+                event.sensorId(),
+                metrics,
+                event.timestamp()
+        );
+    }
+
+    private record EvaluationEvent(
+            Long groupId,
+            Long locationId,
+            Long sensorId,
+            Map<String, Object> metrics,
+            Instant timestamp
+    ) {
+    }
+
+    private static final class NumericMetricsView extends AbstractMap<String, Object> {
+
+        private final Map<String, Object> metrics;
+        private final InvalidMetricTracker invalidMetricTracker;
+
+        private NumericMetricsView(
+                Map<String, Object> metrics,
+                InvalidMetricTracker invalidMetricTracker
+        ) {
+            this.metrics = metrics;
+            this.invalidMetricTracker = invalidMetricTracker;
+        }
+
+        @Override
+        public Object get(Object key) {
+            Object value = metrics.get(key);
+            if (!isValidNumber(value)) {
+                invalidMetricTracker.markInvalid();
+                return null;
+            }
+            return value;
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            boolean containsKey = metrics.containsKey(key);
+            if (!containsKey || !isValidNumber(metrics.get(key))) {
+                invalidMetricTracker.markInvalid();
+            }
+            return containsKey;
+        }
+
+        @Override
+        public Set<Entry<String, Object>> entrySet() {
+            return metrics.entrySet();
+        }
+
+        private boolean isValidNumber(Object value) {
+            if (!(value instanceof Number number)) {
+                return false;
+            }
+            if (number instanceof Double doubleValue) {
+                return Double.isFinite(doubleValue);
+            }
+            if (number instanceof Float floatValue) {
+                return Float.isFinite(floatValue);
+            }
+            return true;
+        }
+    }
+
+    private static final class InvalidMetricTracker {
+
+        private boolean invalidMetric;
+
+        private void markInvalid() {
+            invalidMetric = true;
+        }
+
+        private boolean hasInvalidMetric() {
+            return invalidMetric;
+        }
     }
 }
