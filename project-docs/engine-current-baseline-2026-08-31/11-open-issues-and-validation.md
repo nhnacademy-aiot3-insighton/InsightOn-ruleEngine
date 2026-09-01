@@ -226,7 +226,7 @@ Micrometer counter는 있으나 Prometheus registry와 exposure가 없다. metri
 
 ### OI-16 fan-in 의미
 
-현재 multiple incoming Link는 허용되지만 join/AND/wait 의미가 없다. 한 실행은 한 경로만 따라 target에 도달한다.
+현재 multiple incoming Link는 허용되지만 join/AND/wait 의미가 없다. Action fan-out은 각 Action을 독립 target으로 순차 실행할 뿐이며, 서로 다른 경로의 합류 상태를 병합하거나 기다리지 않는다.
 
 권장 현행 설명: “경로 합류는 가능하지만 데이터 병합이나 동기화 의미가 없다.” Front가 이를 표현하지 않는다면 Validator에서 명시적으로 막는 편이 사용자 혼란을 줄일 수 있다.
 

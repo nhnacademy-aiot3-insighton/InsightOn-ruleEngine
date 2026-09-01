@@ -41,32 +41,31 @@
 
 ## 4. 현행 실행 결과
 
-### 4.1 기준 실행
+### 4.1 최근 실행
 
-- 일시: 2026-08-31 14:18~14:19 KST
-- 코드: `dev@eed36d5ce687078e75a0f84527aed460daf2ddf3`
+- 일시: 2026-09-01 16:08~16:09 KST
+- 코드: `feature/action-fanout` 작업 트리 (`dev@307094b216c88a0d475c81117b7d523d5eb21ba5` 기반)
 - 명령:
 
 ```bash
-mvn clean test
+./mvnw test
 ```
 
 ### 4.2 결과
 
 ```text
-Tests run: 422
+Tests run: 436
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
-Total time: 38.929 s
 ```
 
-Docker socket 접근이 제한된 선행 실행에서는 422건 중 27 context error와 15 skip이 발생했다. 오류 원인은 Testcontainers가 Docker 환경을 찾지 못해 Hibernate dialect/JDBC metadata를 만들 수 없었던 것이며, Docker 접근이 허용된 동일 코드 재실행에서는 전부 통과했다.
+PostgreSQL, Redis, RabbitMQ Testcontainers를 Docker 환경에서 실행했으며 전부 통과했다.
 
 ### 4.3 Coverage
 
-동일 실행의 `jacoco.exec`로 생성한 현재 수치:
+2026-08-31 기준 실행의 `jacoco.exec`로 생성한 참고 수치이며, 이번 변경 후 report는 별도로 재생성하지 않았다.
 
 | 기준 | Coverage |
 |---|---:|
@@ -90,7 +89,10 @@ Docker socket 접근이 제한된 선행 실행에서는 422건 중 27 context e
 ### 5.2 그래프
 
 - trigger 0/2개, action 0개 거부
-- cycle, self-loop, dangling reference, duplicate source port 거부
+- cycle, self-loop, dangling reference, 완전히 동일한 Link 중복 거부
+- Action 전용 fan-out 허용과 비Action target 포함 fan-out 거부
+- Action fan-out의 Link ID 순차 실행
+- fan-out 중 Action 실패 시 남은 Action 중단
 - invalid source/target port 거부
 - unreachable node와 action에 닿지 않는 path 거부
 - false Filter Link 생략 허용

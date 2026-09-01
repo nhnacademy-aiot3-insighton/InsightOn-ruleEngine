@@ -48,15 +48,15 @@
 | FR-020 | Flow에는 Trigger가 정확히 하나 있어야 한다. | 구현 | 0개 또는 2개 이상이면 ACTIVE/저장을 거부한다. |
 | FR-021 | Flow에는 Action이 하나 이상 있어야 한다. | 구현 | Action이 없으면 거부한다. |
 | FR-022 | Trigger는 입력 Link, Action은 출력 Link를 가질 수 없어야 한다. | 구현 | 위반 링크는 구조 오류다. |
-| FR-023 | source node의 한 output port는 하나의 Link에만 연결돼야 한다. | 구현 | 같은 `(sourceClientNodeKey, sourcePort)` 중복을 거부한다. |
+| FR-023 | source node의 한 output port는 단일 경로 또는 Action 전용 fan-out으로 연결돼야 한다. | 구현 | 같은 output port의 복수 Link는 모든 target이 Action일 때만 허용한다. |
 | FR-024 | 모든 target port는 `in`이어야 한다. | 구현 | 다른 값은 거부한다. |
 | FR-025 | 모든 Node는 Trigger에서 도달 가능하고 각 비Action Node는 Action으로 이어져야 한다. | 구현 | 고립 노드와 막힌 경로를 거부한다. |
 | FR-026 | self-loop와 cycle을 금지해야 한다. | 구현 | 저장 검증과 실행 중 visited 방어가 있다. |
 | FR-027 | Filter의 `true` Link는 필수이고 `false` Link는 선택이어야 한다. | 구현 | false Link가 없고 결과가 false면 정상 종료한다. |
 | FR-028 | 저장 시 Node configuration을 타입별 DTO로 파싱·검증해야 한다. | 구현 | 필수값·범위·enum·cron 위반은 구조 오류다. |
 | FR-029 | ACTIVE 전환 전 모든 NodeExecutor와 Threshold 문법을 검증해야 한다. | 구현 | 실행기 누락 또는 SpEL 구문 오류 Flow는 활성화되지 않는다. |
-| FR-030 | Schedule Trigger의 직접 대상은 `ACTUATOR_CONTROL`만 허용해야 한다. | 구현 | Alert·Filter 등 다른 target을 거부한다. |
-| FR-031 | 한 output port에서 여러 Action으로 fan-out하지 않아야 한다. | 구현 | source-port unique 규칙으로 한 실행 경로만 선택된다. |
+| FR-030 | Schedule Trigger의 직접 대상은 하나 이상의 `ACTUATOR_CONTROL`만 허용해야 한다. | 구현 | 복수 Actuator fan-out은 허용하고 Alert·Filter 등 다른 target을 거부한다. |
+| FR-031 | 한 output port에서 여러 Action으로 fan-out할 수 있어야 한다. | 구현 | Link ID 순서대로 Action을 모두 실행하며 비Action fan-out과 완전히 동일한 Link 중복은 거부한다. |
 
 ### 3.3 텔레메트리 수신과 라우팅
 
