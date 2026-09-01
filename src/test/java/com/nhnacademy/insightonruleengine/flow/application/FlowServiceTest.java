@@ -38,6 +38,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenExcepti
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidAiDraftNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.LocationNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowNamePrefixException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
@@ -668,6 +669,23 @@ class FlowServiceTest {
 
         Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
         verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    // 404는 "일시적 실패"가 아니라 "locationId가 존재하지 않는다"는 확정된 답이므로, INACTIVE로
+    // 넘어가지 않고 저장 전에 거부해야 존재하지 않는 위치를 가리키는 Flow가 남지 않습니다.
+    @Test
+    @DisplayName("Core가 위치를 찾을 수 없다고(404) 응답하면 저장 전에 거부한다")
+    void createAiDraftRejectsWhenLocationNotFoundTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        FeignException.NotFound notFound = mock(FeignException.NotFound.class);
+        when(coreActuatorClient.getLocation(2L)).thenThrow(notFound);
+
+        assertThrows(LocationNotFoundException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
     }
 
     // 이름 유니크 제약상 이 409는 "이미 존재함" 외의 다른 의미를 가질 수 없어서, 재조회를 시도하지 않고

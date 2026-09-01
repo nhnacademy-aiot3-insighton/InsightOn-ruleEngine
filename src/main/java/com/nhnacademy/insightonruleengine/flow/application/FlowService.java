@@ -24,6 +24,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenExcepti
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidAiDraftNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.LocationNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowNamePrefixException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
@@ -32,6 +33,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActiva
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import feign.FeignException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -144,11 +146,14 @@ public class FlowService {
         }
     }
 
-    // Core에 위치 정보를 확인합니다. 조회에 실패하면 확정된 정보가 없다는 뜻이므로 null을 반환해
-    // 호출부가 안전하게 대기(SUGGESTION)로 취급하게 합니다.
+    // Core에 위치 정보를 확인합니다. 404는 locationId가 존재하지 않는다는 확정된 답이므로 그대로
+    // 거부합니다. 그 외 조회 실패는 일시적일 수 있으므로 null을 반환해 안전하게 대기(SUGGESTION)로
+    // 취급하게 합니다 — "확정된 문제는 막고, 불확실하면 보수적으로 진행한다"는 원칙을 따릅니다.
     private LocationResponse fetchLocationSafely(Long locationId) {
         try {
             return coreActuatorClient.getLocation(locationId);
+        } catch (FeignException.NotFound exception) {
+            throw new LocationNotFoundException(locationId);
         } catch (RuntimeException exception) {
             // FeignException뿐 아니라 응답 디코딩 실패 등 Core 위치 조회 과정에서 생길 수 있는 예외를
             // 전부 안전하게 실패로 취급합니다. 이 조회 하나 때문에 draft 생성 자체가 실패하면 안 됩니다.
