@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.client.core.ActuatorCommandRequest;
 import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
+import com.nhnacademy.insightonruleengine.client.core.LocationResponse;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
@@ -86,6 +87,11 @@ class ActuatorControlNodeExecutorTest {
         public void updateActuatorState(Long locationId, ActuatorCommandRequest request) {
             this.locationId = locationId;
             this.request = request;
+        }
+
+        @Override
+        public LocationResponse getLocation(Long locationId) {
+            throw new UnsupportedOperationException("이 테스트에서는 사용하지 않습니다.");
         }
     }
 }

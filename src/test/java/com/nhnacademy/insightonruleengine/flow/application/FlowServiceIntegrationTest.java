@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
@@ -79,6 +80,9 @@ class FlowServiceIntegrationTest {
 
     @MockitoBean
     private ScheduleFlowScheduler scheduleFlowScheduler;
+
+    @MockitoBean
+    private CoreActuatorClient coreActuatorClient;
 
     @Autowired
     private EntityManager entityManager;
