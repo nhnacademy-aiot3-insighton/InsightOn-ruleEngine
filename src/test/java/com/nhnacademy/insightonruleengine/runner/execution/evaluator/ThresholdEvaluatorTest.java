@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
@@ -11,10 +13,16 @@ import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ThresholdEvaluatorTest {
 
@@ -34,6 +42,91 @@ class ThresholdEvaluatorTest {
         FlowExecutionContext context = context(Map.of("temperature", 20.0, "humidity", 60));
 
         assertFalse(evaluator.evaluate("#metrics['temperature'] > 30", context));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "#metrics['humidity'] > 50",
+            "#metrics['humidity'] >= 50",
+            "#metrics['humidity'] < 50",
+            "#metrics['humidity'] <= 50",
+            "#metrics['humidity'] == 50",
+            "#metrics['humidity'] != 50",
+            "50 > #metrics['humidity']",
+            "50 >= #metrics['humidity']",
+            "50 < #metrics['humidity']",
+            "50 <= #metrics['humidity']",
+            "50 == #metrics['humidity']",
+            "50 != #metrics['humidity']"
+    })
+    @DisplayName("누락된 metric은 모든 비교 연산에서 false를 반환한다")
+    void missingMetricNeverMatches(String expression) {
+        FlowExecutionContext context = context(Map.of("temperature", 31.2));
+
+        assertFalse(evaluator.evaluate(expression, context));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "#metrics['temperature'] > 30",
+            "#metrics['temperature'] >= 30",
+            "#metrics['temperature'] < 30",
+            "#metrics['temperature'] <= 30",
+            "#metrics['temperature'] == 30",
+            "#metrics['temperature'] != 30",
+            "30 > #metrics['temperature']",
+            "30 >= #metrics['temperature']",
+            "30 < #metrics['temperature']",
+            "30 <= #metrics['temperature']",
+            "30 == #metrics['temperature']",
+            "30 != #metrics['temperature']"
+    })
+    @DisplayName("숫자가 아닌 metric은 모든 비교 연산에서 false를 반환한다")
+    void nonNumericMetricNeverMatches(String expression) {
+        FlowExecutionContext context = context(Map.of("temperature", "not-a-number"));
+
+        assertFalse(evaluator.evaluate(expression, context));
+    }
+
+    @Test
+    @DisplayName("event를 통해 접근한 누락 metric도 false를 반환한다")
+    void missingEventMetricNeverMatches() {
+        FlowExecutionContext context = context(Map.of("temperature", 31.2));
+
+        assertFalse(evaluator.evaluate("#event.metrics['humidity'] != 50", context));
+    }
+
+    @Test
+    @DisplayName("null metric은 false를 반환한다")
+    void nullMetricNeverMatches() {
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("temperature", null);
+        FlowExecutionContext context = mock(FlowExecutionContext.class);
+        when(context.metrics()).thenReturn(metrics);
+
+        assertFalse(evaluator.evaluate("#metrics['temperature'] != 50", context));
+    }
+
+    @Test
+    @DisplayName("유한하지 않은 숫자 metric은 false를 반환한다")
+    void nonFiniteMetricNeverMatches() {
+        assertFalse(evaluator.evaluate(
+                "#metrics['temperature'] != 50",
+                context(Map.of("temperature", Double.NaN))
+        ));
+        assertFalse(evaluator.evaluate(
+                "#metrics['temperature'] > 50",
+                context(Map.of("temperature", Double.POSITIVE_INFINITY))
+        ));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidProjectionMetrics")
+    @DisplayName("Map projection으로 접근한 유효하지 않은 metric도 false를 반환한다")
+    void invalidMetricFromEntrySetNeverMatches(String caseName, Object invalidMetric) {
+        FlowExecutionContext context = context(Map.of("temperature", invalidMetric));
+
+        assertFalse(evaluator.evaluate("#metrics.![value][0] != 50", context));
     }
 
     @Test
@@ -134,6 +227,15 @@ class ThresholdEvaluatorTest {
                 100L,
                 metrics,
                 Instant.parse("2026-08-03T00:00:00Z")
+        );
+    }
+
+    private static Stream<Arguments> invalidProjectionMetrics() {
+        return Stream.of(
+                Arguments.of("비숫자", "not-a-number"),
+                Arguments.of("NaN", Double.NaN),
+                Arguments.of("양의 infinity", Double.POSITIVE_INFINITY),
+                Arguments.of("음의 infinity", Float.NEGATIVE_INFINITY)
         );
     }
 }

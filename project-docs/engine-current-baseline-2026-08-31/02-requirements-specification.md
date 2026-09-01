@@ -14,7 +14,7 @@
 | ID | 요구사항 | 상태 | 인수 기준 |
 |---|---|---|---|
 | BR-001 | 그룹 관리자는 장소 단위 자동화 Flow를 정의하고 관리할 수 있어야 한다. | 구현 | 생성·조회·활성화·보관·복구·삭제 API가 역할에 따라 동작한다. |
-| BR-002 | ACTIVE 텔레메트리 Flow는 대상 장소/센서의 패킷을 받아 조건과 Action을 실행해야 한다. | 구현 | 현재 패킷이 trigger와 일치할 때 그래프 경로 하나가 실행된다. |
+| BR-002 | ACTIVE 텔레메트리 Flow는 대상 장소/센서의 패킷을 받아 조건과 Action을 실행해야 한다. | 구현 | 현재 패킷이 trigger와 일치하면 단일 경로 또는 Action 전용 fan-out을 실행한다. fan-out Action은 Link ID 순서대로 모두 실행하며, 비Action fan-out과 완전히 동일한 Link 중복은 거부한다. |
 | BR-003 | 반복 예약 Flow는 정해진 시각에 액추에이터 동작을 요청해야 한다. | 구현 | 6필드 cron과 전역 timezone을 사용하고 한 인스턴스만 실행 시도한다. |
 | BR-004 | Alert Flow는 반복 횟수와 cooldown을 적용한 뒤 AI가 소비할 이벤트를 발행해야 한다. | 구현 | Redis 원자 전이 통과 시 호환 payload가 RabbitMQ로 전달된다. |
 | BR-005 | 그룹·장소 삭제 후 해당 Flow가 더 이상 실행되지 않아야 한다. | 구현 | Schedule 취소와 cache 제거를 DB 삭제 전에 수행하고 영속 데이터가 제거된다. |
@@ -48,15 +48,15 @@
 | FR-020 | Flow에는 Trigger가 정확히 하나 있어야 한다. | 구현 | 0개 또는 2개 이상이면 ACTIVE/저장을 거부한다. |
 | FR-021 | Flow에는 Action이 하나 이상 있어야 한다. | 구현 | Action이 없으면 거부한다. |
 | FR-022 | Trigger는 입력 Link, Action은 출력 Link를 가질 수 없어야 한다. | 구현 | 위반 링크는 구조 오류다. |
-| FR-023 | source node의 한 output port는 하나의 Link에만 연결돼야 한다. | 구현 | 같은 `(sourceClientNodeKey, sourcePort)` 중복을 거부한다. |
+| FR-023 | source node의 한 output port는 단일 경로 또는 Action 전용 fan-out으로 연결돼야 한다. | 구현 | 같은 output port의 복수 Link는 모든 target이 Action일 때만 허용한다. |
 | FR-024 | 모든 target port는 `in`이어야 한다. | 구현 | 다른 값은 거부한다. |
 | FR-025 | 모든 Node는 Trigger에서 도달 가능하고 각 비Action Node는 Action으로 이어져야 한다. | 구현 | 고립 노드와 막힌 경로를 거부한다. |
 | FR-026 | self-loop와 cycle을 금지해야 한다. | 구현 | 저장 검증과 실행 중 visited 방어가 있다. |
 | FR-027 | Filter의 `true` Link는 필수이고 `false` Link는 선택이어야 한다. | 구현 | false Link가 없고 결과가 false면 정상 종료한다. |
 | FR-028 | 저장 시 Node configuration을 타입별 DTO로 파싱·검증해야 한다. | 구현 | 필수값·범위·enum·cron 위반은 구조 오류다. |
 | FR-029 | ACTIVE 전환 전 모든 NodeExecutor와 Threshold 문법을 검증해야 한다. | 구현 | 실행기 누락 또는 SpEL 구문 오류 Flow는 활성화되지 않는다. |
-| FR-030 | Schedule Trigger의 직접 대상은 `ACTUATOR_CONTROL`만 허용해야 한다. | 구현 | Alert·Filter 등 다른 target을 거부한다. |
-| FR-031 | 한 output port에서 여러 Action으로 fan-out하지 않아야 한다. | 구현 | source-port unique 규칙으로 한 실행 경로만 선택된다. |
+| FR-030 | Schedule Trigger의 직접 대상은 하나 이상의 `ACTUATOR_CONTROL`만 허용해야 한다. | 구현 | 복수 Actuator fan-out은 허용하고 Alert·Filter 등 다른 target을 거부한다. |
+| FR-031 | 한 output port에서 여러 Action으로 fan-out할 수 있어야 한다. | 구현 | Link ID 순서대로 Action을 모두 실행하며 비Action fan-out과 완전히 동일한 Link 중복은 거부한다. |
 
 ### 3.3 텔레메트리 수신과 라우팅
 

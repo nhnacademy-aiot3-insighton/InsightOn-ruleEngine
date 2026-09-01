@@ -64,6 +64,29 @@ class FlowLinkValidatorTest {
     }
 
     @Test
+    @DisplayName("Schedule Trigger는 복수 Actuator Control로 fan-out할 수 있다")
+    void scheduleActuatorFanOutTest() {
+        FlowNodeRequest schedule = node("schedule", NodeType.SCHEDULE);
+        FlowNodeRequest actuator1 = node("actuator1", NodeType.ACTUATOR_CONTROL);
+        FlowNodeRequest actuator2 = node("actuator2", NodeType.ACTUATOR_CONTROL);
+        FlowLinkRequest link1 = link("schedule", "actuator1", "out");
+        FlowLinkRequest link2 = link("schedule", "actuator2", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link1, link2));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(schedule, actuator1, actuator2)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(schedule, actuator1, actuator2)
+        );
+
+        assertTrue(actual.errors().isEmpty());
+        assertTrue(actual.canValidateConnections());
+    }
+
+    @Test
     @DisplayName("Schedule Trigger는 Alert에 연결할 수 없다")
     void rejectScheduleAlertLinkTest() {
         FlowNodeRequest schedule = node("schedule", NodeType.SCHEDULE);
@@ -136,11 +159,11 @@ class FlowLinkValidatorTest {
     }
 
     @Test
-    @DisplayName("출력 포트 중복 사용 시 거부한다")
-    void duplicateSourcePortTest() {
+    @DisplayName("동일 출력 포트에서 복수 Action으로 연결할 수 있다")
+    void actionFanOutTest() {
         FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
         FlowNodeRequest action1 = node("action1", NodeType.ALERT);
-        FlowNodeRequest action2 = node("action2", NodeType.ALERT);
+        FlowNodeRequest action2 = node("action2", NodeType.ACTUATOR_CONTROL);
         FlowLinkRequest link1 = link("trigger", "action1", "out");
         FlowLinkRequest link2 = link("trigger", "action2", "out");
 
@@ -150,7 +173,76 @@ class FlowLinkValidatorTest {
         LinkRulesResult actual = flowLinkValidator.validateBusinessRules(linkRefResult,
                 nodeMap(trigger, action1, action2));
 
-        assertEquals(List.of(FlowStructureErrorCode.DUPLICATE_SOURCE_PORT), errorCodes(actual.errors()));
+        assertTrue(actual.errors().isEmpty());
+        assertTrue(actual.canValidateConnections());
+    }
+
+    @Test
+    @DisplayName("동일 출력 포트의 복수 링크에 비Action 대상이 포함되면 거부한다")
+    void rejectNonActionFanOutTest() {
+        FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
+        FlowNodeRequest filter = node("filter", NodeType.THRESHOLD);
+        FlowNodeRequest action = node("action", NodeType.ALERT);
+        FlowLinkRequest link1 = link("trigger", "filter", "out");
+        FlowLinkRequest link2 = link("trigger", "action", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link1, link2));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(trigger, filter, action)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(trigger, filter, action)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.INVALID_FAN_OUT_TARGET), errorCodes(actual.errors()));
+        assertEquals("links[0].targetClientNodeKey", actual.errors().getFirst().fieldPath());
+        assertFalse(actual.canValidateConnections());
+    }
+
+    @Test
+    @DisplayName("비Action 대상이 두 번째 fan-out 링크이면 두 번째 링크의 필드 경로를 반환한다")
+    void rejectSecondNonActionFanOutWithExactFieldPathTest() {
+        FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
+        FlowNodeRequest action = node("action", NodeType.ALERT);
+        FlowNodeRequest filter = node("filter", NodeType.THRESHOLD);
+        FlowLinkRequest link1 = link("trigger", "action", "out");
+        FlowLinkRequest link2 = link("trigger", "filter", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link1, link2));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(trigger, action, filter)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(trigger, action, filter)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.INVALID_FAN_OUT_TARGET), errorCodes(actual.errors()));
+        assertEquals("links[1].targetClientNodeKey", actual.errors().getFirst().fieldPath());
+        assertFalse(actual.canValidateConnections());
+    }
+
+    @Test
+    @DisplayName("출발·도착 Node와 Port가 모두 같은 링크는 중복 저장할 수 없다")
+    void rejectDuplicateLinkTest() {
+        FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
+        FlowNodeRequest action = node("action", NodeType.ALERT);
+        FlowLinkRequest link = link("trigger", "action", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link, link));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(trigger, action)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(trigger, action)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.DUPLICATE_LINK), errorCodes(actual.errors()));
         assertFalse(actual.canValidateConnections());
     }
 

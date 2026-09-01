@@ -52,6 +52,125 @@ class FlowRunnerTest {
     }
 
     @Test
+    @DisplayName("동일 출력 포트에 연결된 Action들을 링크 순서대로 모두 실행한다")
+    void runActionFanOutPath() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("true"), executed),
+                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed),
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(actionFanOutFlowDefinition()),
+                registry,
+                logger
+        );
+
+        runner.run(sensorEvent());
+
+        assertEquals(
+                List.of(
+                        NodeType.SENSOR,
+                        NodeType.THRESHOLD,
+                        NodeType.ALERT,
+                        NodeType.ACTUATOR_CONTROL
+                ),
+                executed
+        );
+        assertEquals(4L, logger.terminalNodeId);
+        assertEquals(0, logger.failureCount);
+    }
+
+    @Test
+    @DisplayName("true Action fan-out과 false 단일 분기가 공존하면 선택된 false 경로만 실행한다")
+    void runSingleFalseBranchAlongsideTrueActionFanOut() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("false"), executed),
+                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed),
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed),
+                executor(NodeType.EXTERNAL_NOTIFICATION, NodeExecutionResult.complete(), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(actionFanOutWithFalseBranchFlowDefinition()),
+                registry,
+                logger
+        );
+
+        runner.run(sensorEvent());
+
+        assertEquals(
+                List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.EXTERNAL_NOTIFICATION),
+                executed
+        );
+        assertEquals(5L, logger.terminalNodeId);
+        assertEquals(0, logger.failureCount);
+    }
+
+    @Test
+    @DisplayName("fan-out Action이 실패하면 현재 정책대로 남은 Action을 실행하지 않는다")
+    void stopRemainingActionsAfterFanOutFailure() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutor failingAlertExecutor = new NodeExecutor() {
+            @Override
+            public NodeType supports() {
+                return NodeType.ALERT;
+            }
+
+            @Override
+            public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
+                executed.add(node.nodeType());
+                throw new IllegalStateException("Action 실행 실패");
+            }
+        };
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("true"), executed),
+                failingAlertExecutor,
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(actionFanOutFlowDefinition()),
+                registry,
+                logger
+        );
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.ALERT), executed);
+        assertEquals(1, logger.failureCount);
+        assertEquals(3L, logger.failedNodeId);
+    }
+
+    @Test
+    @DisplayName("fan-out 대상에 비Action Node가 포함된 손상된 Definition은 실행 전에 거부한다")
+    void rejectCorruptedNonActionFanOutDefinition() {
+        List<NodeType> executed = new ArrayList<>();
+        NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(
+                executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
+                executor(NodeType.THRESHOLD, NodeExecutionResult.next("true"), executed),
+                executor(NodeType.ALERT, NodeExecutionResult.complete(), executed)
+        ));
+        RecordingExecutionLogger logger = new RecordingExecutionLogger();
+        FlowRunner runner = new FlowRunner(
+                event -> List.of(nonActionFanOutFlowDefinition()),
+                registry,
+                logger
+        );
+
+        runner.run(sensorEvent());
+
+        assertEquals(List.of(NodeType.SENSOR), executed);
+        assertInstanceOf(IllegalStateException.class, logger.failure);
+        assertEquals(1, logger.failureCount);
+    }
+
+    @Test
     @DisplayName("Filter가 false를 반환하고 false Link가 없으면 Action 없이 정상 종료한다")
     void filterFalseWithoutLinkFinishesNormally() {
         List<NodeType> executed = new ArrayList<>();
@@ -240,6 +359,75 @@ class FlowRunnerTest {
         );
     }
 
+    private FlowDefinition actionFanOutFlowDefinition() {
+        return new FlowDefinition(
+                6L,
+                1L,
+                10L,
+                "온도 초과 다중 액션",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        node(1L, NodeType.SENSOR),
+                        node(2L, NodeType.THRESHOLD),
+                        node(3L, NodeType.ALERT),
+                        node(4L, NodeType.ACTUATOR_CONTROL)
+                ),
+                List.of(
+                        new LinkDefinition(1L, 6L, 1L, 2L, "out", "in"),
+                        new LinkDefinition(2L, 6L, 2L, 3L, "true", "in"),
+                        new LinkDefinition(3L, 6L, 2L, 4L, "true", "in")
+                )
+        );
+    }
+
+    private FlowDefinition actionFanOutWithFalseBranchFlowDefinition() {
+        return new FlowDefinition(
+                8L,
+                1L,
+                10L,
+                "조건별 다중 액션",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        node(1L, NodeType.SENSOR),
+                        node(2L, NodeType.THRESHOLD),
+                        node(3L, NodeType.ALERT),
+                        node(4L, NodeType.ACTUATOR_CONTROL),
+                        node(5L, NodeType.EXTERNAL_NOTIFICATION)
+                ),
+                List.of(
+                        new LinkDefinition(1L, 8L, 1L, 2L, "out", "in"),
+                        new LinkDefinition(2L, 8L, 2L, 3L, "true", "in"),
+                        new LinkDefinition(3L, 8L, 2L, 4L, "true", "in"),
+                        new LinkDefinition(4L, 8L, 2L, 5L, "false", "in")
+                )
+        );
+    }
+
+    private FlowDefinition nonActionFanOutFlowDefinition() {
+        return new FlowDefinition(
+                7L,
+                1L,
+                10L,
+                "잘못된 비Action fan-out",
+                null,
+                FlowStatus.ACTIVE,
+                OffsetDateTime.parse("2026-08-03T00:00:00Z"),
+                List.of(
+                        node(1L, NodeType.SENSOR),
+                        node(2L, NodeType.THRESHOLD),
+                        node(3L, NodeType.ALERT)
+                ),
+                List.of(
+                        new LinkDefinition(1L, 7L, 1L, 2L, "out", "in"),
+                        new LinkDefinition(2L, 7L, 1L, 3L, "out", "in")
+                )
+        );
+    }
+
     private FlowDefinition singleSensorFlowDefinition() {
         return new FlowDefinition(
                 2L, 1L, 10L, "잘못된 센서 출력", null, FlowStatus.ACTIVE,
@@ -318,6 +506,7 @@ class FlowRunnerTest {
         private boolean terminalActionReached;
         private RuntimeException failure;
         private int failureCount;
+        private Long failedNodeId;
 
         @Override
         public void flowFinished(
@@ -332,11 +521,12 @@ class FlowRunnerTest {
         @Override
         public void flowFailed(
                 ExecutionLogContext context,
-                NodeDefinition node,
+                NodeDefinition failedNode,
                 RuntimeException exception
         ) {
             this.failure = exception;
             this.failureCount++;
+            this.failedNodeId = failedNode == null ? null : failedNode.nodeId();
         }
     }
 }

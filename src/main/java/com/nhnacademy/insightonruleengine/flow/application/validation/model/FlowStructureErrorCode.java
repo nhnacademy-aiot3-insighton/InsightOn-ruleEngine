@@ -12,8 +12,12 @@ public enum FlowStructureErrorCode implements FlowValidationErrorReason {
     MISSING_TARGET_NODE,
     //노드가 자기 자신을 호출하면 즉시 다시 실행합니다. (같은 노드를 연결하면 생기는 문제)
     SELF_LOOP,
-    //(sourceNodeId, sourcePort)당 링크는 하나만 지원합니다.
+    //과거 단일 링크 정책에서 사용한 오류 코드입니다.
     DUPLICATE_SOURCE_PORT,
+    //출발·도착 Node와 Port가 모두 같은 링크가 중복됐습니다.
+    DUPLICATE_LINK,
+    //동일 출력 포트의 복수 링크 대상에 Action이 아닌 Node가 포함됐습니다.
+    INVALID_FAN_OUT_TARGET,
     //트리거는 시작점이므로 받는 링크가 없어야합니다.
     TRIGGER_INPUT_LINK,
     //액션은 종착점이므로 나가는 링크가 없어야합니다.

@@ -14,12 +14,18 @@ public class DuplicateFlowDefinitionKeyException extends EngineException {
         );
     }
 
-    // 한 sourcePort가 여러곳으로 가는걸 방지하기 위함
-    public DuplicateFlowDefinitionKeyException(Long sourceNodeId, String sourcePort) {
+    // 완전히 같은 링크가 중복 색인되는 것을 방지하기 위함
+    public DuplicateFlowDefinitionKeyException(
+            Long sourceNodeId,
+            String sourcePort,
+            Long targetNodeId,
+            String targetPort
+    ) {
         super(
                 ErrorCode.FLOW_INVALID_DEFINITION,
-                "FlowDefinition에 중복된 Link Key가 있습니다: sourceNodeId=%d, sourcePort=%s"
-                        .formatted(sourceNodeId, sourcePort)
+                ("FlowDefinition에 중복된 Link가 있습니다: sourceNodeId=%d, sourcePort=%s, "
+                        + "targetNodeId=%d, targetPort=%s")
+                        .formatted(sourceNodeId, sourcePort, targetNodeId, targetPort)
         );
     }
 }
