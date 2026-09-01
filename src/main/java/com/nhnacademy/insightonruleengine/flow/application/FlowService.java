@@ -20,6 +20,7 @@ import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidAiDraftNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
@@ -100,6 +101,9 @@ public class FlowService {
             return toResponse(existingFlow.get());
         }
 
+        LocationResponse location = fetchLocationSafely(request.locationId());
+        validateLocationOwnership(groupId, location);
+
         Flow flow = new Flow(
                 groupId,
                 request.locationId(),
@@ -119,7 +123,7 @@ public class FlowService {
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
 
-        if (isAiDirectLocation(groupId, request.locationId())) {
+        if (isAiDirectMode(location)) {
             activateAiDraft(savedFlow);
         }
         log.info("AI draft를 생성했습니다. flowId={}, status={}", savedFlow.getId(), savedFlow.getStatus());
@@ -140,22 +144,35 @@ public class FlowService {
         }
     }
 
-    // 위치가 AI 자동 실행(AI_DIRECT)으로 설정돼 있는지 Core에 확인합니다. 조회에 실패하면 안전하게 대기(SUGGESTION)로 취급합니다.
-    private boolean isAiDirectLocation(Long groupId, Long locationId) {
+    // Core에 위치 정보를 확인합니다. 조회에 실패하면 확정된 정보가 없다는 뜻이므로 null을 반환해
+    // 호출부가 안전하게 대기(SUGGESTION)로 취급하게 합니다.
+    private LocationResponse fetchLocationSafely(Long locationId) {
         try {
-            LocationResponse location = coreActuatorClient.getLocation(locationId);
-            return location != null
-                    && groupId.equals(location.groupId())
-                    && location.autoControlMode() == LocationResponse.AutoControlMode.AI_DIRECT;
+            return coreActuatorClient.getLocation(locationId);
         } catch (RuntimeException exception) {
             // FeignException뿐 아니라 응답 디코딩 실패 등 Core 위치 조회 과정에서 생길 수 있는 예외를
             // 전부 안전하게 실패로 취급합니다. 이 조회 하나 때문에 draft 생성 자체가 실패하면 안 됩니다.
             log.warn(
-                    "AI_DIRECT 여부 확인을 위한 Core 위치 조회에 실패해 INACTIVE로 생성합니다. locationId={}",
+                    "Core 위치 조회에 실패해 INACTIVE로 생성합니다. locationId={}",
                     locationId,
                     exception);
-            return false;
+            return null;
         }
+    }
+
+    // Core가 확인해준 위치가 실제로는 다른 그룹 소유라면, 잘못된 groupId/locationId 조합으로 다른
+    // 그룹의 위치에 Flow가 만들어지는 걸 막기 위해 요청 자체를 거부합니다(테넌트 경계 보호).
+    // 조회 자체가 실패해 location이 null이면 확정된 정보가 없으므로 여기서는 막지 않습니다.
+    private void validateLocationOwnership(Long groupId, LocationResponse location) {
+        if (location != null && !groupId.equals(location.groupId())) {
+            throw new ForbiddenException(
+                    "Core 응답의 groupId가 요청과 다릅니다. requested:" + groupId + ", returned:" + location.groupId());
+        }
+    }
+
+    // 위치가 AI 자동 실행(AI_DIRECT)으로 설정돼 있는지 확인합니다. 조회 실패로 location이 없으면 대기(SUGGESTION)로 취급합니다.
+    private boolean isAiDirectMode(LocationResponse location) {
+        return location != null && location.autoControlMode() == LocationResponse.AutoControlMode.AI_DIRECT;
     }
 
     // AI_DIRECT 위치의 draft를 changeActivationStatus와 같은 절차로 ACTIVE 전환합니다. 구조가 실행 불가능하면 INACTIVE로 남깁니다.

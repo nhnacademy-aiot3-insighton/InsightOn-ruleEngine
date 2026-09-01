@@ -596,6 +596,23 @@ class FlowServiceTest {
         verify(scheduleFlowScheduler).registerAfterCommit(eq(GROUP_ID), any());
     }
 
+    // Core가 확인해준 위치가 실제로는 다른 그룹 소유라면, 그 조합으로 Flow가 만들어지면 안 됩니다
+    // (테넌트 경계 보호). 저장 전에 걸러야 하므로 flowRepository.save()가 호출되면 안 됩니다.
+    @Test
+    @DisplayName("Core 응답의 groupId가 요청과 다르면 저장 전에 거부한다")
+    void createAiDraftRejectsLocationGroupMismatchTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, 999L, "다른 그룹 회의실", LocationResponse.AutoControlMode.AI_DIRECT));
+
+        assertThrows(ForbiddenException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
     @Test
     @DisplayName("AI_DIRECT 모드여도 구조가 실행 불가능하면 INACTIVE로 유지한다")
     void createAiDraftStaysInactiveWhenStructureNotExecutableTest() {
@@ -667,7 +684,7 @@ class FlowServiceTest {
 
         assertThrows(DuplicateFlowNameException.class, () -> flowService.createAiDraft(GROUP_ID, request));
 
-        verifyNoInteractions(nodeRepository, linkRepository, coreActuatorClient);
+        verifyNoInteractions(nodeRepository, linkRepository);
     }
 
     @Test
