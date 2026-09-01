@@ -197,6 +197,31 @@ class FlowLinkValidatorTest {
         );
 
         assertEquals(List.of(FlowStructureErrorCode.INVALID_FAN_OUT_TARGET), errorCodes(actual.errors()));
+        assertEquals("links[0].targetClientNodeKey", actual.errors().getFirst().fieldPath());
+        assertFalse(actual.canValidateConnections());
+    }
+
+    @Test
+    @DisplayName("비Action 대상이 두 번째 fan-out 링크이면 두 번째 링크의 필드 경로를 반환한다")
+    void rejectSecondNonActionFanOutWithExactFieldPathTest() {
+        FlowNodeRequest trigger = node("trigger", NodeType.SENSOR);
+        FlowNodeRequest action = node("action", NodeType.ALERT);
+        FlowNodeRequest filter = node("filter", NodeType.THRESHOLD);
+        FlowLinkRequest link1 = link("trigger", "action", "out");
+        FlowLinkRequest link2 = link("trigger", "filter", "out");
+
+        LinkValidationResult linkResult = linkValidator.validate(List.of(link1, link2));
+        LinkReferenceResult linkRefResult = flowLinkValidator.validateLinkReferences(
+                linkResult,
+                nodeMap(trigger, action, filter)
+        );
+        LinkRulesResult actual = flowLinkValidator.validateBusinessRules(
+                linkRefResult,
+                nodeMap(trigger, action, filter)
+        );
+
+        assertEquals(List.of(FlowStructureErrorCode.INVALID_FAN_OUT_TARGET), errorCodes(actual.errors()));
+        assertEquals("links[1].targetClientNodeKey", actual.errors().getFirst().fieldPath());
         assertFalse(actual.canValidateConnections());
     }
 

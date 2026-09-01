@@ -148,18 +148,23 @@ public class FlowLinkValidator {
             if (links.size() <= 1) {
                 continue;
             }
-            boolean actionTargetsOnly = links.stream()
-                    .map(indexedLink -> nodeByKey.get(indexedLink.link().targetClientNodeKey()))
-                    .allMatch(target -> target.nodeType().getCategory() == Category.ACTION);
-            if (actionTargetsOnly) {
+            IndexedLink invalidTargetLink = links.stream()
+                    .filter(indexedLink -> {
+                        FlowNodeRequest target = nodeByKey.get(
+                                indexedLink.link().targetClientNodeKey()
+                        );
+                        return target.nodeType().getCategory() != Category.ACTION;
+                    })
+                    .findFirst()
+                    .orElse(null);
+            if (invalidTargetLink == null) {
                 continue;
             }
-            IndexedLink fanOutLink = links.get(1);
             addError(
                     errors,
                     FlowStructureErrorCode.INVALID_FAN_OUT_TARGET,
                     entry.getKey().sourceClientNodeKey(),
-                    "links[" + fanOutLink.requestIndex() + "].targetClientNodeKey",
+                    "links[" + invalidTargetLink.requestIndex() + "].targetClientNodeKey",
                     "동일 출력 포트의 복수 링크는 모든 대상이 Action Node일 때만 허용됩니다."
             );
             valid = false;
