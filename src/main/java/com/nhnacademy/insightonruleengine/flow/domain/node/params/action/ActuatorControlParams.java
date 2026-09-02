@@ -19,6 +19,8 @@ public record ActuatorControlParams(
         @NotBlank @Size(max = 500) String commandValue
 ) implements NodeParams {
 
+    private static final String COMMAND_POWER = "power";
+
     @JsonIgnore
     @AssertTrue(message = "지원하지 않는 액추에이터 명령 또는 값입니다.")
     public boolean isSupportedCommand() {
@@ -27,18 +29,18 @@ public record ActuatorControlParams(
         }
         return switch (actuatorType) {
             case "AIRCON" -> switch (command.toLowerCase(Locale.ROOT)) {
-                case "power" -> allowed("ON", "OFF");
+                case COMMAND_POWER -> allowed("ON", "OFF");
                 case "mode" -> allowed("COOL", "DRY", "FAN", "AUTO");
                 case "temperature" -> numericRange(18, 30);
                 default -> false;
             };
             case "AIR_PURIFIER" -> switch (command.toLowerCase(Locale.ROOT)) {
-                case "power" -> allowed("ON", "OFF");
+                case COMMAND_POWER -> allowed("ON", "OFF");
                 case "mode" -> allowed("AUTO", "SLEEP", "TURBO");
                 default -> false;
             };
             case "VENTILATION_FAN" -> switch (command.toLowerCase(Locale.ROOT)) {
-                case "power" -> allowed("ON", "OFF");
+                case COMMAND_POWER -> allowed("ON", "OFF");
                 case "mode" -> allowed("LOW", "MID", "HIGH");
                 default -> false;
             };
