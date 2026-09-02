@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
@@ -87,6 +88,9 @@ class FlowLifecycleE2ETest {
 
     @MockitoBean
     private NodeConfigurationValidator nodeConfigurationValidator;
+
+    @MockitoBean
+    private CoreActuatorClient coreActuatorClient;
 
     @Autowired
     private EntityManager entityManager;

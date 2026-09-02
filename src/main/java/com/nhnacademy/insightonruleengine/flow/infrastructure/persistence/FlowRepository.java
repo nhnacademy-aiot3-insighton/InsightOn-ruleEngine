@@ -4,6 +4,7 @@ import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -41,6 +42,9 @@ public interface FlowRepository extends JpaRepository<Flow, Long> {
     );
 
     boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
+
+    // AI draft 생성 시 같은 위치·같은 이름의 기존 Flow(상태 무관)를 그대로 재사용하기 위해 조회합니다.
+    Optional<Flow> findByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from Flow flow where flow.groupId = :groupId")

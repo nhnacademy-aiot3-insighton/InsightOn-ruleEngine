@@ -2,7 +2,9 @@ package com.nhnacademy.insightonruleengine.flow.application;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +12,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
+import com.nhnacademy.insightonruleengine.client.core.LocationResponse;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
@@ -31,8 +35,11 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNam
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidAiDraftNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.LocationNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowNamePrefixException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
@@ -42,6 +49,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfig
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
+import feign.FeignException;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
@@ -51,6 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class FlowServiceTest {
@@ -88,6 +97,9 @@ class FlowServiceTest {
     @Mock
     ScheduleFlowScheduler scheduleFlowScheduler;
 
+    @Mock
+    CoreActuatorClient coreActuatorClient;
+
     @InjectMocks
     FlowService flowService;
 
@@ -116,6 +128,24 @@ class FlowServiceTest {
         Assertions.assertEquals("온도가 너무 높아요", flowResponse.description());
         Assertions.assertEquals(FlowStatus.INACTIVE, flowResponse.status());
 
+    }
+
+    @Test
+    @DisplayName("유저가 이름에 [AI] 접두어를 붙이면 생성을 거부한다")
+    void createRejectsAiDraftPrefixTest() {
+        FlowCreateRequest request = FlowCreateRequest.builder()
+                .locationId(2L)
+                .name("[AI] 위장한 이름")
+                .description(null)
+                .nodes(List.of())
+                .links(List.of())
+                .build();
+
+        assertThrows(
+                ReservedFlowNamePrefixException.class,
+                () -> flowService.create(GROUP_ID, USER_ID, request));
+
+        verifyNoInteractions(flowRepository);
     }
 
     @Test
@@ -282,6 +312,19 @@ class FlowServiceTest {
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
         verify(nodeRepository, times(2)).save(any(Node.class));
         verify(linkRepository).save(any(Link.class));
+    }
+
+    // rejectAiDraftPrefix()가 getFlow() 조회보다 먼저 실행돼 Repository를 아예 건드리지 않습니다.
+    @Test
+    @DisplayName("유저가 수정 이름에 [AI] 접두어를 붙이면 수정을 거부한다")
+    void updateRejectsAiDraftPrefixTest() {
+        FlowUpdateRequest request = updateRequest("[AI] 위장한 이름", "수정 설명");
+
+        assertThrows(
+                ReservedFlowNamePrefixException.class,
+                () -> flowService.update(GROUP_ID, USER_ID, 1L, request));
+
+        verifyNoInteractions(flowRepository);
     }
 
     // 실행 중인 Flow도 권한을 확인한 뒤 안전하게 휴지통으로 보내는지 확인합니다.
@@ -500,6 +543,205 @@ class FlowServiceTest {
                 () -> flowService.delete(GROUP_ID, USER_ID, 1L));
 
         verify(flowRepository, never()).delete(any(Flow.class));
+    }
+
+    @Test
+    @DisplayName("AI draft는 같은 위치·이름의 기존 Flow가 있으면 상태와 관계없이 그대로 반환한다")
+    void createAiDraftReturnsExistingFlowRegardlessOfStatusTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        Flow archivedFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ARCHIVED);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.of(archivedFlow));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(coreActuatorClient);
+    }
+
+    @Test
+    @DisplayName("AI draft는 위치가 SUGGESTION 모드면 INACTIVE로 생성한다")
+    void createAiDraftCreatesInactiveWhenSuggestionModeTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    @Test
+    @DisplayName("AI draft는 위치가 AI_DIRECT 모드고 실행 가능한 구조면 ACTIVE로 만들고 라우트·스케줄을 등록한다")
+    void createAiDraftActivatesWhenAiDirectAndValidTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.AI_DIRECT));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, response.status());
+        verify(activeFlowDefinitionProvider).refreshAfterCommit(GROUP_ID, 2L);
+        verify(scheduleFlowScheduler).registerAfterCommit(eq(GROUP_ID), any());
+    }
+
+    // Core가 확인해준 위치가 실제로는 다른 그룹 소유라면, 그 조합으로 Flow가 만들어지면 안 됩니다
+    // (테넌트 경계 보호). 저장 전에 걸러야 하므로 flowRepository.save()가 호출되면 안 됩니다.
+    @Test
+    @DisplayName("Core 응답의 groupId가 요청과 다르면 저장 전에 거부한다")
+    void createAiDraftRejectsLocationGroupMismatchTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, 999L, "다른 그룹 회의실", LocationResponse.AutoControlMode.AI_DIRECT));
+
+        assertThrows(ForbiddenException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
+    @Test
+    @DisplayName("AI_DIRECT 모드여도 구조가 실행 불가능하면 INACTIVE로 유지한다")
+    void createAiDraftStaysInactiveWhenStructureNotExecutableTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.AI_DIRECT));
+        when(flowActivationValidator.validate(any())).thenReturn(List.of(
+                new FlowStructureValidationError(
+                        FlowStructureErrorCode.SELF_LOOP, null, "nodes", "실행할 수 없는 구조입니다.")));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    @Test
+    @DisplayName("Core 위치 조회가 실패하면 AI_DIRECT 여부를 확인하지 못해 INACTIVE로 생성한다")
+    void createAiDraftStaysInactiveWhenCoreLookupFailsTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        FeignException.InternalServerError coreFailure = mock(FeignException.InternalServerError.class);
+        when(coreActuatorClient.getLocation(2L)).thenThrow(coreFailure);
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    // FeignException이 아닌 예외(응답 디코딩 실패 등)도 같은 방식으로 안전하게 처리돼야 합니다.
+    @Test
+    @DisplayName("Core 위치 조회에서 FeignException이 아닌 예외가 나도 INACTIVE로 생성한다")
+    void createAiDraftStaysInactiveWhenCoreLookupThrowsNonFeignExceptionTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L)).thenThrow(new RuntimeException("응답 디코딩 실패"));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verifyNoInteractions(activeFlowDefinitionProvider, scheduleFlowScheduler);
+    }
+
+    // 404는 "일시적 실패"가 아니라 "locationId가 존재하지 않는다"는 확정된 답이므로, INACTIVE로
+    // 넘어가지 않고 저장 전에 거부해야 존재하지 않는 위치를 가리키는 Flow가 남지 않습니다.
+    @Test
+    @DisplayName("Core가 위치를 찾을 수 없다고(404) 응답하면 저장 전에 거부한다")
+    void createAiDraftRejectsWhenLocationNotFoundTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        FeignException.NotFound notFound = mock(FeignException.NotFound.class);
+        when(coreActuatorClient.getLocation(2L)).thenThrow(notFound);
+
+        assertThrows(LocationNotFoundException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verify(flowRepository, never()).save(any(Flow.class));
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
+    // 이름 유니크 제약상 이 409는 "이미 존재함" 외의 다른 의미를 가질 수 없어서, 재조회를 시도하지 않고
+    // 그대로 충돌 예외를 던집니다. 동시에 들어온 같은 요청이 이미 저장을 마쳤다는 뜻이라, 자동화 자체는
+    // 문제없이 존재합니다.
+    @Test
+    @DisplayName("동시 요청으로 저장이 유니크 제약을 위반하면 충돌 예외를 던진다")
+    void createAiDraftThrowsOnConcurrentDuplicateTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThrows(DuplicateFlowNameException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verifyNoInteractions(nodeRepository, linkRepository);
+    }
+
+    @Test
+    @DisplayName("이름에 [AI] 접두어가 없으면 AI draft 생성을 거부한다")
+    void createAiDraftRejectsMissingPrefixTest() {
+        FlowCreateRequest request = FlowTestData.createScheduledActuatorFlowRequest(2L);
+
+        assertThrows(InvalidAiDraftNameException.class, () -> flowService.createAiDraft(GROUP_ID, request));
+
+        verifyNoInteractions(flowRepository, coreActuatorClient);
+    }
+
+    @Test
+    @DisplayName("AI draft는 유저 권한 확인 없이 동작한다")
+    void createAiDraftSkipsAuthorizationTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
+
+        flowService.createAiDraft(GROUP_ID, request);
+
+        verifyNoInteractions(groupAuthorizationService);
+    }
+
+    // 공용 SCHEDULE->ACTUATOR_CONTROL 픽스처를 엔진이 요구하는 "[AI] " 접두어 이름으로 감싸 재사용합니다.
+    private FlowCreateRequest aiDraftRequest(Long locationId) {
+        FlowCreateRequest base = FlowTestData.createScheduledActuatorFlowRequest(locationId);
+        return FlowCreateRequest.builder()
+                .locationId(base.locationId())
+                .name("[AI] " + base.name())
+                .description(base.description())
+                .nodes(base.nodes())
+                .links(base.links())
+                .build();
     }
 
     private FlowUpdateRequest updateRequest(String name, String description) {
