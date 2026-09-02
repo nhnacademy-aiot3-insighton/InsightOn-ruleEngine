@@ -65,7 +65,7 @@ class FlowActivationValidatorTest {
     }
 
     @Test
-    void legacyActuatorConfigurationCanBeActivated() {
+    void validActuatorConfigurationCanBeActivated() {
         FlowStructureValidator structureValidator = mock(FlowStructureValidator.class);
         NodeExecutor executor = mock(NodeExecutor.class);
         when(executor.supports()).thenReturn(NodeType.ACTUATOR_CONTROL);
@@ -82,7 +82,10 @@ class FlowActivationValidatorTest {
                 new NodeDefinition(
                         1L,
                         NodeType.ACTUATOR_CONTROL,
-                        new ObjectMapper().createObjectNode().put("deviceId", 900L))));
+                        new ObjectMapper().createObjectNode()
+                                .put("actuatorType", "VENTILATION_FAN")
+                                .put("command", "power")
+                                .put("commandValue", "ON"))));
 
         assertTrue(errors.isEmpty());
     }

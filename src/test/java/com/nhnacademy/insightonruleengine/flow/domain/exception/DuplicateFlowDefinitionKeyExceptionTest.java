@@ -22,14 +22,15 @@ class DuplicateFlowDefinitionKeyExceptionTest {
     }
 
     @Test
-    @DisplayName("중복 Link Key는 잘못된 실행 Definition 오류와 Source 위치를 제공한다")
+    @DisplayName("중복 Link는 잘못된 실행 Definition 오류와 전체 경로를 제공한다")
     void duplicateLinkKeyTest() {
         DuplicateFlowDefinitionKeyException exception =
-                new DuplicateFlowDefinitionKeyException(10L, "true");
+                new DuplicateFlowDefinitionKeyException(10L, "true", 20L, "in");
 
         assertEquals(ErrorCode.FLOW_INVALID_DEFINITION, exception.getErrorCode());
         assertEquals(
-                "FlowDefinition에 중복된 Link Key가 있습니다: sourceNodeId=10, sourcePort=true",
+                "FlowDefinition에 중복된 Link가 있습니다: sourceNodeId=10, sourcePort=true, "
+                        + "targetNodeId=20, targetPort=in",
                 exception.getMessage()
         );
     }

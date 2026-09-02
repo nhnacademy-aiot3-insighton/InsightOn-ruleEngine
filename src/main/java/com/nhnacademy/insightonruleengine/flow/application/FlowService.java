@@ -1,8 +1,11 @@
 package com.nhnacademy.insightonruleengine.flow.application;
 
+import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
+import com.nhnacademy.insightonruleengine.client.core.LocationResponse;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -17,42 +20,58 @@ import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidAiDraftNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.LocationNotFoundException;
+import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowNamePrefixException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import feign.FeignException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class FlowService {
 
     private static final String TARGET_PORT = "in";
+    private static final String AI_DRAFT_NAME_PREFIX = "[AI] ";
 
     private final FlowRepository flowRepository;
     private final GroupAuthorizationService groupAuthorizationService;
     private final NodeRepository nodeRepository;
     private final LinkRepository linkRepository;
     private final FlowStructureValidator flowStructureValidator;
+    private final NodeConfigurationValidator nodeConfigurationValidator;
     private final FlowDefinitionAssembler flowDefinitionAssembler;
     private final FlowActivationValidator flowActivationValidator;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+    private final ScheduleFlowScheduler scheduleFlowScheduler;
+    private final CoreActuatorClient coreActuatorClient;
 
     // 새 Flow는 바로 실행되지 않도록 INACTIVE 상태로 저장합니다.
     @Transactional
     public FlowResponse create(Long groupId, Long userId, FlowCreateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
+        rejectAiDraftPrefix(request.name());
         validateStructure(request.nodes(), request.links());
         Flow flow = new Flow(
                 groupId,
@@ -65,6 +84,114 @@ public class FlowService {
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         return toResponse(savedFlow);
+    }
+
+    // AI가 리포트 분석 결과로 자동화 flow 초안을 요청합니다. 유저가 없어 MANAGER 권한 체크는 하지 않습니다.
+    @Transactional
+    public FlowResponse createAiDraft(Long groupId, FlowCreateRequest request) {
+        validateRequest(request);
+        validateAiDraftName(request.name());
+        validateStructure(request.nodes(), request.links());
+
+        Optional<Flow> existingFlow = flowRepository.findByGroupIdAndLocationIdAndName(
+                groupId, request.locationId(), request.name());
+        if (existingFlow.isPresent()) {
+            log.info(
+                    "AI draft가 이미 있어 그대로 반환합니다. flowId={}, status={}",
+                    existingFlow.get().getId(),
+                    existingFlow.get().getStatus());
+            return toResponse(existingFlow.get());
+        }
+
+        LocationResponse location = fetchLocationSafely(request.locationId());
+        validateLocationOwnership(groupId, location);
+
+        Flow flow = new Flow(
+                groupId,
+                request.locationId(),
+                request.name(),
+                request.description(),
+                FlowStatus.INACTIVE);
+        Flow savedFlow;
+        try {
+            savedFlow = flowRepository.save(flow);
+        } catch (DataIntegrityViolationException exception) {
+            // 이름 유니크 제약상 이 요청과 완전히 같은 자동화가 이미 존재한다는 뜻입니다. 동시에 들어온
+            // 같은 요청이 먼저 저장을 마친 경우이므로, 재조회를 시도하지 않고 그대로 충돌로 응답합니다.
+            // 이 엔드포인트를 호출하는 쪽은 AI뿐이고 이름을 항상 같은 규칙으로 만들기 때문에, 여기서
+            // 발생하는 409는 "이미 존재함" 외의 다른 의미를 가질 수 없습니다.
+            throw new DuplicateFlowNameException(groupId, request.locationId(), request.name());
+        }
+        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
+        saveLinks(savedFlow.getId(), request.links(), nodeIds);
+
+        if (isAiDirectMode(location)) {
+            activateAiDraft(savedFlow);
+        }
+        log.info("AI draft를 생성했습니다. flowId={}, status={}", savedFlow.getId(), savedFlow.getStatus());
+        return toResponse(savedFlow);
+    }
+
+    // 이름만 보고도 AI가 만든 Flow인지 구분할 수 있도록, 접두어를 엔진이 직접 강제합니다.
+    private void validateAiDraftName(String name) {
+        if (name == null || !name.startsWith(AI_DRAFT_NAME_PREFIX)) {
+            throw new InvalidAiDraftNameException(AI_DRAFT_NAME_PREFIX, name);
+        }
+    }
+
+    // 유저가 만든 Flow 이름이 AI draft 전용 접두어를 흉내내 Front에서 잘못 표시되는 것을 막습니다.
+    private void rejectAiDraftPrefix(String name) {
+        if (name != null && name.startsWith(AI_DRAFT_NAME_PREFIX)) {
+            throw new ReservedFlowNamePrefixException(AI_DRAFT_NAME_PREFIX, name);
+        }
+    }
+
+    // Core에 위치 정보를 확인합니다. 404는 locationId가 존재하지 않는다는 확정된 답이므로 그대로
+    // 거부합니다. 그 외 조회 실패는 일시적일 수 있으므로 null을 반환해 안전하게 대기(SUGGESTION)로
+    // 취급하게 합니다 — "확정된 문제는 막고, 불확실하면 보수적으로 진행한다"는 원칙을 따릅니다.
+    private LocationResponse fetchLocationSafely(Long locationId) {
+        try {
+            return coreActuatorClient.getLocation(locationId);
+        } catch (FeignException.NotFound exception) {
+            throw new LocationNotFoundException(locationId);
+        } catch (RuntimeException exception) {
+            // FeignException뿐 아니라 응답 디코딩 실패 등 Core 위치 조회 과정에서 생길 수 있는 예외를
+            // 전부 안전하게 실패로 취급합니다. 이 조회 하나 때문에 draft 생성 자체가 실패하면 안 됩니다.
+            log.warn(
+                    "Core 위치 조회에 실패해 INACTIVE로 생성합니다. locationId={}",
+                    locationId,
+                    exception);
+            return null;
+        }
+    }
+
+    // Core가 확인해준 위치가 실제로는 다른 그룹 소유라면, 잘못된 groupId/locationId 조합으로 다른
+    // 그룹의 위치에 Flow가 만들어지는 걸 막기 위해 요청 자체를 거부합니다(테넌트 경계 보호).
+    // 조회 자체가 실패해 location이 null이면 확정된 정보가 없으므로 여기서는 막지 않습니다.
+    private void validateLocationOwnership(Long groupId, LocationResponse location) {
+        if (location != null && !groupId.equals(location.groupId())) {
+            throw new ForbiddenException(
+                    "Core 응답의 groupId가 요청과 다릅니다. requested:" + groupId + ", returned:" + location.groupId());
+        }
+    }
+
+    // 위치가 AI 자동 실행(AI_DIRECT)으로 설정돼 있는지 확인합니다. 조회 실패로 location이 없으면 대기(SUGGESTION)로 취급합니다.
+    private boolean isAiDirectMode(LocationResponse location) {
+        return location != null && location.autoControlMode() == LocationResponse.AutoControlMode.AI_DIRECT;
+    }
+
+    // AI_DIRECT 위치의 draft를 changeActivationStatus와 같은 절차로 ACTIVE 전환합니다. 구조가 실행 불가능하면 INACTIVE로 남깁니다.
+    private void activateAiDraft(Flow flow) {
+        List<FlowStructureValidationError> errors = flowActivationValidator.validate(
+                flowDefinitionAssembler.assemble(flow.getGroupId(), flow.getId()));
+        if (errors != null && !errors.isEmpty()) {
+            log.warn("AI_DIRECT draft가 실행 조건을 만족하지 못해 INACTIVE로 유지합니다. flowId={}, errors={}",
+                    flow.getId(), errors);
+            return;
+        }
+        flow.changeActivationStatus(FlowStatus.ACTIVE);
+        activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowScheduler.registerAfterCommit(flow.getGroupId(), flow.getId());
     }
 
     // 일반 목록에서는 휴지통의 Flow를 제외합니다.
@@ -130,6 +257,11 @@ public class FlowService {
         }
         flow.changeActivationStatus(request.status());
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        if (request.status() == FlowStatus.ACTIVE) {
+            scheduleFlowScheduler.registerAfterCommit(flow.getGroupId(), flow.getId());
+        } else {
+            scheduleFlowScheduler.cancelAfterCommit(flow.getId());
+        }
         return toResponse(flow);
     }
 
@@ -140,6 +272,7 @@ public class FlowService {
         Flow flow = getFlow(groupId, flowId);
         flow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(flow.getId());
         return toResponse(flow);
     }
 
@@ -155,6 +288,7 @@ public class FlowService {
         nodeRepository.deleteByFlowId(flowId);
         flowRepository.delete(flow);
         activeFlowDefinitionProvider.refreshAfterCommit(flow.getGroupId(), flow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(flow.getId());
     }
 
     // 기존 Flow는 보관하고 수정한 Flow는 새로 저장합니다.
@@ -162,6 +296,7 @@ public class FlowService {
     public FlowResponse update(Long groupId, Long userId, Long flowId, FlowUpdateRequest request) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         validateRequest(request);
+        rejectAiDraftPrefix(request.name());
         Flow currentFlow = getFlow(groupId, flowId);
         if (currentFlow.getStatus().equals(FlowStatus.ARCHIVED)) {
             throw new InvalidFlowStatusTransitionException(FlowStatus.ARCHIVED, FlowStatus.INACTIVE);
@@ -180,6 +315,7 @@ public class FlowService {
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         currentFlow.archive();
         activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(currentFlow.getId());
         return toResponse(savedFlow);
     }
 
@@ -211,9 +347,20 @@ public class FlowService {
     }
 
     private void validateStructure(List<FlowNodeRequest> nodes, List<FlowLinkRequest> links) {
-        List<FlowStructureValidationError> errors = flowStructureValidator.validate(nodes, links);
-        if (errors != null && !errors.isEmpty()) {
+        List<FlowStructureValidationError> errors = new ArrayList<>();
+        addErrors(errors, flowStructureValidator.validate(nodes, links));
+        addErrors(errors, nodeConfigurationValidator.validate(nodes));
+        if (!errors.isEmpty()) {
             throw new InvalidFlowStructureException(errors);
+        }
+    }
+
+    private void addErrors(
+            List<FlowStructureValidationError> target,
+            List<FlowStructureValidationError> source
+    ) {
+        if (source != null) {
+            target.addAll(source);
         }
     }
 

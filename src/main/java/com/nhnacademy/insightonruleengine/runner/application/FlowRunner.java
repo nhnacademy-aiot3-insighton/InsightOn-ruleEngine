@@ -13,14 +13,14 @@ import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogger;
 import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
-import java.util.List;
+import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FlowRunner {
@@ -38,78 +38,141 @@ public class FlowRunner {
         try {
             flows = flowRouter.route(event);
         } catch (RuntimeException exception) {
-            log.error(
-                    "센서 이벤트 라우팅에 실패했습니다. groupId={}, locationId={}, sensorId={}",
-                    event.groupId(),
-                    event.locationId(),
-                    event.sensorId(),
-                    exception);
+            executionLogger.routingFailed(event, exception);
             return;
         }
         executionLogger.eventRouted(event, flows.size());
         for (FlowDefinition flow : flows) {
-            ExecutionLogContext logContext = ExecutionLogContext.create(flow, event);
-            try {
-                runFlow(flow, event, logContext);
-            } catch (RuntimeException exception) {
-                executionLogger.flowFailed(logContext, exception);
-            }
+            ExecutionLogContext logContext = ExecutionLogContext.telemetry(flow, event);
+            runFlow(flow, new FlowExecutionContext(flow, event), logContext);
         }
     }
 
     void runFlow(FlowDefinition flow, SensorEvent event) {
-        runFlow(flow, event, ExecutionLogContext.create(flow, event));
+        runFlow(
+                flow,
+                new FlowExecutionContext(flow, event),
+                ExecutionLogContext.telemetry(flow, event)
+        );
     }
 
-    private void runFlow(FlowDefinition flow, SensorEvent event, ExecutionLogContext logContext) {
-        FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
-        NodeDefinition current = findTriggerNode(flow);
-        FlowExecutionContext context = new FlowExecutionContext(flow, event);
-        Set<Long> visitedNodeIds = new HashSet<>();
+    public void runScheduled(FlowDefinition flow, Instant triggeredAt) {
+        if (flow == null) {
+            throw new IllegalArgumentException("flow는 필수입니다.");
+        }
+        if (triggeredAt == null) {
+            throw new IllegalArgumentException("triggeredAt은 필수입니다.");
+        }
 
-        executionLogger.flowStarted(logContext, current.nodeId());
-        while (current != null) {
-            if (!visitedNodeIds.add(current.nodeId())) {
-                throw new IllegalStateException(
-                        "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
-                                + ", nodeId=" + current.nodeId());
+        ExecutionLogContext logContext = ExecutionLogContext.scheduled(flow, triggeredAt);
+        try {
+            NodeDefinition triggerNode = findTriggerNode(flow);
+            if (triggerNode.nodeType() != NodeType.SCHEDULE) {
+                throw new IllegalArgumentException(
+                        "Schedule Trigger Flow가 아닙니다. flowId=" + flow.flowId());
             }
-            current = executeNode(index, current, context, logContext);
+            runFlow(flow, FlowExecutionContext.scheduled(flow, triggeredAt), logContext);
+        } catch (RuntimeException exception) {
+            executionLogger.flowFailed(logContext, null, exception);
         }
     }
 
-    private NodeDefinition executeNode(
-            FlowDefinitionIndex index,
-            NodeDefinition current,
+    private void runFlow(
+            FlowDefinition flow,
             FlowExecutionContext context,
             ExecutionLogContext logContext
     ) {
+        NodeDefinition current = null;
         try {
-            NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
-            executionLogger.nodeStarted(logContext, current);
+            FlowDefinitionIndex index = new FlowDefinitionIndex(flow);
+            current = findTriggerNode(flow);
+            Set<Long> visitedNodeIds = new HashSet<>();
+            ArrayDeque<NodeDefinition> pendingActions = new ArrayDeque<>();
 
-            NodeExecutionResult result = executor.execute(current, context);
-            validateExecutionResult(current, result);
-            executionLogger.nodeFinished(logContext, current, result);
-            if (result.terminal()) {
-                executionLogger.flowFinished(logContext, current.nodeId(), true);
-                return null;
-            }
+            while (current != null) {
+                requireNotVisited(flow, visitedNodeIds, current);
+                NodeExecutionResult result = executeNode(current, context);
+                if (result.terminal()) {
+                    if (pendingActions.isEmpty()) {
+                        executionLogger.flowFinished(logContext, current.nodeId(), true);
+                        return;
+                    }
+                    current = pendingActions.removeFirst();
+                    continue;
+                }
 
-            LinkDefinition nextLink = index.findLink(current.nodeId(), result.outputPort()).orElse(null);
-            if (nextLink == null
-                    && current.nodeType().getCategory() == NodeType.Category.FILTER
-                    && "false".equals(result.outputPort())) {
-                executionLogger.flowFinished(logContext, current.nodeId(), false);
-                return null;
+                List<LinkDefinition> nextLinks = resolveNextLinks(index, current, result);
+                if (nextLinks.isEmpty()) {
+                    executionLogger.flowFinished(logContext, current.nodeId(), false);
+                    return;
+                }
+
+                List<NodeDefinition> nextNodes = nextLinks.stream()
+                        .map(link -> index.requireNode(link.targetNodeId()))
+                        .toList();
+                validateFanOutTargets(current, result.outputPort(), nextNodes);
+                current = nextNodes.getFirst();
+                if (nextNodes.size() > 1) {
+                    pendingActions.addAll(nextNodes.subList(1, nextNodes.size()));
+                }
             }
-            if (nextLink == null) {
-                nextLink = index.requireLink(current.nodeId(), result.outputPort());
-            }
-            return index.requireNode(nextLink.targetNodeId());
         } catch (RuntimeException exception) {
-            executionLogger.nodeFailed(logContext, current, exception);
-            throw exception;
+            executionLogger.flowFailed(logContext, current, exception);
+        }
+    }
+
+    // 실행 중 같은 Node를 다시 방문하면 순환 경로이므로 즉시 실패시킵니다.
+    private void requireNotVisited(FlowDefinition flow, Set<Long> visitedNodeIds, NodeDefinition current) {
+        if (!visitedNodeIds.add(current.nodeId())) {
+            throw new IllegalStateException(
+                    "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
+                            + ", nodeId=" + current.nodeId());
+        }
+    }
+
+    // Filter가 false로 끝나 연결된 Link가 없으면 정상 종료를 뜻하는 빈 리스트를 반환합니다.
+    // requireLinks()는 찾지 못하면 예외를 던지므로(빈 리스트를 반환하지 않으므로), 이 메서드가 빈
+    // 리스트를 반환하는 경우는 이 정상 종료 케이스뿐입니다.
+    private List<LinkDefinition> resolveNextLinks(
+            FlowDefinitionIndex index,
+            NodeDefinition current,
+            NodeExecutionResult result) {
+        List<LinkDefinition> nextLinks = index.findLinks(current.nodeId(), result.outputPort());
+        if (!nextLinks.isEmpty()) {
+            return nextLinks;
+        }
+        if (current.nodeType().getCategory() == NodeType.Category.FILTER
+                && "false".equals(result.outputPort())) {
+            return List.of();
+        }
+        return index.requireLinks(current.nodeId(), result.outputPort());
+    }
+
+    private NodeExecutionResult executeNode(
+            NodeDefinition current,
+            FlowExecutionContext context
+    ) {
+        NodeExecutor executor = nodeExecutorRegistry.get(current.nodeType());
+        NodeExecutionResult result = executor.execute(current, context);
+        validateExecutionResult(current, result);
+        return result;
+    }
+
+    private void validateFanOutTargets(
+            NodeDefinition source,
+            String sourcePort,
+            List<NodeDefinition> targets
+    ) {
+        if (targets.size() <= 1) {
+            return;
+        }
+        boolean actionTargetsOnly = targets.stream()
+                .allMatch(target -> target.nodeType().getCategory() == NodeType.Category.ACTION);
+        if (!actionTargetsOnly) {
+            throw new IllegalStateException(
+                    "Action이 아닌 Node로의 fan-out은 지원하지 않습니다. sourceNodeId="
+                            + source.nodeId() + ", sourcePort=" + sourcePort
+            );
         }
     }
 

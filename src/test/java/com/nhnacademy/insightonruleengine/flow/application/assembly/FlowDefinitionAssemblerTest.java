@@ -2,12 +2,14 @@ package com.nhnacademy.insightonruleengine.flow.application.assembly;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
@@ -97,6 +99,27 @@ class FlowDefinitionAssemblerTest {
     }
 
     @Test
+    @DisplayName("Link를 ID 오름차순으로 정렬해 실행 순서를 결정한다")
+    void sortsLinksByIdTest() {
+        Link laterLink = mock(Link.class);
+        Link earlierLink = mock(Link.class);
+        when(flow.getId()).thenReturn(FLOW_ID);
+        when(flow.getGroupId()).thenReturn(GROUP_ID);
+        when(flow.getStatus()).thenReturn(FlowStatus.ACTIVE);
+        when(flowRepository.findById(FLOW_ID)).thenReturn(Optional.of(flow));
+        when(nodeRepository.findByFlowId(FLOW_ID)).thenReturn(List.of());
+        when(linkRepository.findByFlowId(FLOW_ID)).thenReturn(List.of(laterLink, earlierLink));
+        stubLink(laterLink, 200L, 20L);
+        stubLink(earlierLink, 100L, 10L);
+
+        FlowDefinition result = assembler.assemble(GROUP_ID, FLOW_ID);
+
+        assertEquals(List.of(100L, 200L), result.links().stream()
+                .map(LinkDefinition::linkId)
+                .toList());
+    }
+
+    @Test
     @DisplayName("요청 그룹에 속하지 않는 Flow는 Node와 Link 조회 전에 거부한다")
     void otherGroupFlowTest() {
         when(flow.getGroupId()).thenReturn(GROUP_ID);
@@ -152,5 +175,14 @@ class FlowDefinitionAssemblerTest {
         verify(flowRepository).findById(FLOW_ID);
         verify(nodeRepository).findByFlowId(FLOW_ID);
         verify(linkRepository).findByFlowId(FLOW_ID);
+    }
+
+    private void stubLink(Link targetLink, Long linkId, Long targetNodeId) {
+        when(targetLink.getId()).thenReturn(linkId);
+        when(targetLink.getFlowId()).thenReturn(FLOW_ID);
+        when(targetLink.getSourceNodeId()).thenReturn(1L);
+        when(targetLink.getTargetNodeId()).thenReturn(targetNodeId);
+        when(targetLink.getSourcePort()).thenReturn("out");
+        when(targetLink.getTargetPort()).thenReturn("in");
     }
 }

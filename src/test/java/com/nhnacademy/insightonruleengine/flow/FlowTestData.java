@@ -108,7 +108,7 @@ public abstract class FlowTestData {
                         .clientNodeKey("fan_actuator")
                         .nodeType(NodeType.ACTUATOR_CONTROL)
                         .configuration(JsonNodeFactory.instance.objectNode()
-                                .put("actuatorType", "FAN")
+                                .put("actuatorType", "VENTILATION_FAN")
                                 .put("command", "power")
                                 .put("commandValue", "ON"))
                         .build()

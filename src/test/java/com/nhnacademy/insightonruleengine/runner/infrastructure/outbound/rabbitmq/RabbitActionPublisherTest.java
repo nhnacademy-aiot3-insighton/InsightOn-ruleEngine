@@ -30,8 +30,7 @@ class RabbitActionPublisherTest {
     void setUp() {
         properties = new ActionPublisherProperties(
                 "insighton.rule-engine-events",
-                "ai.alert.action",
-                "ai.suggestion.action"
+                "ai.alert.action"
         );
         publisher = new RabbitActionPublisher(rabbitTemplate, properties);
     }
@@ -57,7 +56,7 @@ class RabbitActionPublisherTest {
                 .when(rabbitTemplate)
                 .convertAndSend(properties.exchange(), properties.alertRoutingKey(), event);
 
-        assertThrows(IllegalArgumentException.class, () -> publisher.publishAlert(event));
+        assertThrows(IllegalStateException.class, () -> publisher.publishAlert(event));
     }
 
     private EngineAlertActionEvent event() {

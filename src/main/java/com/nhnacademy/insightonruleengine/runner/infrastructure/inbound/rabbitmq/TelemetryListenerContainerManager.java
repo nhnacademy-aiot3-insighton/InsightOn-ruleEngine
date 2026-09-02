@@ -9,7 +9,7 @@ import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.DirectMessageListenerContainer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -25,8 +25,8 @@ public class TelemetryListenerContainerManager {
     private final TelemetryMessageConsumer messageConsumer;
     private final AmqpAdmin amqpAdmin;
 
-    private SimpleMessageListenerContainer normalContainer;
-    private SimpleMessageListenerContainer takeoverContainer;
+    private DirectMessageListenerContainer normalContainer;
+    private DirectMessageListenerContainer takeoverContainer;
 
     public TelemetryListenerContainerManager(
             ConnectionFactory connectionFactory,
@@ -57,10 +57,11 @@ public class TelemetryListenerContainerManager {
         }
     }
 
-    private SimpleMessageListenerContainer createContainer(List<String> queueNames, String listenerName) {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
+    private DirectMessageListenerContainer createContainer(List<String> queueNames, String listenerName) {
+        DirectMessageListenerContainer container =
+                new DirectMessageListenerContainer(connectionFactory);
         container.setQueueNames(queueNames.toArray(new String[0]));
+        container.setConsumersPerQueue(1);
         container.setMessageListener(messageConsumer);
         container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
         container.setAutoStartup(false);
@@ -72,7 +73,7 @@ public class TelemetryListenerContainerManager {
     public void startNormal() {
         if (normalContainer != null && !normalContainer.isRunning()) {
             amqpAdmin.initialize();
-            log.info("Starting normal Telemetry listener container for queues: {}",
+            log.info("Telemetry 기본 수신기를 시작합니다. queues={}",
                     routingProperties.ownedQueueNames());
             normalContainer.start();
         }
@@ -80,14 +81,14 @@ public class TelemetryListenerContainerManager {
 
     public synchronized void stopNormal() {
         if (normalContainer != null && normalContainer.isRunning()) {
-            log.info("Stopping normal Telemetry listener container");
+            log.info("Telemetry 기본 수신기를 중지합니다.");
             normalContainer.stop();
         }
     }
 
     public synchronized void takeover() {
         if (takeoverContainer != null && !takeoverContainer.isRunning()) {
-            log.warn("Starting takeover Telemetry listener container for peer queues: {}",
+            log.warn("상대 엔진의 Telemetry 큐 인계를 시작합니다. queues={}",
                     routingProperties.peerQueueNames());
             takeoverContainer.start();
         }
@@ -95,7 +96,7 @@ public class TelemetryListenerContainerManager {
 
     public synchronized void handback() {
         if (takeoverContainer != null && takeoverContainer.isRunning()) {
-            log.info("Stopping takeover Telemetry listener container (handback complete)");
+            log.info("상대 엔진의 Telemetry 큐를 반환했습니다.");
             takeoverContainer.stop();
         }
     }

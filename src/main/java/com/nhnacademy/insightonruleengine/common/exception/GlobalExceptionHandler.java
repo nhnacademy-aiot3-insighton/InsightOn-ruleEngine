@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.common.exception;
 
 import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -13,12 +14,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     // engineException 처리
     @ExceptionHandler(EngineException.class)
     public ResponseEntity<ErrorResponse> handleEngineException(EngineException exception) {
         ErrorCode errorCode = exception.getErrorCode();
+        if (errorCode.getHttpStatus().is5xxServerError()) {
+            log.error(
+                    "엔진 요청 처리 실패. errorCode={}, status={}",
+                    errorCode.getCode(),
+                    errorCode.getHttpStatus().value(),
+                    exception
+            );
+        }
 
         return ResponseEntity.status(errorCode.getHttpStatus())
                 .body(new ErrorResponse(errorCode.getHttpStatus().value(), exception.getMessage()));
@@ -52,6 +62,7 @@ public class GlobalExceptionHandler {
     // Core의 잘못된 응답을 사용자 권한 부족과 구분해 외부 의존성 오류로 반환합니다.
     @ExceptionHandler(CoreDependencyException.class)
     public ResponseEntity<ErrorResponse> handleCoreDependency(CoreDependencyException exception) {
+        log.error("Core 서비스 의존성 호출 실패. status={}", HttpStatus.BAD_GATEWAY.value(), exception);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), exception.getMessage()));
     }

@@ -1,5 +1,6 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType.Category;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
@@ -11,6 +12,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.model.Flow
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +21,9 @@ import org.springframework.stereotype.Component;
 //link를 검증, 노드와 연결 되는 부분을 검증
 @Component
 public class FlowLinkValidator {
+
+    private static final String LINKS_FIELD_PREFIX = "links[";
+    private static final String TARGET_CLIENT_NODE_KEY_FIELD = ".targetClientNodeKey";
 
     // 소스 포트와 타겟 포트가 각 노드에 실제로 존재하는지 확인합니다.
     // 둘 중 하나라도 존재하지 않으면 유효하지 않은 링크로 처리합니다.
@@ -35,7 +40,7 @@ public class FlowLinkValidator {
 
         for (IndexedLink indexedLink : linkResult.indexedLinks()) {
             FlowLinkRequest link = indexedLink.link();
-            String fieldPath = "links[" + indexedLink.requestIndex() + "]";
+            String fieldPath = LINKS_FIELD_PREFIX + indexedLink.requestIndex() + "]";
             boolean hasAllReferences = true;
             if (!nodeByKey.containsKey(link.sourceClientNodeKey())) {
                 addError(
@@ -52,7 +57,7 @@ public class FlowLinkValidator {
                         errors,
                         FlowStructureErrorCode.MISSING_TARGET_NODE,
                         link.targetClientNodeKey(),
-                        fieldPath + ".targetClientNodeKey",
+                        fieldPath + TARGET_CLIENT_NODE_KEY_FIELD,
                         "링크에 지정된 타겟 노드 ID와 일치하는 노드가 없습니다."
                 );
                 hasAllReferences = false;
@@ -70,7 +75,7 @@ public class FlowLinkValidator {
         );
     }
 
-    //존재하는 노드끼리 연결된 링크의 중복 여부, 연결 방향과 포트 규칙을 검사한다.
+    //존재하는 노드끼리 연결된 링크의 중복 여부, fan-out 대상, 연결 방향과 포트 규칙을 검사한다.
     public LinkRulesResult validateBusinessRules(
             LinkReferenceResult linkRefResult,
             Map<String, FlowNodeRequest> nodeByKey
@@ -79,13 +84,14 @@ public class FlowLinkValidator {
             return new LinkRulesResult(Set.of(), false, List.of());
         }
         List<FlowStructureValidationError> errors = new ArrayList<>();
-        Set<SourcePortKey> sourcePort = new HashSet<>();
+        Map<SourcePortKey, List<IndexedLink>> linksBySourcePort = new LinkedHashMap<>();
+        Set<LinkKey> linkKeys = new HashSet<>();
         Set<String> sourceNodeKeys = new HashSet<>();
         boolean canValidateConnections = true;
 
         for (IndexedLink indexedLink : linkRefResult.validIndexedLinks()) {
             FlowLinkRequest link = indexedLink.link();
-            String fieldPath = "links[" + indexedLink.requestIndex() + "]";
+            String fieldPath = LINKS_FIELD_PREFIX + indexedLink.requestIndex() + "]";
             sourceNodeKeys.add(link.sourceClientNodeKey());
 
             if (link.sourceClientNodeKey().equals(link.targetClientNodeKey())) {
@@ -102,18 +108,24 @@ public class FlowLinkValidator {
                     link.sourceClientNodeKey(),
                     link.sourcePort()
             );
-            if (sourcePort.contains(sourcePortKey)) {
+            LinkKey linkKey = new LinkKey(
+                    link.sourceClientNodeKey(),
+                    link.sourcePort(),
+                    link.targetClientNodeKey(),
+                    link.targetPort()
+            );
+            if (!linkKeys.add(linkKey)) {
                 addError(
                         errors,
-                        FlowStructureErrorCode.DUPLICATE_SOURCE_PORT,
+                        FlowStructureErrorCode.DUPLICATE_LINK,
                         link.sourceClientNodeKey(),
-                        fieldPath + ".sourcePort",
-                        "소스 노드 포트는 하나의 링크에서만 사용 가능합니다."
+                        fieldPath,
+                        "출발·도착 노드와 포트가 모두 같은 링크를 중복 사용할 수 없습니다."
                 );
                 canValidateConnections = false;
-            } else {
-                sourcePort.add(sourcePortKey);
             }
+            linksBySourcePort.computeIfAbsent(sourcePortKey, ignored -> new ArrayList<>())
+                    .add(indexedLink);
             FlowNodeRequest source = nodeByKey.get(link.sourceClientNodeKey());
             FlowNodeRequest target = nodeByKey.get(link.targetClientNodeKey());
             boolean validPorts = validatePorts(link, source, fieldPath, errors);
@@ -122,7 +134,44 @@ public class FlowLinkValidator {
                 canValidateConnections = false;
             }
         }
+        if (!validateFanOutTargets(linksBySourcePort, nodeByKey, errors)) {
+            canValidateConnections = false;
+        }
         return new LinkRulesResult(Set.copyOf(sourceNodeKeys), canValidateConnections, List.copyOf(errors));
+    }
+
+    private boolean validateFanOutTargets(
+            Map<SourcePortKey, List<IndexedLink>> linksBySourcePort,
+            Map<String, FlowNodeRequest> nodeByKey,
+            List<FlowStructureValidationError> errors
+    ) {
+        boolean valid = true;
+        for (Map.Entry<SourcePortKey, List<IndexedLink>> entry : linksBySourcePort.entrySet()) {
+            List<IndexedLink> links = entry.getValue();
+            IndexedLink invalidTargetLink = links.size() > 1 ? findInvalidFanOutTarget(links, nodeByKey) : null;
+            if (invalidTargetLink != null) {
+                addError(
+                        errors,
+                        FlowStructureErrorCode.INVALID_FAN_OUT_TARGET,
+                        entry.getKey().sourceClientNodeKey(),
+                        LINKS_FIELD_PREFIX + invalidTargetLink.requestIndex() + "]" + TARGET_CLIENT_NODE_KEY_FIELD,
+                        "동일 출력 포트의 복수 링크는 모든 대상이 Action Node일 때만 허용됩니다."
+                );
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
+    // 같은 출력 포트를 공유하는 링크들 중, Action Node가 아닌 곳으로 향하는 첫 링크를 찾습니다.
+    private IndexedLink findInvalidFanOutTarget(List<IndexedLink> links, Map<String, FlowNodeRequest> nodeByKey) {
+        return links.stream()
+                .filter(indexedLink -> {
+                    FlowNodeRequest target = nodeByKey.get(indexedLink.link().targetClientNodeKey());
+                    return target.nodeType().getCategory() != Category.ACTION;
+                })
+                .findFirst()
+                .orElse(null);
     }
 
     //요청 순서를 유지한 채 IndexedLink에서 실제 링크만 추출합니다.
@@ -160,8 +209,19 @@ public class FlowLinkValidator {
                     errors,
                     FlowStructureErrorCode.TRIGGER_INPUT_LINK,
                     link.targetClientNodeKey(),
-                    fieldPath + ".targetClientNodeKey",
+                    fieldPath + TARGET_CLIENT_NODE_KEY_FIELD,
                     "트리거 노드는 시작점이므로 입력 링크를 가질 수 없습니다."
+            );
+            valid = false;
+        }
+        if (source.nodeType() == NodeType.SCHEDULE
+                && target.nodeType() != NodeType.ACTUATOR_CONTROL) {
+            addError(
+                    errors,
+                    FlowStructureErrorCode.INVALID_SCHEDULE_TARGET,
+                    link.sourceClientNodeKey(),
+                    fieldPath + TARGET_CLIENT_NODE_KEY_FIELD,
+                    "Schedule 노드는 Actuator Control 노드에 직접 연결해야 합니다."
             );
             valid = false;
         }
@@ -268,6 +328,14 @@ public class FlowLinkValidator {
     private record SourcePortKey(
             String sourceClientNodeKey,
             String sourcePort
+    ) {
+    }
+
+    private record LinkKey(
+            String sourceClientNodeKey,
+            String sourcePort,
+            String targetClientNodeKey,
+            String targetPort
     ) {
     }
 }

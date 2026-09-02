@@ -5,15 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
@@ -27,6 +32,7 @@ import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathVa
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -63,6 +69,9 @@ class FlowServiceIntegrationTest {
     @Autowired
     private LinkRepository linkRepository;
 
+    @Autowired
+    private FlowDefinitionAssembler flowDefinitionAssembler;
+
     @MockitoBean
     private GroupAuthorizationService groupAuthorizationService;
 
@@ -70,7 +79,16 @@ class FlowServiceIntegrationTest {
     private FlowActivationValidator flowActivationValidator;
 
     @MockitoBean
+    private NodeConfigurationValidator nodeConfigurationValidator;
+
+    @MockitoBean
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
+
+    @MockitoBean
+    private ScheduleFlowScheduler scheduleFlowScheduler;
+
+    @MockitoBean
+    private CoreActuatorClient coreActuatorClient;
 
     @Autowired
     private EntityManager entityManager;
@@ -102,6 +120,28 @@ class FlowServiceIntegrationTest {
         assertEquals("온도 경고 v2", updatedFlow.getName());
         assertEquals(2, nodeRepository.findByFlowId(response.flowId()).size());
         assertEquals(1, linkRepository.findByFlowId(response.flowId()).size());
+    }
+
+    @Test
+    @DisplayName("Action fan-out Flow를 저장하고 활성화 가능한 Definition으로 조립한다")
+    void createAndActivateActionFanOutFlow() {
+        FlowResponse created = flowService.create(1L, 100L, actionFanOutCreateRequest());
+        entityManager.flush();
+        entityManager.clear();
+
+        FlowResponse activated = flowService.changeActivationStatus(
+                1L,
+                100L,
+                created.flowId(),
+                FlowStatusChangeRequest.builder().status(FlowStatus.ACTIVE).build()
+        );
+        FlowDefinition definition = flowDefinitionAssembler.assemble(1L, created.flowId());
+
+        assertEquals(FlowStatus.ACTIVE, activated.status());
+        assertEquals(3, definition.nodes().size());
+        assertEquals(2, definition.links().size());
+        assertEquals(definition.links().get(0).sourceNodeId(), definition.links().get(1).sourceNodeId());
+        assertEquals(definition.links().get(0).sourcePort(), definition.links().get(1).sourcePort());
     }
 
     @Test
@@ -214,6 +254,44 @@ class FlowServiceIntegrationTest {
                         .sourcePort("out")
                         .targetPort("in")
                         .build()))
+                .build();
+    }
+
+    private FlowCreateRequest actionFanOutCreateRequest() {
+        return FlowCreateRequest.builder()
+                .locationId(10L)
+                .name("다중 Action Flow")
+                .nodes(List.of(
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("sensor")
+                                .nodeType(NodeType.SENSOR)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("alert")
+                                .nodeType(NodeType.ALERT)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build(),
+                        FlowNodeRequest.builder()
+                                .clientNodeKey("actuator")
+                                .nodeType(NodeType.ACTUATOR_CONTROL)
+                                .configuration(JsonNodeFactory.instance.objectNode())
+                                .build()
+                ))
+                .links(List.of(
+                        FlowLinkRequest.builder()
+                                .sourceClientNodeKey("sensor")
+                                .targetClientNodeKey("alert")
+                                .sourcePort("out")
+                                .targetPort("in")
+                                .build(),
+                        FlowLinkRequest.builder()
+                                .sourceClientNodeKey("sensor")
+                                .targetClientNodeKey("actuator")
+                                .sourcePort("out")
+                                .targetPort("in")
+                                .build()
+                ))
                 .build();
     }
 }

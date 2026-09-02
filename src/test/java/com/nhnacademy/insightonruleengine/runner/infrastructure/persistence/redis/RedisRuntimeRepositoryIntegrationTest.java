@@ -1,23 +1,15 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.config.ScheduleExecutionProperties;
 import com.nhnacademy.insightonruleengine.heartbeat.EngineHeartbeatRepository;
 import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.List;
+import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,10 +33,10 @@ class RedisRuntimeRepositoryIntegrationTest {
     private static LettuceConnectionFactory connectionFactory;
     private static StringRedisTemplate redisTemplate;
     private static RedisKeyFactory keyFactory;
-    private static FlowRouteRedisRepository routeRepository;
-    private static ActiveFlowRedisRepository activeFlowRepository;
     private static EngineHeartbeatRepository heartbeatRepository;
     private static AlertCountRedisRepository alertCountRedisRepository;
+    private static ScheduleExecutionRedisRepository scheduleExecutionRedisRepository;
+    private static TimerStateRedisRepository timerStateRedisRepository;
 
     // 실제 Redis 명령과 JSON 변환을 함께 검증할 Repository들을 컨테이너에 연결합니다.
     @BeforeAll
@@ -59,11 +51,14 @@ class RedisRuntimeRepositoryIntegrationTest {
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
         keyFactory = new RedisKeyFactory();
-        ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
-        routeRepository = new FlowRouteRedisRepository(redisTemplate, keyFactory);
-        activeFlowRepository = new ActiveFlowRedisRepository(redisTemplate, objectMapper, keyFactory);
         heartbeatRepository = new EngineHeartbeatRepository(redisTemplate, keyFactory);
         alertCountRedisRepository = new AlertCountRedisRepository(redisTemplate, keyFactory);
+        scheduleExecutionRedisRepository = new ScheduleExecutionRedisRepository(
+                redisTemplate,
+                keyFactory,
+                new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(10), 2)
+        );
+        timerStateRedisRepository = new TimerStateRedisRepository(redisTemplate, keyFactory);
     }
 
     // 테스트 간 Redis Key가 남아 결과를 바꾸지 않도록 매번 현재 DB만 비워줍니다.
@@ -76,57 +71,6 @@ class RedisRuntimeRepositoryIntegrationTest {
     @AfterAll
     static void closeRedisConnection() {
         connectionFactory.destroy();
-    }
-
-    // Lua 기반 교체가 중간 빈 상태 없이 최종 Set으로 반영되고 삭제되는지 검증합니다.
-    @Test
-    @DisplayName("Route를 원자적으로 저장하고 조회 및 교체한 뒤 삭제합니다.")
-    void routeLifecycleTest() {
-        routeRepository.replace(1L, 10L, Set.of(100L, 200L));
-
-        assertTrue(routeRepository.exists(1L, 10L));
-        assertEquals(Set.of(100L, 200L), routeRepository.findFlowIds(1L, 10L));
-
-        routeRepository.replace(1L, 10L, Set.of(300L));
-
-        assertEquals(Set.of(300L), routeRepository.findFlowIds(1L, 10L));
-
-        routeRepository.delete(1L, 10L);
-
-        assertFalse(routeRepository.exists(1L, 10L));
-        assertEquals(Set.of(), routeRepository.findFlowIds(1L, 10L));
-    }
-
-    // Flow와 모든 NodeType 및 Link가 실제 Redis JSON에서 손실 없이 복원되는지 검증합니다.
-    @Test
-    @DisplayName("Flow Node Link Definition과 모든 NodeType을 JSON으로 저장하고 복원합니다.")
-    void activeFlowSerializationTest() {
-        FlowDefinition definition = definition();
-
-        activeFlowRepository.save(definition);
-
-        assertTrue(activeFlowRepository.exists(1L, 100L));
-        assertEquals(definition, activeFlowRepository.getActiveFlow(1L, 100L).orElseThrow());
-
-        activeFlowRepository.delete(1L, 100L);
-
-        assertFalse(activeFlowRepository.exists(1L, 100L));
-        assertTrue(activeFlowRepository.getActiveFlow(1L, 100L).isEmpty());
-    }
-
-    // Route와 Active Flow 및 heartbeat가 한 Redis에서도 서로 다른 namespace를 쓰는지 확인합니다.
-    @Test
-    @DisplayName("Route Active Flow heartbeat Key는 하나의 Redis에서 서로 격리됩니다")
-    void namespaceIsolationTest() {
-        routeRepository.replace(1L, 10L, Set.of(100L));
-        activeFlowRepository.save(definition());
-        heartbeatRepository.refresh("engine-a", Duration.ofSeconds(15));
-
-        assertEquals(Set.of(
-                "route:1:10",
-                "active-flow:1:100",
-                "heartbeat:engine-a"
-        ), redisTemplate.keys("*"));
     }
 
     // heartbeat가 실제 TTL을 가지며 만료 후 상대 생존 조회에서 사라지는지 검증합니다.
@@ -143,6 +87,48 @@ class RedisRuntimeRepositoryIntegrationTest {
                 .atMost(Duration.ofSeconds(2))
                 .until(() -> !heartbeatRepository.isHeartbeat("engine-a"));
         assertFalse(heartbeatRepository.isHeartbeat("engine-a"));
+    }
+
+    @Test
+    @DisplayName("ACTIVE Schedule의 동일 실행 시각은 한 인스턴스만 선점합니다")
+    void scheduleExecutionClaimTest() {
+        Instant scheduledAt = Instant.parse("2026-08-24T08:00:00Z");
+
+        scheduleExecutionRedisRepository.markInactiveIfPresent(99L);
+        assertFalse(redisTemplate.hasKey("schedule-state:99"));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+
+        scheduleExecutionRedisRepository.markActive(10L);
+
+        assertTrue(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt));
+
+        scheduleExecutionRedisRepository.markInactive(10L);
+
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(10L, scheduledAt.plusSeconds(60)));
+    }
+
+    @Test
+    @DisplayName("비활성화보다 오래된 재조정은 Schedule 상태를 다시 ACTIVE로 만들 수 없습니다")
+    void staleScheduleReconciliationDoesNotOverrideInactiveState() {
+        scheduleExecutionRedisRepository.markActive(10L);
+        long staleReconciliationVersion = scheduleExecutionRedisRepository.beginReconciliation();
+
+        scheduleExecutionRedisRepository.markInactive(10L);
+
+        assertFalse(scheduleExecutionRedisRepository.repairActive(10L, staleReconciliationVersion));
+        assertFalse(scheduleExecutionRedisRepository.claimIfActive(
+                10L,
+                Instant.parse("2026-08-24T08:01:00Z")
+        ));
+
+        long newerReconciliationVersion = scheduleExecutionRedisRepository.beginReconciliation();
+
+        assertTrue(scheduleExecutionRedisRepository.repairActive(10L, newerReconciliationVersion));
+        assertTrue(scheduleExecutionRedisRepository.claimIfActive(
+                10L,
+                Instant.parse("2026-08-24T08:02:00Z")
+        ));
     }
 
     @Test
@@ -172,26 +158,33 @@ class RedisRuntimeRepositoryIntegrationTest {
         assertTrue(redisTemplate.hasKey("cooldown:2:10"));
     }
 
-    // enum 전체가 포함된 실제 실행 모델로 Redis 직렬화 계약을 검증합니다.
-    private FlowDefinition definition() {
-        List<NodeDefinition> nodes = Arrays.stream(NodeType.values())
-                .map(nodeType -> new NodeDefinition(
-                        (long) nodeType.ordinal() + 1L,
-                        nodeType,
-                        JsonNodeFactory.instance.objectNode().put("type", nodeType.name())
-                ))
-                .toList();
-        List<LinkDefinition> links = List.of(new LinkDefinition(1L, 100L, 1L, 2L, "out", "in"));
-        return new FlowDefinition(
-                100L,
-                1L,
-                10L,
-                "온도 경고",
-                "Redis 직렬화 검증",
-                FlowStatus.ACTIVE,
-                OffsetDateTime.parse("2026-08-11T00:00:00Z"),
-                nodes,
-                links
-        );
+    @Test
+    @DisplayName("Timer는 두 인스턴스의 동시 요청 중 하나만 통과시키고 TTL 후 다시 통과시킵니다")
+    void timerAtomicIntervalTest() {
+        CountDownLatch start = new CountDownLatch(1);
+        CompletableFuture<Boolean> first = acquireAfter(start);
+        CompletableFuture<Boolean> second = acquireAfter(start);
+
+        start.countDown();
+
+        assertTrue(first.join() ^ second.join());
+        assertFalse(timerStateRedisRepository.acquire(100L, 20L, 1));
+        org.testcontainers.shaded.org.awaitility.Awaitility.await()
+                .atMost(Duration.ofSeconds(2))
+                .until(() -> !redisTemplate.hasKey("timer:100:20"));
+        assertTrue(timerStateRedisRepository.acquire(100L, 20L, 1));
     }
+
+    private CompletableFuture<Boolean> acquireAfter(CountDownLatch start) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                start.await();
+                return timerStateRedisRepository.acquire(100L, 20L, 1);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("동시 실행 테스트가 중단됐습니다.", exception);
+            }
+        });
+    }
+
 }

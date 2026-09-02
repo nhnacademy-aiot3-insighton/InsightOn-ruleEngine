@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ValidCron {
 
-    String message() default "cron 표현식이 올바르지 않습니다.";
+    String message() default "cron 표현식은 6자리이며 초 필드는 0이어야 합니다.";
 
     Class<?>[] groups() default {};
 

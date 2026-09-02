@@ -18,8 +18,10 @@ import org.hibernate.Hibernate;
 @Table(
         name = "links",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_links_flow_source_port",
-                columnNames = {"flow_id", "source_node_id", "source_port"}
+                name = "uk_links_flow_source_port_target",
+                columnNames = {
+                        "flow_id", "source_node_id", "source_port", "target_node_id", "target_port"
+                }
         )
 )
 @Getter

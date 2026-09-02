@@ -6,8 +6,6 @@ import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.InvalidActiveFlowDataException;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.InvalidRouteDataException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -25,14 +23,6 @@ class GlobalExceptionHandlerTest {
         assertEngineExceptionStatus(
                 new InvalidFlowStatusTransitionException(FlowStatus.ACTIVE, FlowStatus.ARCHIVED),
                 HttpStatus.CONFLICT
-        );
-        assertEngineExceptionStatus(
-                new InvalidActiveFlowDataException("잘못된 Active Flow 데이터"),
-                HttpStatus.INTERNAL_SERVER_ERROR
-        );
-        assertEngineExceptionStatus(
-                new InvalidRouteDataException("잘못된 Route 데이터", new NumberFormatException()),
-                HttpStatus.INTERNAL_SERVER_ERROR
         );
     }
 

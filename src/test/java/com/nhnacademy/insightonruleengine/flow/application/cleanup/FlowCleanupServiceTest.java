@@ -16,9 +16,8 @@ import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.ActiveFlowRedisRepository;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.FlowRouteRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -39,15 +38,13 @@ class FlowCleanupServiceTest {
     @Mock
     private NodeRepository nodeRepository;
     @Mock
-    private FlowRouteRedisRepository flowRouteRedisRepository;
-    @Mock
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
-    @Mock
-    private ActiveFlowRedisRepository activeFlowRedisRepository;
     @Mock
     private AlertCountRedisRepository alertCountRedisRepository;
     @Mock
     private FlowCleanupDBService databaseCleanupService;
+    @Mock
+    private ScheduleFlowScheduler scheduleFlowScheduler;
 
     private FlowCleanupService cleanupService;
 
@@ -56,16 +53,15 @@ class FlowCleanupServiceTest {
         cleanupService = new FlowCleanupService(
                 flowRepository,
                 nodeRepository,
-                flowRouteRedisRepository,
                 activeFlowDefinitionProvider,
-                activeFlowRedisRepository,
                 alertCountRedisRepository,
-                databaseCleanupService
+                databaseCleanupService,
+                scheduleFlowScheduler
         );
     }
 
     @Test
-    @DisplayName("그룹 DB 삭제 전·후에 동일한 ID로 Redis를 정리합니다")
+    @DisplayName("그룹 DB 삭제 전·후에 현재 실행 캐시와 상태를 정리합니다")
     void redisThenDatabaseCleanupTest() {
         Flow first = flow(100L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 10L, FlowStatus.INACTIVE);
@@ -78,65 +74,49 @@ class FlowCleanupServiceTest {
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L, 300L)))
                 .thenReturn(List.of(countAndCooldown, cooldownOnly, defaultCountAndCooldown, nonAlert));
         doAnswer(invocation -> {
-            verify(flowRouteRedisRepository).delete(1L, 10L);
-            verify(flowRouteRedisRepository).delete(1L, 20L);
-            verify(flowRouteRedisRepository).delete(1L, 30L);
+            verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L, 300L));
             verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
             verify(activeFlowDefinitionProvider).evictNow(1L, 20L);
             verify(activeFlowDefinitionProvider).evictNow(1L, 30L);
-            verify(activeFlowRedisRepository).delete(1L, 100L);
-            verify(activeFlowRedisRepository).delete(1L, 200L);
-            verify(activeFlowRedisRepository).delete(1L, 300L);
             return null;
         }).when(databaseCleanupService).deleteByGroupId(1L);
 
         cleanupService.cleanupByGroup(1L, List.of(10L, 20L, 30L));
 
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 20L);
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 30L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 20L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 30L);
-        verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
-        verify(activeFlowRedisRepository, times(2)).delete(1L, 200L);
-        verify(activeFlowRedisRepository, times(2)).delete(1L, 300L);
         verify(alertCountRedisRepository, times(2))
                 .deleteStates(100L, Set.of(1001L, 1003L), Set.of(1001L, 1002L, 1003L));
         verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
         verify(alertCountRedisRepository, times(2)).deleteStates(300L, Set.of(), Set.of());
 
         verify(databaseCleanupService).deleteByGroupId(1L);
+        verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L, 300L));
     }
 
     @Test
-    @DisplayName("장소 DB 삭제 전·후에 조회한 Flow의 Route와 실행 상태를 정리합니다")
+    @DisplayName("장소 DB 삭제 전·후에 조회한 Flow의 실행 캐시와 상태를 정리합니다")
     void locationCleanupTest() {
         Flow first = flow(100L, 1L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 2L, 10L, FlowStatus.ARCHIVED);
         when(flowRepository.findAllByLocationId(10L)).thenReturn(List.of(second, first));
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L))).thenReturn(List.of());
         doAnswer(invocation -> {
-            verify(flowRouteRedisRepository).delete(1L, 10L);
-            verify(flowRouteRedisRepository).delete(2L, 10L);
+            verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L));
             verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
             verify(activeFlowDefinitionProvider).evictNow(2L, 10L);
-            verify(activeFlowRedisRepository).delete(1L, 100L);
-            verify(activeFlowRedisRepository).delete(2L, 200L);
             return null;
         }).when(databaseCleanupService).deleteByLocationId(10L);
 
         cleanupService.cleanupByLocation(10L);
 
-        verify(flowRouteRedisRepository, times(2)).delete(1L, 10L);
-        verify(flowRouteRedisRepository, times(2)).delete(2L, 10L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(2L, 10L);
-        verify(activeFlowRedisRepository, times(2)).delete(1L, 100L);
-        verify(activeFlowRedisRepository, times(2)).delete(2L, 200L);
         verify(alertCountRedisRepository, times(2)).deleteStates(100L, Set.of(), Set.of());
         verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
         verify(databaseCleanupService).deleteByLocationId(10L);
+        verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L));
     }
 
     @Test
@@ -146,7 +126,7 @@ class FlowCleanupServiceTest {
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of(flow));
         when(nodeRepository.findByFlowIdIn(List.of(100L))).thenReturn(List.of());
         doThrow(new RedisConnectionFailureException("Redis unavailable"))
-                .when(flowRouteRedisRepository).delete(1L, 10L);
+                .when(activeFlowDefinitionProvider).evictNow(1L, 10L);
         List<Long> locationIds = List.of(10L);
 
         assertThrows(
@@ -166,7 +146,6 @@ class FlowCleanupServiceTest {
         cleanupService.cleanupByGroup(1L, List.of(10L));
 
         verify(nodeRepository, never()).findByFlowIdIn(org.mockito.ArgumentMatchers.anyList());
-        verify(flowRouteRedisRepository, times(4)).delete(1L, 10L);
         verify(activeFlowDefinitionProvider, times(4)).evictNow(1L, 10L);
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
     }
@@ -188,11 +167,10 @@ class FlowCleanupServiceTest {
         );
         cleanupService.cleanupByGroup(1L, List.of(10L));
 
-        verify(flowRouteRedisRepository, times(3)).delete(1L, 10L);
         verify(activeFlowDefinitionProvider, times(3)).evictNow(1L, 10L);
-        verify(activeFlowRedisRepository, times(3)).delete(1L, 100L);
         verify(alertCountRedisRepository, times(3)).deleteStates(100L, Set.of(), Set.of());
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
+        verify(scheduleFlowScheduler, times(2)).cancelAll(List.of(100L));
     }
 
     @Test

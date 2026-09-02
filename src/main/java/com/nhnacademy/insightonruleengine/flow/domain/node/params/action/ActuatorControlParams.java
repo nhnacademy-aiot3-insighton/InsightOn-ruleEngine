@@ -3,8 +3,10 @@ package com.nhnacademy.insightonruleengine.flow.domain.node.params.action;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * node_type = ACTUATOR_CONTROL.
@@ -12,29 +14,54 @@ import jakarta.validation.constraints.Size;
  * callerService는 사용자가 설정하지 않고 Engine이 outbound DTO에 주입한다.
  */
 public record ActuatorControlParams(
-        @Positive Long deviceId,
-        @Size(max = 100) String actuatorType,
-        @Size(max = 100) String command,
-        @Size(max = 500) String commandValue
+        @NotBlank @Size(max = 100) String actuatorType,
+        @NotBlank @Size(max = 100) String command,
+        @NotBlank @Size(max = 500) String commandValue
 ) implements NodeParams {
 
-    /** 기존 저장 데이터(deviceId[, command])인지 확인합니다. */
-    @JsonIgnore
-    public boolean legacyDeviceConfiguration() {
-        return deviceId != null;
-    }
+    private static final String COMMAND_POWER = "power";
 
-    /** 기존 계약과 신규 계약이 섞인 모호한 설정은 허용하지 않습니다. */
     @JsonIgnore
-    @AssertTrue(message = "deviceId 또는 actuatorType, command, commandValue를 완전하게 설정해야 합니다.")
-    public boolean isValidConfiguration() {
-        if (legacyDeviceConfiguration()) {
-            return isBlank(actuatorType) && isBlank(commandValue);
+    @AssertTrue(message = "지원하지 않는 액추에이터 명령 또는 값입니다.")
+    public boolean isSupportedCommand() {
+        if (isBlank(actuatorType) || isBlank(command) || isBlank(commandValue)) {
+            return true;
         }
-        return !isBlank(actuatorType) && !isBlank(command) && !isBlank(commandValue);
+        return switch (actuatorType) {
+            case "AIRCON" -> switch (command.toLowerCase(Locale.ROOT)) {
+                case COMMAND_POWER -> allowed("ON", "OFF");
+                case "mode" -> allowed("COOL", "DRY", "FAN", "AUTO");
+                case "temperature" -> numericRange(18, 30);
+                default -> false;
+            };
+            case "AIR_PURIFIER" -> switch (command.toLowerCase(Locale.ROOT)) {
+                case COMMAND_POWER -> allowed("ON", "OFF");
+                case "mode" -> allowed("AUTO", "SLEEP", "TURBO");
+                default -> false;
+            };
+            case "VENTILATION_FAN" -> switch (command.toLowerCase(Locale.ROOT)) {
+                case COMMAND_POWER -> allowed("ON", "OFF");
+                case "mode" -> allowed("LOW", "MID", "HIGH");
+                default -> false;
+            };
+            default -> false;
+        };
     }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private boolean allowed(String... values) {
+        return Set.of(values).contains(commandValue.toUpperCase(Locale.ROOT));
+    }
+
+    private boolean numericRange(double min, double max) {
+        try {
+            double value = Double.parseDouble(commandValue);
+            return value >= min && value <= max;
+        } catch (NumberFormatException exception) {
+            return false;
+        }
     }
 }

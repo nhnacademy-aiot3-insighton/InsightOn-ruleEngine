@@ -26,7 +26,8 @@ public class TelemetryExecutionOrchestrator {
                 event.sensorId(),
                 event.timestamp()
         )) {
-            log.warn("Discarding out-of-order/stale Telemetry message. groupId={}, locationId={}, sensorId={}, time={}",
+            log.debug("순서가 뒤바뀌거나 오래된 Telemetry 메시지를 폐기합니다. "
+                            + "groupId={}, locationId={}, sensorId={}, timestamp={}",
                     event.groupId(), event.locationId(), event.sensorId(), event.timestamp());
             return;
         }

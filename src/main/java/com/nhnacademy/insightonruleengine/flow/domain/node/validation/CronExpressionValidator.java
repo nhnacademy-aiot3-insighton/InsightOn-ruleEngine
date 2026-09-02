@@ -12,8 +12,14 @@ public class CronExpressionValidator implements ConstraintValidator<ValidCron, S
             return true;
         }
 
+        String normalized = value.trim();
+        String[] fields = normalized.split("\\s+");
+        if (fields.length != 6 || !"0".equals(fields[0])) {
+            return false;
+        }
+
         try {
-            CronExpression.parse(value);
+            CronExpression.parse(normalized);
             return true;
         } catch (IllegalArgumentException exception) {
             return false;

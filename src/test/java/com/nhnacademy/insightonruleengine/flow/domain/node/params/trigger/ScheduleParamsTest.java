@@ -35,6 +35,13 @@ class ScheduleParamsTest {
     }
 
     @Test
+    @DisplayName("ScheduleParams cron은 초 단위 실행을 거부한다")
+    void rejectSecondGranularity() {
+        assertFalse(validator.validate(new ScheduleParams("*/5 * * * * *")).isEmpty());
+        assertFalse(validator.validate(new ScheduleParams("1 0 * * * *")).isEmpty());
+    }
+
+    @Test
     @DisplayName("ScheduleParams cron 빈 값은 NotBlank로 거부한다")
     void rejectBlankCron() {
         assertFalse(validator.validate(new ScheduleParams(" ")).isEmpty());
