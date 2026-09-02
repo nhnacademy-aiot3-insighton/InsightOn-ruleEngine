@@ -90,11 +90,7 @@ public class FlowRunner {
             ArrayDeque<NodeDefinition> pendingActions = new ArrayDeque<>();
 
             while (current != null) {
-                if (!visitedNodeIds.add(current.nodeId())) {
-                    throw new IllegalStateException(
-                            "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
-                                    + ", nodeId=" + current.nodeId());
-                }
+                requireNotVisited(flow, visitedNodeIds, current);
                 NodeExecutionResult result = executeNode(current, context);
                 if (result.terminal()) {
                     if (pendingActions.isEmpty()) {
@@ -105,15 +101,10 @@ public class FlowRunner {
                     continue;
                 }
 
-                List<LinkDefinition> nextLinks = index.findLinks(current.nodeId(), result.outputPort());
-                if (nextLinks.isEmpty()
-                        && current.nodeType().getCategory() == NodeType.Category.FILTER
-                        && "false".equals(result.outputPort())) {
+                List<LinkDefinition> nextLinks = resolveNextLinks(index, current, result);
+                if (nextLinks == null) {
                     executionLogger.flowFinished(logContext, current.nodeId(), false);
                     return;
-                }
-                if (nextLinks.isEmpty()) {
-                    nextLinks = index.requireLinks(current.nodeId(), result.outputPort());
                 }
 
                 List<NodeDefinition> nextNodes = nextLinks.stream()
@@ -128,6 +119,31 @@ public class FlowRunner {
         } catch (RuntimeException exception) {
             executionLogger.flowFailed(logContext, current, exception);
         }
+    }
+
+    // 실행 중 같은 Node를 다시 방문하면 순환 경로이므로 즉시 실패시킵니다.
+    private void requireNotVisited(FlowDefinition flow, Set<Long> visitedNodeIds, NodeDefinition current) {
+        if (!visitedNodeIds.add(current.nodeId())) {
+            throw new IllegalStateException(
+                    "실행 중 순환 경로를 발견했습니다. flowId=" + flow.flowId()
+                            + ", nodeId=" + current.nodeId());
+        }
+    }
+
+    // Filter가 false로 끝나 연결된 Link가 없으면 정상 종료를 뜻하는 null을 반환합니다.
+    private List<LinkDefinition> resolveNextLinks(
+            FlowDefinitionIndex index,
+            NodeDefinition current,
+            NodeExecutionResult result) {
+        List<LinkDefinition> nextLinks = index.findLinks(current.nodeId(), result.outputPort());
+        if (!nextLinks.isEmpty()) {
+            return nextLinks;
+        }
+        if (current.nodeType().getCategory() == NodeType.Category.FILTER
+                && "false".equals(result.outputPort())) {
+            return null;
+        }
+        return index.requireLinks(current.nodeId(), result.outputPort());
     }
 
     private NodeExecutionResult executeNode(

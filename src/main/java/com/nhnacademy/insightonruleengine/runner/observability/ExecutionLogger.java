@@ -250,40 +250,63 @@ public class ExecutionLogger {
     private FailureKind classify(Throwable exception) {
         Throwable current = exception;
         while (current != null) {
-            if (current instanceof RetryableException
-                    || current instanceof AmqpException
-                    || current instanceof RedisConnectionFailureException
-                    || current instanceof TransientDataAccessException
-                    || current instanceof RecoverableDataAccessException
-                    || current instanceof SocketTimeoutException
-                    || current instanceof TimeoutException) {
-                return FailureKind.TRANSIENT_DEPENDENCY;
-            }
-            if (current instanceof NonTransientDataAccessException) {
-                return FailureKind.PERMANENT_REJECTED;
-            }
-            if (current instanceof DataAccessException) {
-                return FailureKind.INTERNAL;
-            }
-            if (current instanceof FeignException feignException) {
-                int status = feignException.status();
-                if (status >= 500 || status == 408 || status == 429 || status < 0) {
-                    return FailureKind.TRANSIENT_DEPENDENCY;
-                }
-                return FailureKind.PERMANENT_REJECTED;
-            }
-            if (current instanceof JsonProcessingException
-                    || current instanceof ConstraintViolationException
-                    || current instanceof ExpressionException
-                    || current instanceof IllegalArgumentException) {
-                return FailureKind.PERMANENT_CONFIGURATION;
-            }
-            if (current instanceof IOException) {
-                return FailureKind.TRANSIENT_DEPENDENCY;
+            FailureKind kind = classifySingle(current);
+            if (kind != null) {
+                return kind;
             }
             current = current.getCause();
         }
         return FailureKind.INTERNAL;
+    }
+
+    // 원인 체인의 예외 하나를 판정합니다. 어떤 그룹에도 안 걸리면 null을 반환해 다음 cause를 보게 합니다.
+    // 판정 순서(TRANSIENT_DEPENDENCY -> PERMANENT_REJECTED -> INTERNAL -> Feign -> PERMANENT_CONFIGURATION
+    // -> TRANSIENT_DEPENDENCY)는 기존과 동일하게 유지합니다.
+    private FailureKind classifySingle(Throwable current) {
+        if (isTransientDependency(current)) {
+            return FailureKind.TRANSIENT_DEPENDENCY;
+        }
+        if (current instanceof NonTransientDataAccessException) {
+            return FailureKind.PERMANENT_REJECTED;
+        }
+        if (current instanceof DataAccessException) {
+            return FailureKind.INTERNAL;
+        }
+        if (current instanceof FeignException feignException) {
+            return classifyFeignException(feignException);
+        }
+        if (isPermanentConfiguration(current)) {
+            return FailureKind.PERMANENT_CONFIGURATION;
+        }
+        if (current instanceof IOException) {
+            return FailureKind.TRANSIENT_DEPENDENCY;
+        }
+        return null;
+    }
+
+    private boolean isTransientDependency(Throwable current) {
+        return current instanceof RetryableException
+                || current instanceof AmqpException
+                || current instanceof RedisConnectionFailureException
+                || current instanceof TransientDataAccessException
+                || current instanceof RecoverableDataAccessException
+                || current instanceof SocketTimeoutException
+                || current instanceof TimeoutException;
+    }
+
+    private FailureKind classifyFeignException(FeignException feignException) {
+        int status = feignException.status();
+        if (status >= 500 || status == 408 || status == 429 || status < 0) {
+            return FailureKind.TRANSIENT_DEPENDENCY;
+        }
+        return FailureKind.PERMANENT_REJECTED;
+    }
+
+    private boolean isPermanentConfiguration(Throwable current) {
+        return current instanceof JsonProcessingException
+                || current instanceof ConstraintViolationException
+                || current instanceof ExpressionException
+                || current instanceof IllegalArgumentException;
     }
 
     private enum FailureKind {

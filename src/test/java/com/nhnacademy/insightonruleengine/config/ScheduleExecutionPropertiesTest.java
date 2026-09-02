@@ -24,15 +24,18 @@ class ScheduleExecutionPropertiesTest {
 
     @Test
     void rejectsInvalidConfiguration() {
+        Duration oneMinute = Duration.ofMinutes(1);
+        Duration oneNano = Duration.ofNanos(1);
+
         assertThrows(IllegalArgumentException.class,
-                () -> new ScheduleExecutionProperties(" ", Duration.ofMinutes(1), 1));
+                () -> new ScheduleExecutionProperties(" ", oneMinute, 1));
         assertThrows(IllegalArgumentException.class,
-                () -> new ScheduleExecutionProperties("Unknown/Zone", Duration.ofMinutes(1), 1));
+                () -> new ScheduleExecutionProperties("Unknown/Zone", oneMinute, 1));
         assertThrows(IllegalArgumentException.class,
                 () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ZERO, 1));
         assertThrows(IllegalArgumentException.class,
-                () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ofNanos(1), 1));
+                () -> new ScheduleExecutionProperties("Asia/Seoul", oneNano, 1));
         assertThrows(IllegalArgumentException.class,
-                () -> new ScheduleExecutionProperties("Asia/Seoul", Duration.ofMinutes(1), 0));
+                () -> new ScheduleExecutionProperties("Asia/Seoul", oneMinute, 0));
     }
 }

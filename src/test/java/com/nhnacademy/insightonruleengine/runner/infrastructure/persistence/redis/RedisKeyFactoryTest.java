@@ -37,8 +37,9 @@ class RedisKeyFactoryTest {
                 "schedule-execution:10:1787558400",
                 keyFactory.scheduleExecution(10L, Instant.parse("2026-08-24T08:00:00Z"))
         );
+        Instant now = Instant.now();
         assertThrows(IllegalArgumentException.class,
-                () -> keyFactory.scheduleExecution(0L, Instant.now()));
+                () -> keyFactory.scheduleExecution(0L, now));
         assertThrows(IllegalArgumentException.class,
                 () -> keyFactory.scheduleExecution(1L, null));
     }
