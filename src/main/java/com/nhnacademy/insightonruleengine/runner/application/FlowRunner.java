@@ -102,7 +102,7 @@ public class FlowRunner {
                 }
 
                 List<LinkDefinition> nextLinks = resolveNextLinks(index, current, result);
-                if (nextLinks == null) {
+                if (nextLinks.isEmpty()) {
                     executionLogger.flowFinished(logContext, current.nodeId(), false);
                     return;
                 }
@@ -130,7 +130,9 @@ public class FlowRunner {
         }
     }
 
-    // Filter가 false로 끝나 연결된 Link가 없으면 정상 종료를 뜻하는 null을 반환합니다.
+    // Filter가 false로 끝나 연결된 Link가 없으면 정상 종료를 뜻하는 빈 리스트를 반환합니다.
+    // requireLinks()는 찾지 못하면 예외를 던지므로(빈 리스트를 반환하지 않으므로), 이 메서드가 빈
+    // 리스트를 반환하는 경우는 이 정상 종료 케이스뿐입니다.
     private List<LinkDefinition> resolveNextLinks(
             FlowDefinitionIndex index,
             NodeDefinition current,
@@ -141,7 +143,7 @@ public class FlowRunner {
         }
         if (current.nodeType().getCategory() == NodeType.Category.FILTER
                 && "false".equals(result.outputPort())) {
-            return null;
+            return List.of();
         }
         return index.requireLinks(current.nodeId(), result.outputPort());
     }
