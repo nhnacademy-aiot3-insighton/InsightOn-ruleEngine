@@ -12,6 +12,8 @@ public record FlowResponse(
         String name,
         String description,
         FlowStatus status,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        // AI draft 갱신으로 archive된 기존 Flow의 id. 신규 생성이거나 내용 변경이 없었으면 null.
+        Long replacedFlowId
 ) {
 }

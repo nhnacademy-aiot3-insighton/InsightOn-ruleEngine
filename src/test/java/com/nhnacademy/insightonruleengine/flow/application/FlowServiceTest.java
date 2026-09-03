@@ -499,6 +499,8 @@ class FlowServiceTest {
     void restoreArchivedFlowInactiveTest() {
         Flow archivedFlow = new Flow(1L, 1L, "이전 Flow", null, FlowStatus.ARCHIVED);
         when(flowRepository.findById(2L)).thenReturn(Optional.of(archivedFlow));
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "이전 Flow", FlowStatus.ARCHIVED))
+                .thenReturn(false);
 
         FlowResponse response = flowService.restore(GROUP_ID, USER_ID, 2L);
 
@@ -507,11 +509,29 @@ class FlowServiceTest {
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
     }
 
+    // archive된 동안(부분 유니크 인덱스가 ARCHIVED를 제외하므로) 같은 이름의 새 Flow가 만들어졌을 수
+    // 있다. DB 제약이 이 충돌을 막아주지 않으므로 서비스 레벨에서 막아야 한다.
+    @Test
+    @DisplayName("복구 대상과 같은 이름의 살아있는 Flow가 있으면 복구를 거부한다")
+    void rejectRestoreWhenNameAlreadyTakenTest() {
+        Flow archivedFlow = new Flow(1L, 1L, "[AI] co2 예방 자동화", null, FlowStatus.ARCHIVED);
+        when(flowRepository.findById(2L)).thenReturn(Optional.of(archivedFlow));
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "[AI] co2 예방 자동화", FlowStatus.ARCHIVED))
+                .thenReturn(true);
+
+        assertThrows(DuplicateFlowNameException.class, () -> flowService.restore(GROUP_ID, USER_ID, 2L));
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
+    }
+
     @Test
     @DisplayName("ARCHIVED가 아닌 Flow는 복구할 수 없다")
     void rejectNonArchivedFlowRestoreTest() {
         Flow inactiveFlow = new Flow(1L, 1L, "현재 Flow", null, FlowStatus.INACTIVE);
         when(flowRepository.findById(2L)).thenReturn(Optional.of(inactiveFlow));
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "현재 Flow", FlowStatus.ARCHIVED))
+                .thenReturn(false);
 
         assertThrows(
                 InvalidFlowStatusTransitionException.class,
@@ -545,26 +565,34 @@ class FlowServiceTest {
         verify(flowRepository, never()).delete(any(Flow.class));
     }
 
+    // ARCHIVED된 Flow는 부분 유니크 인덱스에서 이름을 점유하지 않으므로, 같은 이름의 ARCHIVED Flow만
+    // 있어도 "살아있는" 기존 Flow가 없는 것과 동일하게 새로 만듭니다(더 이상 그대로 반환하지 않음).
     @Test
-    @DisplayName("AI draft는 같은 위치·이름의 기존 Flow가 있으면 상태와 관계없이 그대로 반환한다")
-    void createAiDraftReturnsExistingFlowRegardlessOfStatusTest() {
+    @DisplayName("같은 이름의 ARCHIVED Flow만 있으면 새로 만든다")
+    void createAiDraftCreatesNewWhenOnlyArchivedNameExistsTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        Flow archivedFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ARCHIVED);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
-                .thenReturn(Optional.of(archivedFlow));
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.empty());
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
 
         FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
 
-        Assertions.assertEquals(FlowStatus.ARCHIVED, response.status());
-        verify(flowRepository, never()).save(any(Flow.class));
-        verifyNoInteractions(coreActuatorClient);
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        Assertions.assertNull(response.replacedFlowId());
+        verify(flowRepository).save(any(Flow.class));
     }
 
     @Test
     @DisplayName("AI draft는 위치가 SUGGESTION 모드면 INACTIVE로 생성한다")
     void createAiDraftCreatesInactiveWhenSuggestionModeTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -582,7 +610,8 @@ class FlowServiceTest {
     @DisplayName("AI draft는 위치가 AI_DIRECT 모드고 실행 가능한 구조면 ACTIVE로 만들고 라우트·스케줄을 등록한다")
     void createAiDraftActivatesWhenAiDirectAndValidTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -603,7 +632,8 @@ class FlowServiceTest {
     @DisplayName("Core 응답의 groupId가 요청과 다르면 저장 전에 거부한다")
     void createAiDraftRejectsLocationGroupMismatchTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(coreActuatorClient.getLocation(2L))
                 .thenReturn(new LocationResponse(2L, 999L, "다른 그룹 회의실", LocationResponse.AutoControlMode.AI_DIRECT));
@@ -618,7 +648,8 @@ class FlowServiceTest {
     @DisplayName("AI_DIRECT 모드여도 구조가 실행 불가능하면 INACTIVE로 유지한다")
     void createAiDraftStaysInactiveWhenStructureNotExecutableTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -639,7 +670,8 @@ class FlowServiceTest {
     @DisplayName("Core 위치 조회가 실패하면 AI_DIRECT 여부를 확인하지 못해 INACTIVE로 생성한다")
     void createAiDraftStaysInactiveWhenCoreLookupFailsTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -658,7 +690,8 @@ class FlowServiceTest {
     @DisplayName("Core 위치 조회에서 FeignException이 아닌 예외가 나도 INACTIVE로 생성한다")
     void createAiDraftStaysInactiveWhenCoreLookupThrowsNonFeignExceptionTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -677,7 +710,8 @@ class FlowServiceTest {
     @DisplayName("Core가 위치를 찾을 수 없다고(404) 응답하면 저장 전에 거부한다")
     void createAiDraftRejectsWhenLocationNotFoundTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         FeignException.NotFound notFound = mock(FeignException.NotFound.class);
         when(coreActuatorClient.getLocation(2L)).thenThrow(notFound);
@@ -695,7 +729,8 @@ class FlowServiceTest {
     @DisplayName("동시 요청으로 저장이 유니크 제약을 위반하면 충돌 예외를 던진다")
     void createAiDraftThrowsOnConcurrentDuplicateTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
@@ -719,7 +754,8 @@ class FlowServiceTest {
     @DisplayName("AI draft는 유저 권한 확인 없이 동작한다")
     void createAiDraftSkipsAuthorizationTest() {
         FlowCreateRequest request = aiDraftRequest(2L);
-        when(flowRepository.findByGroupIdAndLocationIdAndName(GROUP_ID, 2L, request.name()))
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.empty());
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -730,6 +766,174 @@ class FlowServiceTest {
         flowService.createAiDraft(GROUP_ID, request);
 
         verifyNoInteractions(groupAuthorizationService);
+    }
+
+    // --- 이름 일치 + 내용 비교(갱신) ---
+
+    @Test
+    @DisplayName("이름과 내용(cron·액추에이터 명령)이 모두 같으면 기존 그대로 반환하고 아무것도 archive하지 않는다")
+    void createAiDraftReturnsUnchangedWhenContentIsSameTest() {
+        FlowCreateRequest request = aiDraftRequest(2L);
+        Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.of(existingFlow));
+        when(nodeRepository.findByFlowId(existingFlow.getId()))
+                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, response.status());
+        Assertions.assertNull(response.replacedFlowId());
+        verify(flowRepository, never()).save(any(Flow.class));
+        verify(flowRepository, never()).saveAndFlush(any(Flow.class));
+        verifyNoInteractions(coreActuatorClient);
+    }
+
+    // 활성화돼 있던 자동화의 트리거 시각만 갱신되는 경우, 사용자가 승인한 자동화의 미세 조정이므로
+    // 켜져 있던 상태를 그대로 이어갑니다.
+    @Test
+    @DisplayName("cron만 다르면 기존을 archive하고 새로 만들되 ACTIVE 상태를 승계한다")
+    void createAiDraftCarriesOverActiveStatusWhenOnlyCronChangedTest() {
+        FlowCreateRequest request = aiDraftRequestWithNodes(
+                2L, "0 30 * * * *", "VENTILATION_FAN", "power", "ON");
+        Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.of(existingFlow));
+        when(nodeRepository.findByFlowId(existingFlow.getId()))
+                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+        when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, existingFlow.getStatus());
+        Assertions.assertEquals(existingFlow.getId(), response.replacedFlowId());
+        Assertions.assertEquals(FlowStatus.ACTIVE, response.status());
+        verify(flowRepository).saveAndFlush(existingFlow);
+    }
+
+    @Test
+    @DisplayName("cron만 다르고 기존이 INACTIVE였으면(SUGGESTION) 새로 만들어도 INACTIVE로 유지한다")
+    void createAiDraftKeepsInactiveWhenOnlyCronChangedAndWasInactiveTest() {
+        FlowCreateRequest request = aiDraftRequestWithNodes(
+                2L, "0 30 * * * *", "VENTILATION_FAN", "power", "ON");
+        Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.INACTIVE);
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.of(existingFlow));
+        when(nodeRepository.findByFlowId(existingFlow.getId()))
+                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+        when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        // registerAfterCommit은 activateAiDraft()에서만 호출되므로, 활성화가 아예 시도되지
+        // 않았음을 이걸로 확인합니다(archive 단계의 refreshAfterCommit/cancelAfterCommit은
+        // ACTIVE 승계 여부와 무관하게 항상 호출됩니다).
+        verify(scheduleFlowScheduler, never()).registerAfterCommit(any(), any());
+    }
+
+    // 액추에이터 명령 자체가 바뀌면 물리적으로 수행하는 동작이 달라지는 것이므로, 기존에 켜져
+    // 있었더라도 사용자 재승인 없이 자동으로 켜지지 않습니다.
+    @Test
+    @DisplayName("액추에이터 명령이 다르면 기존이 ACTIVE였어도 새 flow는 INACTIVE로 만든다")
+    void createAiDraftStaysInactiveWhenActuatorCommandChangedTest() {
+        FlowCreateRequest request = aiDraftRequestWithNodes(
+                2L, "0 0 * * * *", "VENTILATION_FAN", "power", "OFF");
+        Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.of(existingFlow));
+        when(nodeRepository.findByFlowId(existingFlow.getId()))
+                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+        when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.SUGGESTION));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, existingFlow.getStatus());
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+    }
+
+    // AI_DIRECT 위치는 무엇이 바뀌었든(cron이든 액추에이터 명령이든) 기존 로직대로 항상 자동
+    // 활성화합니다.
+    @Test
+    @DisplayName("AI_DIRECT 위치는 액추에이터 명령이 바뀌어도 새 flow를 자동 활성화한다")
+    void createAiDraftActivatesOnActuatorChangeWhenAiDirectTest() {
+        FlowCreateRequest request = aiDraftRequestWithNodes(
+                2L, "0 0 * * * *", "VENTILATION_FAN", "power", "OFF");
+        Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
+        when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
+                .thenReturn(Optional.of(existingFlow));
+        when(nodeRepository.findByFlowId(existingFlow.getId()))
+                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+        when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(coreActuatorClient.getLocation(2L))
+                .thenReturn(new LocationResponse(2L, GROUP_ID, "회의실", LocationResponse.AutoControlMode.AI_DIRECT));
+
+        FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
+
+        Assertions.assertEquals(FlowStatus.ACTIVE, response.status());
+        // 한 번은 archive 단계에서(기존 flow), 한 번은 activateAiDraft에서(새 flow) 호출됩니다.
+        verify(activeFlowDefinitionProvider, times(2)).refreshAfterCommit(GROUP_ID, 2L);
+        verify(scheduleFlowScheduler).registerAfterCommit(eq(GROUP_ID), any());
+    }
+
+    private List<Node> aiDraftNodes(String cron, String actuatorType, String command, String commandValue) {
+        return List.of(
+                new Node(10L, NodeType.SCHEDULE, JsonNodeFactory.instance.objectNode().put("cron", cron)),
+                new Node(10L, NodeType.ACTUATOR_CONTROL, JsonNodeFactory.instance.objectNode()
+                        .put("actuatorType", actuatorType)
+                        .put("command", command)
+                        .put("commandValue", commandValue))
+        );
+    }
+
+    private FlowCreateRequest aiDraftRequestWithNodes(
+            Long locationId, String cron, String actuatorType, String command, String commandValue) {
+        FlowCreateRequest base = aiDraftRequest(locationId);
+        List<FlowNodeRequest> nodes = List.of(
+                FlowNodeRequest.builder()
+                        .clientNodeKey("hourly_schedule")
+                        .nodeType(NodeType.SCHEDULE)
+                        .configuration(JsonNodeFactory.instance.objectNode().put("cron", cron))
+                        .build(),
+                FlowNodeRequest.builder()
+                        .clientNodeKey("fan_actuator")
+                        .nodeType(NodeType.ACTUATOR_CONTROL)
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("actuatorType", actuatorType)
+                                .put("command", command)
+                                .put("commandValue", commandValue))
+                        .build()
+        );
+        return FlowCreateRequest.builder()
+                .locationId(base.locationId())
+                .name(base.name())
+                .description(base.description())
+                .nodes(nodes)
+                .links(base.links())
+                .build();
     }
 
     // 공용 SCHEDULE->ACTUATOR_CONTROL 픽스처를 엔진이 요구하는 "[AI] " 접두어 이름으로 감싸 재사용합니다.

@@ -10,22 +10,19 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+// (group_id, location_id, name) 유니크 제약은 여기서 @UniqueConstraint로 선언하지 않는다.
+// ARCHIVED를 제외해야 해서(JPA가 표현할 수 없는 부분 유니크 인덱스) DB에
+// project-docs/engine-current-baseline-2026-08-31/db-migrations/2026-09-03-flow-name-partial-unique.sql로
+// 직접 만든다. archive된 Flow는 이름을 점유하지 않으므로 같은 이름으로 새 Flow를 만들 수 있다.
 @Entity
 @Table(
         name = "flows",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_flows_group_location_name",
-                        columnNames = {"group_id", "location_id", "name"}
-                )
-        },
         indexes = {
                 @Index(name = "idx_flows_group_id", columnList = "group_id, status"),
                 @Index(

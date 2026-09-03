@@ -6,10 +6,12 @@ import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAu
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
@@ -38,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -86,42 +89,34 @@ public class FlowService {
         return toResponse(savedFlow);
     }
 
-    // AI가 리포트 분석 결과로 자동화 flow 초안을 요청합니다. 유저가 없어 MANAGER 권한 체크는 하지 않습니다.
+    // AI가 리포트 분석·챗봇 요청 결과로 자동화 flow 초안을 요청합니다. 유저가 없어 MANAGER 권한
+    // 체크는 하지 않습니다. AI 쪽은 같은 위치·지표에 항상 같은 이름을 보내므로, 이름이 일치하는
+    // "살아있는"(ARCHIVED가 아닌) Flow를 찾아 내용까지 같으면 그대로 반환하고, cron이나 액추에이터
+    // 명령이 달라졌으면 기존 것을 archive하고 새로 만듭니다.
     @Transactional
     public FlowResponse createAiDraft(Long groupId, FlowCreateRequest request) {
         validateRequest(request);
         validateAiDraftName(request.name());
         validateStructure(request.nodes(), request.links());
 
-        Optional<Flow> existingFlow = flowRepository.findByGroupIdAndLocationIdAndName(
-                groupId, request.locationId(), request.name());
+        Optional<Flow> existingFlow = flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                groupId, request.locationId(), request.name(), FlowStatus.ARCHIVED);
         if (existingFlow.isPresent()) {
-            log.info(
-                    "AI draft가 이미 있어 그대로 반환합니다. flowId={}, status={}",
-                    existingFlow.get().getId(),
-                    existingFlow.get().getStatus());
-            return toResponse(existingFlow.get());
+            ContentDiff diff = diffContent(existingFlow.get(), request);
+            if (diff == ContentDiff.SAME) {
+                log.info(
+                        "AI draft 내용 변경이 없어 그대로 반환합니다. flowId={}, status={}",
+                        existingFlow.get().getId(),
+                        existingFlow.get().getStatus());
+                return toResponse(existingFlow.get(), null);
+            }
+            return replaceAiDraft(groupId, request, existingFlow.get(), diff);
         }
 
         LocationResponse location = fetchLocationSafely(request.locationId());
         validateLocationOwnership(groupId, location);
 
-        Flow flow = new Flow(
-                groupId,
-                request.locationId(),
-                request.name(),
-                request.description(),
-                FlowStatus.INACTIVE);
-        Flow savedFlow;
-        try {
-            savedFlow = flowRepository.save(flow);
-        } catch (DataIntegrityViolationException exception) {
-            // 이름 유니크 제약상 이 요청과 완전히 같은 자동화가 이미 존재한다는 뜻입니다. 동시에 들어온
-            // 같은 요청이 먼저 저장을 마친 경우이므로, 재조회를 시도하지 않고 그대로 충돌로 응답합니다.
-            // 이 엔드포인트를 호출하는 쪽은 AI뿐이고 이름을 항상 같은 규칙으로 만들기 때문에, 여기서
-            // 발생하는 409는 "이미 존재함" 외의 다른 의미를 가질 수 없습니다.
-            throw new DuplicateFlowNameException(groupId, request.locationId(), request.name());
-        }
+        Flow savedFlow = saveAiDraftFlow(groupId, request);
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
 
@@ -129,7 +124,131 @@ public class FlowService {
             activateAiDraft(savedFlow);
         }
         log.info("AI draft를 생성했습니다. flowId={}, status={}", savedFlow.getId(), savedFlow.getStatus());
-        return toResponse(savedFlow);
+        return toResponse(savedFlow, null);
+    }
+
+    // 이름은 같지만 내용(cron 또는 액추에이터 명령)이 달라진 기존 AI draft를 archive하고 같은 이름으로
+    // 새로 만듭니다. 두 Flow가 같은 이름을 동시에 가질 수 없으므로(부분 유니크 인덱스가 ARCHIVED만
+    // 제외), 기존 Flow의 archive를 먼저 flush해 DB에 반영한 뒤에 새 Flow를 insert해야 합니다.
+    private FlowResponse replaceAiDraft(
+            Long groupId,
+            FlowCreateRequest request,
+            Flow existingFlow,
+            ContentDiff diff) {
+        LocationResponse location = fetchLocationSafely(request.locationId());
+        validateLocationOwnership(groupId, location);
+
+        boolean wasActive = existingFlow.getStatus() == FlowStatus.ACTIVE;
+        Long replacedFlowId = existingFlow.getId();
+        existingFlow.archive();
+        flowRepository.saveAndFlush(existingFlow);
+        activeFlowDefinitionProvider.refreshAfterCommit(existingFlow.getGroupId(), existingFlow.getLocationId());
+        scheduleFlowScheduler.cancelAfterCommit(existingFlow.getId());
+
+        Flow savedFlow = saveAiDraftFlow(groupId, request);
+        Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
+        saveLinks(savedFlow.getId(), request.links(), nodeIds);
+
+        // cron만 바뀐 경우는 사용자가 승인한 자동화의 미세 조정이라 켜져 있던 상태를 그대로 이어간다.
+        // 액추에이터 명령 자체가 바뀌면 물리적으로 수행하는 동작이 달라지는 것이므로 재승인을 받는다.
+        // AI_DIRECT 위치는 두 경우 모두 기존 로직대로 무조건 자동 활성화한다.
+        boolean shouldActivate = isAiDirectMode(location) || (diff == ContentDiff.CRON_ONLY && wasActive);
+        if (shouldActivate) {
+            activateAiDraft(savedFlow);
+        }
+        log.info(
+                "AI draft 내용이 달라져 archive 후 재생성했습니다. flowId={}, status={}, replacedFlowId={}",
+                savedFlow.getId(), savedFlow.getStatus(), replacedFlowId);
+        return toResponse(savedFlow, replacedFlowId);
+    }
+
+    private Flow saveAiDraftFlow(Long groupId, FlowCreateRequest request) {
+        Flow flow = new Flow(
+                groupId,
+                request.locationId(),
+                request.name(),
+                request.description(),
+                FlowStatus.INACTIVE);
+        try {
+            return flowRepository.save(flow);
+        } catch (DataIntegrityViolationException exception) {
+            // 이름 유니크 제약상 이 요청과 완전히 같은 자동화가 이미 존재한다는 뜻입니다. 동시에 들어온
+            // 같은 요청이 먼저 저장을 마친 경우이므로, 재조회를 시도하지 않고 그대로 충돌로 응답합니다.
+            // 이 엔드포인트를 호출하는 쪽은 AI뿐이고 이름을 항상 같은 규칙으로 만들기 때문에, 여기서
+            // 발생하는 409는 "이미 존재함" 외의 다른 의미를 가질 수 없습니다.
+            throw new DuplicateFlowNameException(groupId, request.locationId(), request.name());
+        }
+    }
+
+    private enum ContentDiff {
+        SAME, CRON_ONLY, ACTUATOR_CHANGED
+    }
+
+    // 근사 매칭 없이 완전 일치만 본다. AI가 cron의 분을 항상 고정값으로 만들어서, cron 문자열이
+    // 다르다는 건 항상 실제로 다른 시간을 의미하기 때문에 tolerance를 둘 필요가 없다.
+    private ContentDiff diffContent(Flow existingFlow, FlowCreateRequest request) {
+        List<Node> existingNodes = nodeRepository.findByFlowId(existingFlow.getId());
+
+        ActuatorControlSpec existingAction = extractActuatorControl(existingNodes);
+        ActuatorControlSpec newAction = extractActuatorControlFromRequest(request.nodes());
+        if (!Objects.equals(existingAction, newAction)) {
+            return ContentDiff.ACTUATOR_CHANGED;
+        }
+
+        String existingCron = extractScheduleCron(existingNodes);
+        String newCron = extractScheduleCronFromRequest(request.nodes());
+        if (!Objects.equals(existingCron, newCron)) {
+            return ContentDiff.CRON_ONLY;
+        }
+
+        return ContentDiff.SAME;
+    }
+
+    private record ActuatorControlSpec(String actuatorType, String command, String commandValue) {
+    }
+
+    private ActuatorControlSpec extractActuatorControl(List<Node> nodes) {
+        return nodes.stream()
+                .filter(node -> node.getNodeType() == NodeType.ACTUATOR_CONTROL)
+                .findFirst()
+                .map(node -> toActuatorControlSpec(node.getConfiguration()))
+                .orElse(null);
+    }
+
+    private ActuatorControlSpec extractActuatorControlFromRequest(List<FlowNodeRequest> nodes) {
+        return nodes.stream()
+                .filter(node -> node.nodeType() == NodeType.ACTUATOR_CONTROL)
+                .findFirst()
+                .map(node -> toActuatorControlSpec(node.configuration()))
+                .orElse(null);
+    }
+
+    private ActuatorControlSpec toActuatorControlSpec(JsonNode configuration) {
+        return new ActuatorControlSpec(
+                textValue(configuration, "actuatorType"),
+                textValue(configuration, "command"),
+                textValue(configuration, "commandValue"));
+    }
+
+    private String extractScheduleCron(List<Node> nodes) {
+        return nodes.stream()
+                .filter(node -> node.getNodeType() == NodeType.SCHEDULE)
+                .findFirst()
+                .map(node -> textValue(node.getConfiguration(), "cron"))
+                .orElse(null);
+    }
+
+    private String extractScheduleCronFromRequest(List<FlowNodeRequest> nodes) {
+        return nodes.stream()
+                .filter(node -> node.nodeType() == NodeType.SCHEDULE)
+                .findFirst()
+                .map(node -> textValue(node.configuration(), "cron"))
+                .orElse(null);
+    }
+
+    private String textValue(JsonNode configuration, String field) {
+        JsonNode value = configuration.get(field);
+        return value == null || value.isNull() ? null : value.asText();
     }
 
     // 이름만 보고도 AI가 만든 Flow인지 구분할 수 있도록, 접두어를 엔진이 직접 강제합니다.
@@ -324,8 +443,25 @@ public class FlowService {
     public FlowResponse restore(Long groupId, Long userId, Long archivedFlowId) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
+        validateRestoreNameAvailable(archivedFlow);
         archivedFlow.restore();
         return toResponse(archivedFlow);
+    }
+
+    // ARCHIVED가 아닌 동안(즉 archive된 채로 있던 사이) 같은 이름의 새 Flow가 만들어졌을 수 있어,
+    // 복구 전에 이름 충돌을 확인합니다. (group_id, location_id, name) 유니크 인덱스가 ARCHIVED를
+    // 제외하므로 DB가 이 충돌을 막아주지 않습니다 — AI draft 갱신(archive 후 같은 이름 재생성)이
+    // 정상적으로 이 상황을 만들 수 있습니다.
+    private void validateRestoreNameAvailable(Flow archivedFlow) {
+        boolean nameTaken = flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                archivedFlow.getGroupId(),
+                archivedFlow.getLocationId(),
+                archivedFlow.getName(),
+                FlowStatus.ARCHIVED);
+        if (nameTaken) {
+            throw new DuplicateFlowNameException(
+                    archivedFlow.getGroupId(), archivedFlow.getLocationId(), archivedFlow.getName());
+        }
     }
 
     // 같은 그룹과 장소에 같은 이름이 있는지 확인합니다.
@@ -390,6 +526,10 @@ public class FlowService {
 
     // Entity 변환 책임을 DTO 밖에 두고 API에 필요한 Flow 값만 전달합니다.
     private FlowResponse toResponse(Flow flow) {
+        return toResponse(flow, null);
+    }
+
+    private FlowResponse toResponse(Flow flow, Long replacedFlowId) {
         return FlowResponse.builder()
                 .flowId(flow.getId())
                 .groupId(flow.getGroupId())
@@ -398,6 +538,7 @@ public class FlowService {
                 .description(flow.getDescription())
                 .status(flow.getStatus())
                 .createdAt(flow.getCreatedDate())
+                .replacedFlowId(replacedFlowId)
                 .build();
     }
 }
