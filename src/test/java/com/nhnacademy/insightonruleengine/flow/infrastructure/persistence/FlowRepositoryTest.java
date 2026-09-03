@@ -16,9 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.context.jdbc.Sql;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+// (group_id, location_id, name) 부분 유니크 인덱스는 JPA @UniqueConstraint로 표현할 수 없어
+// Flow 엔티티에 더 이상 선언돼 있지 않다. create-drop으로 만들어지는 이 스키마에는 실제 운영
+// migration과 같은 조건의 인덱스를 테스트 시작 전마다 별도로 만들어 재현한다.
+@Sql(scripts = "classpath:sql/flow-name-partial-unique-index.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class FlowRepositoryTest {
 
     @Autowired
@@ -56,17 +61,16 @@ class FlowRepositoryTest {
         Assertions.assertTrue(exists);
     }
 
+    // archive된 Flow는 부분 유니크 인덱스에서 이름을 점유하지 않으므로, 같은 이름의 새 Flow를
+    // 정상적으로 만들 수 있어야 합니다 — AI draft 갱신(archive 후 재생성)이 의존하는 동작입니다.
     @Test
-    @DisplayName("ARCHIVED Flow와 같은 범위에 같은 이름을 저장할 수 없다")
-    void rejectDuplicateNameWhenArchivedFlowExists() {
+    @DisplayName("ARCHIVED Flow와는 같은 범위에 같은 이름을 저장할 수 있다")
+    void allowDuplicateNameWhenOnlyArchivedFlowExists() {
         flowRepository.saveAndFlush(createFlow(1L, 1L, "테스트", FlowStatus.ARCHIVED));
 
-        Flow duplicatedFlow = createFlow(1L, 1L, "테스트", FlowStatus.ACTIVE);
+        Flow newFlow = flowRepository.saveAndFlush(createFlow(1L, 1L, "테스트", FlowStatus.ACTIVE));
 
-        assertThrows(
-                DataIntegrityViolationException.class,
-                () -> flowRepository.saveAndFlush(duplicatedFlow)
-        );
+        Assertions.assertEquals(FlowStatus.ACTIVE, newFlow.getStatus());
     }
 
     @Test
@@ -190,34 +194,51 @@ class FlowRepositoryTest {
     }
 
     @Test
-    @DisplayName("상태와 관계없이 그룹, 장소, 이름이 일치하는 Flow를 조회한다")
-    void findByGroupIdAndLocationIdAndNameRegardlessOfStatus() {
-        Flow archivedFlow = flowRepository.saveAndFlush(
-                createFlow(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.ARCHIVED)
+    @DisplayName("ARCHIVED가 아닌, 그룹·장소·이름이 일치하는 살아있는 Flow를 조회한다")
+    void findByGroupIdAndLocationIdAndNameAndStatusNotFindsLiveFlow() {
+        Flow inactiveFlow = flowRepository.saveAndFlush(
+                createFlow(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.INACTIVE)
         );
         entityManager.clear();
 
         Flow found = flowRepository
-                .findByGroupIdAndLocationIdAndName(1L, 1L, "co2 예방 자동화 (AI 제안)")
+                .findByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.ARCHIVED)
                 .orElseThrow();
 
-        Assertions.assertEquals(archivedFlow.getId(), found.getId());
-        Assertions.assertEquals(FlowStatus.ARCHIVED, found.getStatus());
+        Assertions.assertEquals(inactiveFlow.getId(), found.getId());
+        Assertions.assertEquals(FlowStatus.INACTIVE, found.getStatus());
+    }
+
+    // (group_id, location_id, name) 유니크 인덱스가 ARCHIVED를 제외하므로, 같은 이름의 ARCHIVED
+    // Flow만 있는 경우는 "살아있는 Flow 없음"과 같게 취급되어야 합니다(그대로 반환하면 안 됨).
+    @Test
+    @DisplayName("같은 이름의 ARCHIVED Flow만 있으면 빈 값을 반환한다")
+    void findByGroupIdAndLocationIdAndNameAndStatusNotIgnoresArchived() {
+        flowRepository.saveAndFlush(
+                createFlow(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.ARCHIVED)
+        );
+        entityManager.clear();
+
+        boolean found = flowRepository
+                .findByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.ARCHIVED)
+                .isPresent();
+
+        Assertions.assertFalse(found);
     }
 
     @Test
     @DisplayName("일치하는 Flow가 없으면 빈 값을 반환한다")
     void findByGroupIdAndLocationIdAndNameReturnsEmptyWhenMissing() {
         boolean found = flowRepository
-                .findByGroupIdAndLocationIdAndName(1L, 1L, "존재하지 않음")
+                .findByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "존재하지 않음", FlowStatus.ARCHIVED)
                 .isPresent();
 
-        Assertions.assertEquals(false, found);
+        Assertions.assertFalse(found);
     }
 
     // IDENTITY 채번 Entity는 save() 시점에 바로 INSERT가 나가 유니크 제약 위반도 save()에서 즉시 발생합니다.
     @Test
-    @DisplayName("이름 충돌 시 save()에서 바로 유니크 제약 위반이 발생한다")
+    @DisplayName("ARCHIVED가 아닌 Flow끼리 이름이 충돌하면 save()에서 바로 유니크 제약 위반이 발생한다")
     void duplicateNameFailsImmediatelyOnSave() {
         flowRepository.saveAndFlush(createFlow(1L, 1L, "AI draft", FlowStatus.INACTIVE));
         Flow conflictingFlow = createFlow(1L, 1L, "AI draft", FlowStatus.INACTIVE);
@@ -239,7 +260,8 @@ class FlowRepositoryTest {
 
         assertThrows(
                 RuntimeException.class,
-                () -> flowRepository.findByGroupIdAndLocationIdAndName(1L, 1L, "AI draft"));
+                () -> flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
+                        1L, 1L, "AI draft", FlowStatus.ARCHIVED));
     }
 
     private Flow createFlow(Long groupId, Long locationId, String name, FlowStatus status) {

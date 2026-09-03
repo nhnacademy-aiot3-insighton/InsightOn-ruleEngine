@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
@@ -81,14 +80,5 @@ class NodeParamsValidationTest {
         assertFalse(validator.validate(new SensorParams(null)).isEmpty());
         assertFalse(validator.validate(new SensorParams(0L)).isEmpty());
         assertFalse(validator.validate(new SensorParams(-1L)).isEmpty());
-    }
-
-    @Test
-    @DisplayName("ExternalNotificationParams channel은 TELEGRAM 또는 EMAIL만 허용한다")
-    void validateExternalNotificationChannel() {
-        assertTrue(validator.validate(new ExternalNotificationParams("TELEGRAM")).isEmpty());
-        assertTrue(validator.validate(new ExternalNotificationParams("EMAIL")).isEmpty());
-        assertFalse(validator.validate(new ExternalNotificationParams("SLACK")).isEmpty());
-        assertFalse(validator.validate(new ExternalNotificationParams(" ")).isEmpty());
     }
 }

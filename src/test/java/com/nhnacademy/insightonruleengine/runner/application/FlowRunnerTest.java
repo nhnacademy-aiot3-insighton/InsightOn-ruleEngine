@@ -7,28 +7,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
-import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
-import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
-import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
+import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
+import com.nhnacademy.insightonruleengine.runner.model.ExecutionTriggerType;
+import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
+import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
+import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogContext;
 import com.nhnacademy.insightonruleengine.runner.observability.ExecutionLogger;
-import com.nhnacademy.insightonruleengine.runner.application.router.FlowRouter;
+import jakarta.validation.Validation;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import jakarta.validation.Validation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -91,8 +91,7 @@ class FlowRunnerTest {
                 executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
                 executor(NodeType.THRESHOLD, NodeExecutionResult.next("false"), executed),
                 executor(NodeType.ALERT, NodeExecutionResult.complete(), executed),
-                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed),
-                executor(NodeType.EXTERNAL_NOTIFICATION, NodeExecutionResult.complete(), executed)
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
         ));
         RecordingExecutionLogger logger = new RecordingExecutionLogger();
         FlowRunner runner = new FlowRunner(
@@ -104,7 +103,7 @@ class FlowRunnerTest {
         runner.run(sensorEvent());
 
         assertEquals(
-                List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.EXTERNAL_NOTIFICATION),
+                List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.ACTUATOR_CONTROL),
                 executed
         );
         assertEquals(5L, logger.terminalNodeId);
@@ -396,7 +395,7 @@ class FlowRunnerTest {
                         node(2L, NodeType.THRESHOLD),
                         node(3L, NodeType.ALERT),
                         node(4L, NodeType.ACTUATOR_CONTROL),
-                        node(5L, NodeType.EXTERNAL_NOTIFICATION)
+                        node(5L, NodeType.ACTUATOR_CONTROL)
                 ),
                 List.of(
                         new LinkDefinition(1L, 8L, 1L, 2L, "out", "in"),

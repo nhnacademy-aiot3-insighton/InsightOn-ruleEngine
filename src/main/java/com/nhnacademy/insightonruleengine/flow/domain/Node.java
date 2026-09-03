@@ -38,7 +38,7 @@ public class Node {
     private Long flowId;
 
     /**
-     * 9개 구체 타입 중 하나. DB에는 enum name()이 문자열로 저장된다(예: "THRESHOLD").
+     * 8개 구체 타입 중 하나. DB에는 enum name()이 문자열로 저장된다(예: "THRESHOLD").
      */
     @NotNull
     @Enumerated(EnumType.STRING)

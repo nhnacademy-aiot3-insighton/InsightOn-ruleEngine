@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
@@ -29,8 +28,7 @@ class NodeTypeTest {
                 NodeType.TIME_WINDOW, NodeType.Category.FILTER,
                 NodeType.TIMER, NodeType.Category.FILTER,
                 NodeType.ACTUATOR_CONTROL, NodeType.Category.ACTION,
-                NodeType.ALERT, NodeType.Category.ACTION,
-                NodeType.EXTERNAL_NOTIFICATION, NodeType.Category.ACTION
+                NodeType.ALERT, NodeType.Category.ACTION
         );
 
         assertCoversAllNodeTypes(expectedCategories);
@@ -49,8 +47,7 @@ class NodeTypeTest {
                 NodeType.TIME_WINDOW, TimeWindowParams.class,
                 NodeType.TIMER, TimerParams.class,
                 NodeType.ACTUATOR_CONTROL, ActuatorControlParams.class,
-                NodeType.ALERT, AlertParams.class,
-                NodeType.EXTERNAL_NOTIFICATION, ExternalNotificationParams.class
+                NodeType.ALERT, AlertParams.class
         );
 
         assertCoversAllNodeTypes(expectedTypes);
@@ -69,8 +66,7 @@ class NodeTypeTest {
                 NodeType.TIME_WINDOW, Set.of("true", "false"),
                 NodeType.TIMER, Set.of("true", "false"),
                 NodeType.ACTUATOR_CONTROL, Set.of(),
-                NodeType.ALERT, Set.of(),
-                NodeType.EXTERNAL_NOTIFICATION, Set.of()
+                NodeType.ALERT, Set.of()
         );
 
         assertCoversAllNodeTypes(expectedPorts);
