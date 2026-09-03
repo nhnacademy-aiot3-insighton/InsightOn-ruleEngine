@@ -1,9 +1,9 @@
 package com.nhnacademy.insightonruleengine.runner.infrastructure.cache;
 
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -26,9 +26,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * 이벤트 실행 경로에서 ACTIVE Flow를 제공한다.
- * 정상 경로는 Redis이며, Redis 장애 시 최근 로컬 스냅샷을 짧게 사용해 DB 집중 조회를 막는다.
- * 로컬 스냅샷이 없거나 최대 사용 시간을 넘긴 라우트는 DB 원본으로 복구한다.
+ * 이벤트 실행 경로에서 ACTIVE Flow를 제공한다. 정상 경로는 Redis이며, Redis 장애 시 최근 로컬 스냅샷을 짧게 사용해 DB 집중 조회를 막는다. 로컬 스냅샷이 없거나 최대 사용 시간을 넘긴
+ * 라우트는 DB 원본으로 복구한다.
  */
 @Component
 @Slf4j
@@ -144,8 +143,7 @@ public class ActiveFlowDefinitionProvider {
     }
 
     /**
-     * 애플리케이션이 준비된 뒤 ACTIVE Flow를 Redis에 적재한다.
-     * Redis가 일시적으로 unavailable이어도 로컬 fallback은 채운다.
+     * 애플리케이션이 준비된 뒤 ACTIVE Flow를 Redis에 적재한다. Redis가 일시적으로 unavailable이어도 로컬 fallback은 채운다.
      */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(readOnly = true)

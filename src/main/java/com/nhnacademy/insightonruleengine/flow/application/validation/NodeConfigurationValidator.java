@@ -1,9 +1,9 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;

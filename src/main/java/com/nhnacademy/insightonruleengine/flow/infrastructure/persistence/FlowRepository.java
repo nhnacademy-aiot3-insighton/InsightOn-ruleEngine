@@ -43,8 +43,16 @@ public interface FlowRepository extends JpaRepository<Flow, Long> {
 
     boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
 
-    // AI draft 생성 시 같은 위치·같은 이름의 기존 Flow(상태 무관)를 그대로 재사용하기 위해 조회합니다.
-    Optional<Flow> findByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
+    // AI draft 생성 시 같은 위치·같은 이름의 "살아있는"(ARCHIVED가 아닌) 기존 Flow를 찾기 위해
+    // 조회합니다. (group_id, location_id, name) 유니크 인덱스가 ARCHIVED를 제외하므로, 같은 이름의
+    // ARCHIVED Flow가 여러 개 있을 수 있어 상태 무관 조회는 더 이상 결과가 유일함을 보장하지 않습니다.
+    Optional<Flow> findByGroupIdAndLocationIdAndNameAndStatusNot(
+            Long groupId, Long locationId, String name, FlowStatus status);
+
+    // 휴지통 복구 시 이름 충돌을 확인하기 위해 사용합니다. archive된 동안 같은 이름의 새 Flow가
+    // 만들어졌을 수 있어(위 유니크 인덱스가 ARCHIVED를 제외), DB 제약만으로는 복구를 막아주지 않습니다.
+    boolean existsByGroupIdAndLocationIdAndNameAndStatusNot(
+            Long groupId, Long locationId, String name, FlowStatus status);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from Flow flow where flow.groupId = :groupId")

@@ -1,11 +1,11 @@
 package com.nhnacademy.insightonruleengine.flow;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.util.List;
 
 public abstract class FlowTestData {
