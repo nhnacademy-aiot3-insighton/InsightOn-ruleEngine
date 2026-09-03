@@ -189,6 +189,18 @@ public class ThresholdEvaluator {
             }
             return true;
         }
+
+        // AbstractMap의 Map 계약 기반 equals/hashCode(entrySet 비교)가 이미 metrics 내용을
+        // 정확히 반영하므로, 추가 필드를 무시하는 게 아니라 의도적으로 그대로 상속받습니다.
+        @Override
+        public boolean equals(Object other) {
+            return super.equals(other);
+        }
+
+        @Override
+        public int hashCode() {
+            return super.hashCode();
+        }
     }
 
     private static final class InvalidMetricTracker {

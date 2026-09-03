@@ -8,12 +8,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotActiveException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
@@ -114,7 +115,7 @@ class FlowDefinitionAssemblerTest {
         FlowDefinition result = assembler.assemble(GROUP_ID, FLOW_ID);
 
         assertEquals(List.of(100L, 200L), result.links().stream()
-                .map(linkDefinition -> linkDefinition.linkId())
+                .map(LinkDefinition::linkId)
                 .toList());
     }
 

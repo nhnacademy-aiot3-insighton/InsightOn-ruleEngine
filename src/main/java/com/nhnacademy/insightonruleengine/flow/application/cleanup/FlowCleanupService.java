@@ -74,9 +74,7 @@ public class FlowCleanupService {
         for (Flow flow : flows) {
             routeKeys.add(new RouteKey(flow.getGroupId(), flow.getLocationId()));
         }
-        routeKeys.forEach(routeKey -> {
-            activeFlowDefinitionProvider.evictNow(routeKey.groupId(), routeKey.locationId());
-        });
+        routeKeys.forEach(routeKey -> activeFlowDefinitionProvider.evictNow(routeKey.groupId(), routeKey.locationId()));
 
         for (Flow flow : flows) {
             RuntimeStateNodeIds nodeIds = runtimeStateNodeIds.getOrDefault(
