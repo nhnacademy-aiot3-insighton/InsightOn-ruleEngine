@@ -19,7 +19,7 @@ public class TimeWindowNodeExecutor implements NodeExecutor {
     private final ScheduleExecutionProperties timeProperties;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.TIME_WINDOW;
     }
 

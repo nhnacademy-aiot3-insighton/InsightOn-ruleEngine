@@ -85,7 +85,7 @@ class TelemetryRuntimeRecoveryTest {
 
     private NodeExecutor executor(NodeType nodeType, NodeExecutionResult result) {
         NodeExecutor executor = mock(NodeExecutor.class);
-        when(executor.supports()).thenReturn(nodeType);
+        when(executor.nodeType()).thenReturn(nodeType);
         when(executor.execute(any(NodeDefinition.class), any(FlowExecutionContext.class))).thenReturn(result);
         return executor;
     }

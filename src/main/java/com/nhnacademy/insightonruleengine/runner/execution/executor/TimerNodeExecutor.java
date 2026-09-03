@@ -18,7 +18,7 @@ public class TimerNodeExecutor implements NodeExecutor {
     private final TimerStateRedisRepository timerStateRedisRepository;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.TIMER;
     }
 

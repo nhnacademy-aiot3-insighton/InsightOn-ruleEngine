@@ -28,7 +28,7 @@ class ScheduleNodeExecutorTest {
                 FlowExecutionContext.scheduled(flow, Instant.parse("2026-08-24T09:00:00Z"))
         );
 
-        assertEquals(NodeType.SCHEDULE, executor.supports());
+        assertEquals(NodeType.SCHEDULE, executor.nodeType());
         assertEquals(NodeExecutionResult.next("out"), result);
     }
 

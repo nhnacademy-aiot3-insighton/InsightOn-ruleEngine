@@ -116,7 +116,7 @@ class FlowRunnerTest {
         List<NodeType> executed = new ArrayList<>();
         NodeExecutor failingAlertExecutor = new NodeExecutor() {
             @Override
-            public NodeType supports() {
+            public NodeType nodeType() {
                 return NodeType.ALERT;
             }
 
@@ -216,7 +216,7 @@ class FlowRunnerTest {
                 Validation.buildDefaultValidatorFactory().getValidator());
         NodeExecutor actuatorExecutor = new NodeExecutor() {
             @Override
-            public NodeType supports() {
+            public NodeType nodeType() {
                 return NodeType.ACTUATOR_CONTROL;
             }
 
@@ -269,7 +269,7 @@ class FlowRunnerTest {
         List<NodeType> executed = new ArrayList<>();
         NodeExecutor scheduleExecutor = new NodeExecutor() {
             @Override
-            public NodeType supports() {
+            public NodeType nodeType() {
                 return NodeType.SCHEDULE;
             }
 
@@ -306,7 +306,7 @@ class FlowRunnerTest {
     ) {
         return new NodeExecutor() {
             @Override
-            public NodeType supports() {
+            public NodeType nodeType() {
                 return nodeType;
             }
 

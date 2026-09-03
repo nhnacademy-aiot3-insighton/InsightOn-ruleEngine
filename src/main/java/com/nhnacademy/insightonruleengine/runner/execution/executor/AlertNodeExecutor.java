@@ -25,7 +25,7 @@ public class AlertNodeExecutor implements NodeExecutor {
     private final ActionPublisher actionPublisher;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.ALERT;
     }
 

@@ -21,7 +21,7 @@ public class ActuatorControlNodeExecutor implements NodeExecutor {
     private final CoreActuatorClient coreActuatorClient;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.ACTUATOR_CONTROL;
     }
 

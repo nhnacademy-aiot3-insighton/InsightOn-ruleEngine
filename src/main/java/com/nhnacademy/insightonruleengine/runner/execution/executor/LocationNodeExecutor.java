@@ -16,7 +16,7 @@ public class LocationNodeExecutor implements NodeExecutor {
     private final NodeParamsParser nodeParamsParser;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.LOCATION;
     }
 

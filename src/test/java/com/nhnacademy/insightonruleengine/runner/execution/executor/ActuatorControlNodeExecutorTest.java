@@ -48,7 +48,7 @@ class ActuatorControlNodeExecutorTest {
                 FlowExecutionContext.scheduled(flow, Instant.parse("2026-08-24T09:00:00Z"))
         );
 
-        assertEquals(NodeType.ACTUATOR_CONTROL, executor.supports());
+        assertEquals(NodeType.ACTUATOR_CONTROL, executor.nodeType());
         assertEquals(NodeExecutionResult.complete(), result);
         assertEquals(10L, coreActuatorClient.locationId);
         assertEquals(

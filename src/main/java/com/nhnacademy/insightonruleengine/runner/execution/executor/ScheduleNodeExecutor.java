@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class ScheduleNodeExecutor implements NodeExecutor {
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.SCHEDULE;
     }
 

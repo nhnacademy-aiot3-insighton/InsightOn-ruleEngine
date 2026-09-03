@@ -6,7 +6,7 @@ import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 
 public interface NodeExecutor {
-    NodeType supports();
+    NodeType nodeType();
 
     NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context);
 }

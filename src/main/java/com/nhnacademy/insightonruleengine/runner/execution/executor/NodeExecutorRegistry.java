@@ -14,9 +14,9 @@ public class NodeExecutorRegistry {
     public NodeExecutorRegistry(List<NodeExecutor> nodeExecutors) {
         Map<NodeType, NodeExecutor> mapped = new EnumMap<>(NodeType.class);
         for (NodeExecutor executor : nodeExecutors) {
-            NodeExecutor duplicate = mapped.putIfAbsent(executor.supports(), executor);
+            NodeExecutor duplicate = mapped.putIfAbsent(executor.nodeType(), executor);
             if (duplicate != null) {
-                throw new IllegalStateException("중복 NodeExecutor입니다: " + executor.supports());
+                throw new IllegalStateException("중복 NodeExecutor입니다: " + executor.nodeType());
             }
         }
         executors = Map.copyOf(mapped);

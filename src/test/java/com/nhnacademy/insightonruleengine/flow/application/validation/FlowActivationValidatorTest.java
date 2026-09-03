@@ -26,7 +26,7 @@ class FlowActivationValidatorTest {
     void invalidStoredConfigurationPreventsActivation() {
         FlowGraphValidator graphValidator = mock(FlowGraphValidator.class);
         NodeExecutor executor = mock(NodeExecutor.class);
-        when(executor.supports()).thenReturn(NodeType.SENSOR);
+        when(executor.nodeType()).thenReturn(NodeType.SENSOR);
         NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(executor));
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
@@ -68,7 +68,7 @@ class FlowActivationValidatorTest {
     void validActuatorConfigurationCanBeActivated() {
         FlowGraphValidator graphValidator = mock(FlowGraphValidator.class);
         NodeExecutor executor = mock(NodeExecutor.class);
-        when(executor.supports()).thenReturn(NodeType.ACTUATOR_CONTROL);
+        when(executor.nodeType()).thenReturn(NodeType.ACTUATOR_CONTROL);
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());

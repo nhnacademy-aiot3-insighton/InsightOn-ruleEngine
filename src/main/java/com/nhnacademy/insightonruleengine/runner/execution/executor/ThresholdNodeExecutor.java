@@ -18,7 +18,7 @@ public class ThresholdNodeExecutor implements NodeExecutor {
     private final ThresholdEvaluator thresholdEvaluator;
 
     @Override
-    public NodeType supports() {
+    public NodeType nodeType() {
         return NodeType.THRESHOLD;
     }
 
