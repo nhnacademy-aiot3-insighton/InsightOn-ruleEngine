@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;

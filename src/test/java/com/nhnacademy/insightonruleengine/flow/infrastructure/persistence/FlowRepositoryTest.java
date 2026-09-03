@@ -223,7 +223,7 @@ class FlowRepositoryTest {
                 .findByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "co2 예방 자동화 (AI 제안)", FlowStatus.ARCHIVED)
                 .isPresent();
 
-        Assertions.assertEquals(false, found);
+        Assertions.assertFalse(found);
     }
 
     @Test
@@ -233,7 +233,7 @@ class FlowRepositoryTest {
                 .findByGroupIdAndLocationIdAndNameAndStatusNot(1L, 1L, "존재하지 않음", FlowStatus.ARCHIVED)
                 .isPresent();
 
-        Assertions.assertEquals(false, found);
+        Assertions.assertFalse(found);
     }
 
     // IDENTITY 채번 Entity는 save() 시점에 바로 INSERT가 나가 유니크 제약 위반도 save()에서 즉시 발생합니다.

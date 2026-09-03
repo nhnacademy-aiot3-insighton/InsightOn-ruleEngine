@@ -5,13 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeValidator.NodeRoleValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator.NodeValidationResult;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.runner.execution.executor;
 
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
@@ -23,6 +23,7 @@ public class AlertNodeExecutor implements NodeExecutor {
     private final NodeParamsParser nodeParamsParser;
     private final AlertCountService alertCountService;
     private final ActionPublisher actionPublisher;
+
     @Override
     public NodeType supports() {
         return NodeType.ALERT;

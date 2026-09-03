@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
 import java.time.Instant;

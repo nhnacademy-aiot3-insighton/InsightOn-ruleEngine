@@ -1,24 +1,26 @@
 package com.nhnacademy.insightonruleengine.flow.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
 import com.nhnacademy.insightonruleengine.client.core.LocationResponse;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
@@ -31,10 +33,8 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowName
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import feign.FeignException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +54,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class FlowService {
 
-    private static final String TARGET_PORT = "in";
     private static final String AI_DRAFT_NAME_PREFIX = "[AI] ";
 
     private final FlowRepository flowRepository;

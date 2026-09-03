@@ -15,20 +15,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
-import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.application.FlowService;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
+import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.CoreDependencyException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
@@ -36,9 +39,6 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundExce
 import com.nhnacademy.insightonruleengine.flow.domain.exception.ForbiddenException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStatusTransitionException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.InvalidFlowStructureException;
-import com.nhnacademy.insightonruleengine.flow.application.FlowService;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -201,36 +201,36 @@ class FlowControllerTest {
                 org.junit.jupiter.params.provider.Arguments.of(
                         "nodes 필드 누락",
                         """
-                        {"locationId": 10, "name": "노드 누락 플로우", "links": []}
-                        """
+                                {"locationId": 10, "name": "노드 누락 플로우", "links": []}
+                                """
                 ),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "links 필드 누락",
                         """
-                        {"locationId": 10, "name": "링크 누락 플로우", "nodes": []}
-                        """
+                                {"locationId": 10, "name": "링크 누락 플로우", "nodes": []}
+                                """
                 ),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "NodeType 누락",
                         """
-                        {
-                          "locationId": 10,
-                          "name": "노드 타입 누락 플로우",
-                          "nodes": [
-                            {"clientNodeKey": "sensor", "configuration": {}},
-                            {"clientNodeKey": "alert", "nodeType": "ALERT", "configuration": {}}
-                          ],
-                          "links": [
-                            {"sourceClientNodeKey": "sensor", "targetClientNodeKey": "alert", "sourcePort": "out", "targetPort": "in"}
-                          ]
-                        }
-                        """
+                                {
+                                  "locationId": 10,
+                                  "name": "노드 타입 누락 플로우",
+                                  "nodes": [
+                                    {"clientNodeKey": "sensor", "configuration": {}},
+                                    {"clientNodeKey": "alert", "nodeType": "ALERT", "configuration": {}}
+                                  ],
+                                  "links": [
+                                    {"sourceClientNodeKey": "sensor", "targetClientNodeKey": "alert", "sourcePort": "out", "targetPort": "in"}
+                                  ]
+                                }
+                                """
                 ),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "name 공백",
                         """
-                        {"locationId": 10, "name": "   ", "nodes": [], "links": []}
-                        """
+                                {"locationId": 10, "name": "   ", "nodes": [], "links": []}
+                                """
                 )
         );
     }

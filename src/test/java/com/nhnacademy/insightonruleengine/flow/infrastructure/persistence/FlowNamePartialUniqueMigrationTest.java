@@ -42,7 +42,7 @@ class FlowNamePartialUniqueMigrationTest {
 
         try (Connection connection = POSTGRESQL.createConnection("")) {
             createLegacyFlowsTable(connection);
-            insertFlow(connection, 1L, 1L, "[AI] co2 예방 자동화", "ACTIVE");
+            insertFlow(connection, "ACTIVE");
 
             ScriptUtils.executeSqlScript(connection, new FileSystemResource(MIGRATION_PATH));
 
@@ -50,14 +50,14 @@ class FlowNamePartialUniqueMigrationTest {
             assertEquals(List.of("uk_flows_group_location_name"), findPartialUniqueIndexNames(connection));
 
             // 기존 행을 archive로 바꾸면 같은 이름의 새 행을 만들 수 있어야 한다(migration의 목적).
-            archiveFlow(connection, 1L, 1L, "[AI] co2 예방 자동화");
-            insertFlow(connection, 1L, 1L, "[AI] co2 예방 자동화", "INACTIVE");
+            archiveFlow(connection);
+            insertFlow(connection, "INACTIVE");
             assertEquals(2, countFlows(connection));
 
             // ARCHIVED가 아닌 행끼리는 여전히 같은 이름을 가질 수 없어야 한다.
             SQLException duplicateException = assertThrows(
                     SQLException.class,
-                    () -> insertFlow(connection, 1L, 1L, "[AI] co2 예방 자동화", "INACTIVE")
+                    () -> insertFlow(connection, "INACTIVE")
             );
             assertEquals("23505", duplicateException.getSQLState());
         }
@@ -123,35 +123,24 @@ class FlowNamePartialUniqueMigrationTest {
         }
     }
 
-    private void insertFlow(
-            Connection connection,
-            long groupId,
-            long locationId,
-            String name,
-            String status
-    ) throws SQLException {
+    // 이 테스트는 (group_id, location_id, name) 한 조합만 다루므로 그 셋은 고정하고 status만 받는다.
+    private void insertFlow(Connection connection, String status) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 insert into engine.flows (group_id, location_id, name, status)
-                values (?, ?, ?, ?)
+                values (1, 1, '[AI] co2 예방 자동화', ?)
                 """)) {
-            statement.setLong(1, groupId);
-            statement.setLong(2, locationId);
-            statement.setString(3, name);
-            statement.setString(4, status);
+            statement.setString(1, status);
             statement.executeUpdate();
         }
     }
 
-    private void archiveFlow(Connection connection, long groupId, long locationId, String name) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                update engine.flows
-                set status = 'ARCHIVED'
-                where group_id = ? and location_id = ? and name = ?
-                """)) {
-            statement.setLong(1, groupId);
-            statement.setLong(2, locationId);
-            statement.setString(3, name);
-            statement.executeUpdate();
+    private void archiveFlow(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    update engine.flows
+                    set status = 'ARCHIVED'
+                    where group_id = 1 and location_id = 1 and name = '[AI] co2 예방 자동화'
+                    """);
         }
     }
 

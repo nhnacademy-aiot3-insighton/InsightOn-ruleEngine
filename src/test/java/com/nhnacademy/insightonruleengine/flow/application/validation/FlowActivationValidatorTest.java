@@ -6,12 +6,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.runner.execution.evaluator.ThresholdEvaluator;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutor;
 import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;

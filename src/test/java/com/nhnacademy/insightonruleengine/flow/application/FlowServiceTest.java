@@ -14,23 +14,27 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.nhnacademy.insightonruleengine.client.core.CoreActuatorClient;
 import com.nhnacademy.insightonruleengine.client.core.LocationResponse;
+import com.nhnacademy.insightonruleengine.flow.FlowTestData;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
+import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
+import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupRole;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
-import com.nhnacademy.insightonruleengine.flow.FlowTestData;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Link;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowCreateRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowStatusChangeRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowUpdateRequest;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.DuplicateFlowNameException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowDeletionNotAllowedException;
 import com.nhnacademy.insightonruleengine.flow.domain.exception.FlowNotFoundException;
@@ -43,12 +47,8 @@ import com.nhnacademy.insightonruleengine.flow.domain.exception.ReservedFlowName
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.LinkRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureErrorCode;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
-import com.nhnacademy.insightonruleengine.flow.application.validation.model.NodeErrorCode;
+import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
 import feign.FeignException;
 import java.util.List;
 import java.util.Optional;
@@ -779,7 +779,7 @@ class FlowServiceTest {
                 GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.of(existingFlow));
         when(nodeRepository.findByFlowId(existingFlow.getId()))
-                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+                .thenReturn(aiDraftNodes());
 
         FlowResponse response = flowService.createAiDraft(GROUP_ID, request);
 
@@ -795,14 +795,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("cron만 다르면 기존을 archive하고 새로 만들되 ACTIVE 상태를 승계한다")
     void createAiDraftCarriesOverActiveStatusWhenOnlyCronChangedTest() {
-        FlowCreateRequest request = aiDraftRequestWithNodes(
-                2L, "0 30 * * * *", "VENTILATION_FAN", "power", "ON");
+        FlowCreateRequest request = aiDraftRequestWithNodes("0 30 * * * *", "ON");
         Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
         when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
                 GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.of(existingFlow));
         when(nodeRepository.findByFlowId(existingFlow.getId()))
-                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+                .thenReturn(aiDraftNodes());
         when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -821,14 +820,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("cron만 다르고 기존이 INACTIVE였으면(SUGGESTION) 새로 만들어도 INACTIVE로 유지한다")
     void createAiDraftKeepsInactiveWhenOnlyCronChangedAndWasInactiveTest() {
-        FlowCreateRequest request = aiDraftRequestWithNodes(
-                2L, "0 30 * * * *", "VENTILATION_FAN", "power", "ON");
+        FlowCreateRequest request = aiDraftRequestWithNodes("0 30 * * * *", "ON");
         Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.INACTIVE);
         when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
                 GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.of(existingFlow));
         when(nodeRepository.findByFlowId(existingFlow.getId()))
-                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+                .thenReturn(aiDraftNodes());
         when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -850,14 +848,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("액추에이터 명령이 다르면 기존이 ACTIVE였어도 새 flow는 INACTIVE로 만든다")
     void createAiDraftStaysInactiveWhenActuatorCommandChangedTest() {
-        FlowCreateRequest request = aiDraftRequestWithNodes(
-                2L, "0 0 * * * *", "VENTILATION_FAN", "power", "OFF");
+        FlowCreateRequest request = aiDraftRequestWithNodes("0 0 * * * *", "OFF");
         Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
         when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
                 GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.of(existingFlow));
         when(nodeRepository.findByFlowId(existingFlow.getId()))
-                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+                .thenReturn(aiDraftNodes());
         when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -876,14 +873,13 @@ class FlowServiceTest {
     @Test
     @DisplayName("AI_DIRECT 위치는 액추에이터 명령이 바뀌어도 새 flow를 자동 활성화한다")
     void createAiDraftActivatesOnActuatorChangeWhenAiDirectTest() {
-        FlowCreateRequest request = aiDraftRequestWithNodes(
-                2L, "0 0 * * * *", "VENTILATION_FAN", "power", "OFF");
+        FlowCreateRequest request = aiDraftRequestWithNodes("0 0 * * * *", "OFF");
         Flow existingFlow = new Flow(GROUP_ID, 2L, request.name(), request.description(), FlowStatus.ACTIVE);
         when(flowRepository.findByGroupIdAndLocationIdAndNameAndStatusNot(
                 GROUP_ID, 2L, request.name(), FlowStatus.ARCHIVED))
                 .thenReturn(Optional.of(existingFlow));
         when(nodeRepository.findByFlowId(existingFlow.getId()))
-                .thenReturn(aiDraftNodes("0 0 * * * *", "VENTILATION_FAN", "power", "ON"));
+                .thenReturn(aiDraftNodes());
         when(flowRepository.saveAndFlush(existingFlow)).thenReturn(existingFlow);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -899,19 +895,22 @@ class FlowServiceTest {
         verify(scheduleFlowScheduler).registerAfterCommit(eq(GROUP_ID), any());
     }
 
-    private List<Node> aiDraftNodes(String cron, String actuatorType, String command, String commandValue) {
+    // 갱신 테스트들의 "기존 flow" 내용은 항상 이 기준값(정시 cron, 환기팬 ON) 하나이므로 파라미터로
+    // 빼지 않는다 — 실제로 바뀌는 건 항상 새 요청(aiDraftRequestWithNodes) 쪽이다.
+    private List<Node> aiDraftNodes() {
         return List.of(
-                new Node(10L, NodeType.SCHEDULE, JsonNodeFactory.instance.objectNode().put("cron", cron)),
+                new Node(10L, NodeType.SCHEDULE, JsonNodeFactory.instance.objectNode().put("cron", "0 0 * * * *")),
                 new Node(10L, NodeType.ACTUATOR_CONTROL, JsonNodeFactory.instance.objectNode()
-                        .put("actuatorType", actuatorType)
-                        .put("command", command)
-                        .put("commandValue", commandValue))
+                        .put("actuatorType", "VENTILATION_FAN")
+                        .put("command", "power")
+                        .put("commandValue", "ON"))
         );
     }
 
-    private FlowCreateRequest aiDraftRequestWithNodes(
-            Long locationId, String cron, String actuatorType, String command, String commandValue) {
-        FlowCreateRequest base = aiDraftRequest(locationId);
+    // locationId/actuatorType/command는 모든 갱신 테스트에서 고정이라 파라미터로 두지 않는다 —
+    // 케이스마다 실제로 바뀌는 건 cron과 commandValue뿐이다.
+    private FlowCreateRequest aiDraftRequestWithNodes(String cron, String commandValue) {
+        FlowCreateRequest base = aiDraftRequest(2L);
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
                         .clientNodeKey("hourly_schedule")
@@ -922,8 +921,8 @@ class FlowServiceTest {
                         .clientNodeKey("fan_actuator")
                         .nodeType(NodeType.ACTUATOR_CONTROL)
                         .configuration(JsonNodeFactory.instance.objectNode()
-                                .put("actuatorType", actuatorType)
-                                .put("command", command)
+                                .put("actuatorType", "VENTILATION_FAN")
+                                .put("command", "power")
                                 .put("commandValue", commandValue))
                         .build()
         );

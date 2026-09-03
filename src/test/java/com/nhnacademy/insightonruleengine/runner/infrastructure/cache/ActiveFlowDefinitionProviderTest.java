@@ -17,12 +17,12 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
+import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -269,8 +269,8 @@ class ActiveFlowDefinitionProviderTest {
         logger.setLevel(Level.OFF);
         try {
             for (long routeId = 1L;
-                    routeId <= ActiveFlowDefinitionProvider.MAX_TRACKED_LOCAL_FALLBACK_FAILURES + 1L;
-                    routeId++) {
+                 routeId <= ActiveFlowDefinitionProvider.MAX_TRACKED_LOCAL_FALLBACK_FAILURES + 1L;
+                 routeId++) {
                 provider.find(routeId, routeId);
                 advancePastCacheRetryDelay();
                 provider.find(routeId, routeId);

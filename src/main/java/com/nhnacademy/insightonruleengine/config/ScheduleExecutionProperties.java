@@ -1,7 +1,7 @@
 package com.nhnacademy.insightonruleengine.config;
 
-import java.time.Duration;
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.ZoneId;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;

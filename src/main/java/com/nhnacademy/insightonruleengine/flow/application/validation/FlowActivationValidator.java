@@ -1,23 +1,25 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
-import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
 import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
-import com.nhnacademy.insightonruleengine.runner.execution.evaluator.ThresholdEvaluator;
-import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
+import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
+import com.nhnacademy.insightonruleengine.runner.execution.evaluator.ThresholdEvaluator;
+import com.nhnacademy.insightonruleengine.runner.execution.executor.NodeExecutorRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 import org.springframework.expression.spel.SpelParseException;
+import org.springframework.stereotype.Component;
 
-/** ACTIVE 전환 전에 저장된 Flow가 현재 엔진에서 실행 가능한지 확인합니다. */
+/**
+ * ACTIVE 전환 전에 저장된 Flow가 현재 엔진에서 실행 가능한지 확인합니다.
+ */
 @Component
 @RequiredArgsConstructor
 public class FlowActivationValidator {
@@ -101,7 +103,8 @@ public class FlowActivationValidator {
                 .toList();
     }
 
-    private FlowStructureValidationError error(FlowValidationErrorReason code, NodeDefinition node, String fieldPath, String message) {
+    private FlowStructureValidationError error(FlowValidationErrorReason code, NodeDefinition node, String fieldPath,
+                                               String message) {
         return new FlowStructureValidationError(code, node.nodeId().toString(), fieldPath, message);
     }
 }
