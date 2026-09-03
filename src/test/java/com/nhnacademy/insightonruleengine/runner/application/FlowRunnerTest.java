@@ -91,8 +91,7 @@ class FlowRunnerTest {
                 executor(NodeType.SENSOR, NodeExecutionResult.next("out"), executed),
                 executor(NodeType.THRESHOLD, NodeExecutionResult.next("false"), executed),
                 executor(NodeType.ALERT, NodeExecutionResult.complete(), executed),
-                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed),
-                executor(NodeType.EXTERNAL_NOTIFICATION, NodeExecutionResult.complete(), executed)
+                executor(NodeType.ACTUATOR_CONTROL, NodeExecutionResult.complete(), executed)
         ));
         RecordingExecutionLogger logger = new RecordingExecutionLogger();
         FlowRunner runner = new FlowRunner(
@@ -104,7 +103,7 @@ class FlowRunnerTest {
         runner.run(sensorEvent());
 
         assertEquals(
-                List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.EXTERNAL_NOTIFICATION),
+                List.of(NodeType.SENSOR, NodeType.THRESHOLD, NodeType.ACTUATOR_CONTROL),
                 executed
         );
         assertEquals(5L, logger.terminalNodeId);
@@ -396,7 +395,7 @@ class FlowRunnerTest {
                         node(2L, NodeType.THRESHOLD),
                         node(3L, NodeType.ALERT),
                         node(4L, NodeType.ACTUATOR_CONTROL),
-                        node(5L, NodeType.EXTERNAL_NOTIFICATION)
+                        node(5L, NodeType.ACTUATOR_CONTROL)
                 ),
                 List.of(
                         new LinkDefinition(1L, 8L, 1L, 2L, "out", "in"),

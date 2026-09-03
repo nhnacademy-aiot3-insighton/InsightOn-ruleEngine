@@ -27,7 +27,7 @@ class FlowNodeValidatorTest {
         NodeValidationResult nodes = nodeValidator.validate(List.of(
                 node("trigger", NodeType.SENSOR),
                 node("action1", NodeType.ALERT),
-                node("action2", NodeType.EXTERNAL_NOTIFICATION)
+                node("action2", NodeType.ACTUATOR_CONTROL)
         ));
 
         NodeRoleValidationResult actual = flowNodeValidator.validateRoles(nodes);
