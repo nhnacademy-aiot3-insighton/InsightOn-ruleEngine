@@ -1,11 +1,11 @@
 package com.nhnacademy.insightonruleengine.flow.application.validation;
 
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowLinkRequest;
-import com.nhnacademy.insightonruleengine.flow.api.dto.request.FlowNodeRequest;
+import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowGraph;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowStructureValidationError;
 import com.nhnacademy.insightonruleengine.flow.application.validation.model.FlowValidationErrorReason;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.FlowDefinition;
+import com.nhnacademy.insightonruleengine.flow.domain.definition.LinkDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
@@ -18,7 +18,10 @@ import org.springframework.expression.spel.SpelParseException;
 import org.springframework.stereotype.Component;
 
 /**
- * ACTIVE 전환 전에 저장된 Flow가 현재 엔진에서 실행 가능한지 확인합니다.
+ * ACTIVE 전환 전에 저장된 Flow가 현재 엔진에서 실행 가능한지 확인한다.
+ *
+ * <p>그래프 규칙은 저장 전 요청과 같으므로 {@link FlowGraphValidator}를 그대로 쓰고, 여기서는 저장 시점에는
+ * 알 수 없는 것 — 이 엔진에 실행기가 있는지, Threshold 식을 파싱할 수 있는지 — 만 덧붙인다.
  */
 @Component
 @RequiredArgsConstructor
@@ -26,7 +29,7 @@ public class FlowActivationValidator {
 
     private static final String NODE_FIELD_PREFIX = "nodes[";
 
-    private final FlowStructureValidator flowStructureValidator;
+    private final FlowGraphValidator flowGraphValidator;
     private final NodeParamsParser nodeParamsParser;
     private final NodeExecutorRegistry nodeExecutorRegistry;
     private final ThresholdEvaluator thresholdEvaluator;
@@ -36,17 +39,33 @@ public class FlowActivationValidator {
             throw new IllegalArgumentException("flow는 필수입니다.");
         }
 
-        List<FlowStructureValidationError> errors = new ArrayList<>();
-        List<FlowStructureValidationError> structureErrors = flowStructureValidator.validate(
-                toNodeRequests(flow),
-                toLinkRequests(flow));
-        if (structureErrors != null) {
-            errors.addAll(structureErrors);
-        }
+        List<FlowStructureValidationError> errors =
+                new ArrayList<>(flowGraphValidator.validate(toGraph(flow)));
         for (NodeDefinition node : flow.nodes()) {
             validateNode(node, errors);
         }
         return List.copyOf(errors);
+    }
+
+    // 저장된 정의를 검증용 그래프로 옮긴다. 식별자는 nodeId, 오류 필드 경로는 Link 순서를 쓴다.
+    private FlowGraph toGraph(FlowDefinition flow) {
+        List<FlowGraph.Node> nodes = flow.nodes().stream()
+                .map(node -> new FlowGraph.Node(node.nodeId().toString(), node.nodeType()))
+                .toList();
+
+        List<LinkDefinition> linkDefinitions = flow.links();
+        List<FlowGraph.Link> links = new ArrayList<>();
+        for (int index = 0; index < linkDefinitions.size(); index++) {
+            LinkDefinition link = linkDefinitions.get(index);
+            links.add(FlowGraph.Link.at(
+                    index,
+                    link.sourceNodeId().toString(),
+                    link.sourcePort(),
+                    link.targetNodeId().toString(),
+                    link.targetPort()
+            ));
+        }
+        return new FlowGraph(nodes, links);
     }
 
     private void validateNode(NodeDefinition node, List<FlowStructureValidationError> errors) {
@@ -82,29 +101,12 @@ public class FlowActivationValidator {
         }
     }
 
-    private List<FlowNodeRequest> toNodeRequests(FlowDefinition flow) {
-        return flow.nodes().stream()
-                .map(node -> FlowNodeRequest.builder()
-                        .clientNodeKey(node.nodeId().toString())
-                        .nodeType(node.nodeType())
-                        .configuration(node.configuration())
-                        .build())
-                .toList();
-    }
-
-    private List<FlowLinkRequest> toLinkRequests(FlowDefinition flow) {
-        return flow.links().stream()
-                .map(link -> FlowLinkRequest.builder()
-                        .sourceClientNodeKey(link.sourceNodeId().toString())
-                        .targetClientNodeKey(link.targetNodeId().toString())
-                        .sourcePort(link.sourcePort())
-                        .targetPort(link.targetPort())
-                        .build())
-                .toList();
-    }
-
-    private FlowStructureValidationError error(FlowValidationErrorReason code, NodeDefinition node, String fieldPath,
-                                               String message) {
+    private FlowStructureValidationError error(
+            FlowValidationErrorReason code,
+            NodeDefinition node,
+            String fieldPath,
+            String message
+    ) {
         return new FlowStructureValidationError(code, node.nodeId().toString(), fieldPath, message);
     }
 }

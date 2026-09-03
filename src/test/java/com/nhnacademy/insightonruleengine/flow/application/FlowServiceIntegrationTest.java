@@ -15,13 +15,10 @@ import com.nhnacademy.insightonruleengine.flow.api.dto.response.FlowResponse;
 import com.nhnacademy.insightonruleengine.flow.application.assembly.FlowDefinitionAssembler;
 import com.nhnacademy.insightonruleengine.flow.application.authorization.GroupAuthorizationService;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowActivationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowLinkValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowNodeValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.FlowPathValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowGraphValidator;
+import com.nhnacademy.insightonruleengine.flow.application.validation.FlowRequestFieldValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.FlowStructureValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.LinkValidator;
 import com.nhnacademy.insightonruleengine.flow.application.validation.NodeConfigurationValidator;
-import com.nhnacademy.insightonruleengine.flow.application.validation.NodeValidator;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
@@ -48,11 +45,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @Import({
         FlowService.class,
         FlowDefinitionAssembler.class,
-        NodeValidator.class,
-        LinkValidator.class,
-        FlowNodeValidator.class,
-        FlowLinkValidator.class,
-        FlowPathValidator.class,
+        FlowRequestFieldValidator.class,
+        FlowGraphValidator.class,
         FlowStructureValidator.class
 })
 class FlowServiceIntegrationTest {

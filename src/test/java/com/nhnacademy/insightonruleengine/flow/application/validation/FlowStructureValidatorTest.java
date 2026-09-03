@@ -19,18 +19,9 @@ import org.junit.jupiter.api.Test;
 
 class FlowStructureValidatorTest {
 
-    private final NodeValidator nodeValidator = new NodeValidator();
-    private final LinkValidator linkValidator = new LinkValidator();
-    private final FlowNodeValidator flowNodeValidator = new FlowNodeValidator();
-    private final FlowLinkValidator flowLinkValidator = new FlowLinkValidator();
-    private final FlowPathValidator flowPathValidator = new FlowPathValidator();
-
     private final FlowStructureValidator validator = new FlowStructureValidator(
-            nodeValidator,
-            linkValidator,
-            flowNodeValidator,
-            flowLinkValidator,
-            flowPathValidator
+            new FlowRequestFieldValidator(),
+            new FlowGraphValidator()
     );
 
     @Test

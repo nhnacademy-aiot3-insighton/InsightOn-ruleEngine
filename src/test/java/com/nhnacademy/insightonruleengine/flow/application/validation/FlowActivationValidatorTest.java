@@ -24,7 +24,7 @@ class FlowActivationValidatorTest {
 
     @Test
     void invalidStoredConfigurationPreventsActivation() {
-        FlowStructureValidator structureValidator = mock(FlowStructureValidator.class);
+        FlowGraphValidator graphValidator = mock(FlowGraphValidator.class);
         NodeExecutor executor = mock(NodeExecutor.class);
         when(executor.supports()).thenReturn(NodeType.SENSOR);
         NodeExecutorRegistry registry = new NodeExecutorRegistry(List.of(executor));
@@ -32,7 +32,7 @@ class FlowActivationValidatorTest {
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
         FlowActivationValidator validator = new FlowActivationValidator(
-                structureValidator,
+                graphValidator,
                 parser,
                 registry,
                 new ThresholdEvaluator());
@@ -46,12 +46,12 @@ class FlowActivationValidatorTest {
 
     @Test
     void unsupportedNodeExecutorPreventsActivation() {
-        FlowStructureValidator structureValidator = mock(FlowStructureValidator.class);
+        FlowGraphValidator graphValidator = mock(FlowGraphValidator.class);
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
         FlowActivationValidator validator = new FlowActivationValidator(
-                structureValidator,
+                graphValidator,
                 parser,
                 new NodeExecutorRegistry(List.of()),
                 new ThresholdEvaluator());
@@ -66,14 +66,14 @@ class FlowActivationValidatorTest {
 
     @Test
     void validActuatorConfigurationCanBeActivated() {
-        FlowStructureValidator structureValidator = mock(FlowStructureValidator.class);
+        FlowGraphValidator graphValidator = mock(FlowGraphValidator.class);
         NodeExecutor executor = mock(NodeExecutor.class);
         when(executor.supports()).thenReturn(NodeType.ACTUATOR_CONTROL);
         NodeParamsParser parser = new NodeParamsParser(
                 new ObjectMapper(),
                 Validation.buildDefaultValidatorFactory().getValidator());
         FlowActivationValidator validator = new FlowActivationValidator(
-                structureValidator,
+                graphValidator,
                 parser,
                 new NodeExecutorRegistry(List.of(executor)),
                 new ThresholdEvaluator());
