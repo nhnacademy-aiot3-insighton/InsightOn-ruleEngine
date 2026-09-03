@@ -249,7 +249,7 @@ Front의 SENSOR attribute 조회는 편집 편의를 제공할 뿐 Backend 계�
 Front는 SCHEDULE에도 LOCATION과 같은 metric 조건을 제공하고 마지막 Action을 Alert로 만든다. Engine은 `SCHEDULE → ACTUATOR_CONTROL` 직접 연결만 허용한다. 따라서 SCHEDULE 편집 경로는 복합조건 여부와 별개로 현재 Engine 계약과 맞지 않는다.
 
 - Front: `InsightOn-front/src/main/resources/static/js/flow-editor.js:262-264`, `566-596`
-- Engine: `InsightOn-ruleEngine/src/main/java/com/nhnacademy/insightonruleengine/flow/application/validation/FlowLinkValidator.java:169-179`
+- Engine: `InsightOn-ruleEngine/src/main/java/com/nhnacademy/insightonruleengine/flow/application/validation/FlowGraphValidator.java:267-279`
 
 이 항목은 기존 `OI-06 Front Schedule 계약`에서 추적한다.
 
@@ -403,7 +403,7 @@ Telemetry 수신
 다음 기존 테스트를 실행했고 모두 통과했다.
 
 ```bash
-./mvnw -q -Dtest=ThresholdEvaluatorTest,ActiveFlowRouterTest,FlowLinkValidatorTest test
+./mvnw -q -Dtest=ThresholdEvaluatorTest,ActiveFlowRouterTest,FlowGraphValidatorTest test
 ```
 
 기존 테스트에서 확인되는 범위:
@@ -436,4 +436,3 @@ Telemetry 수신
 최종적으로 사용자에게 노출할 수 있는 가장 정확한 설명은 다음과 같다.
 
 > 여러 조건은 모두 같은 센서가 한 번에 보낸 측정값을 기준으로 확인합니다. 서로 다른 센서의 값을 결합하는 위치 복합조건은 현재 지원하지 않습니다.
-

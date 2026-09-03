@@ -16,7 +16,7 @@
 | 계층 | 대상 | 대표 테스트 |
 |---|---|---|
 | 도메인 단위 | Flow 상태, Node/Link, params, error code | `FlowTest`, `NodeParamsValidationTest`, `ScheduleParamsTest` |
-| 구조 검증 단위 | 노드·링크·경로·활성화 | `FlowStructureValidatorTest`, `FlowPathValidatorTest`, `FlowActivationValidatorTest` |
+| 구조 검증 단위 | 요청 필드·그래프 규칙·활성화 | `FlowRequestFieldValidatorTest`, `FlowGraphValidatorTest`, `FlowStructureValidatorTest`, `FlowActivationValidatorTest` |
 | 실행기 단위 | Trigger/Filter/Action 결과 | `*NodeExecutorTest`, `ThresholdEvaluatorTest` |
 | Application 단위 | FlowRunner, router, scheduler, cleanup, log | `FlowRunnerTest`, `ActiveFlowRouterTest`, `ScheduleFlowSchedulerTest`, `ExecutionLoggerTest` |
 | Web slice | Endpoint, validation, status, body | `FlowControllerTest`, `GlobalExceptionHandlerTest` |
