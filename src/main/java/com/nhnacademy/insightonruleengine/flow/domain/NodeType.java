@@ -3,7 +3,6 @@ package com.nhnacademy.insightonruleengine.flow.domain;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ExternalNotificationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
@@ -25,8 +24,7 @@ public enum NodeType {
     TIMER(Category.FILTER, TimerParams.class, PortSchema.booleanPorts()),
 
     ACTUATOR_CONTROL(Category.ACTION, ActuatorControlParams.class, PortSchema.terminal()),
-    ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal()),
-    EXTERNAL_NOTIFICATION(Category.ACTION, ExternalNotificationParams.class, PortSchema.terminal());
+    ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal());
 
     private final Category category;
     private final Class<? extends NodeParams> paramsType;
