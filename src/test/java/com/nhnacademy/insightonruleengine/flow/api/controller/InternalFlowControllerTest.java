@@ -4,6 +4,7 @@ import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidLi
 import static com.nhnacademy.insightonruleengine.flow.FlowTestData.createValidNodes;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +15,7 @@ import com.nhnacademy.insightonruleengine.flow.application.FlowService;
 import com.nhnacademy.insightonruleengine.flow.domain.FlowStatus;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +45,7 @@ class InternalFlowControllerTest {
                 .nodes(createValidNodes())
                 .links(createValidLinks())
                 .build();
-        when(flowService.createAiDraft(5L, request)).thenReturn(response(128L, FlowStatus.INACTIVE));
+        when(flowService.createAiDraft(5L, request)).thenReturn(response(FlowStatus.INACTIVE));
 
         mockMvc.perform(post(BASE_PATH)
                         .queryParam("groupId", "5")
@@ -97,9 +99,25 @@ class InternalFlowControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private FlowResponse response(Long flowId, FlowStatus status) {
+    @Test
+    @DisplayName("유저 헤더 없이도 ACTIVE flow 목록 조회는 200과 목록을 반환한다")
+    void findActiveFlowsTest() throws Exception {
+        when(flowService.findActiveFlows(5L, 42L))
+                .thenReturn(List.of(response(FlowStatus.ACTIVE)));
+
+        mockMvc.perform(get(BASE_PATH)
+                        .queryParam("groupId", "5")
+                        .queryParam("locationId", "42"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].flowId").value(128L))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+
+        verify(flowService).findActiveFlows(5L, 42L);
+    }
+
+    private FlowResponse response(FlowStatus status) {
         return FlowResponse.builder()
-                .flowId(flowId)
+                .flowId(128L)
                 .groupId(5L)
                 .locationId(42L)
                 .name("[AI] co2 예방 자동화")

@@ -337,6 +337,16 @@ public class FlowService {
             Long locationId,
             FlowStatus status) {
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MEMBER);
+        return findFlowResponsesByLocationAndStatus(groupId, locationId, status);
+    }
+
+    // AI가 자동화를 만들기 전 그 위치에 이미 동작 중인 flow가 있는지 확인하기 위해 조회합니다.
+    // createAiDraft와 같은 이유로 유저가 없어 권한 체크를 하지 않습니다.
+    public List<FlowResponse> findActiveFlows(Long groupId, Long locationId) {
+        return findFlowResponsesByLocationAndStatus(groupId, locationId, FlowStatus.ACTIVE);
+    }
+
+    private List<FlowResponse> findFlowResponsesByLocationAndStatus(Long groupId, Long locationId, FlowStatus status) {
         return flowRepository.findAllByGroupIdAndLocationIdAndStatus(groupId, locationId, status)
                 .stream()
                 .map(this::toResponse)
