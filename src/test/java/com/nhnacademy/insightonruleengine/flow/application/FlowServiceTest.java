@@ -507,6 +507,7 @@ class FlowServiceTest {
         Assertions.assertEquals(FlowStatus.INACTIVE, archivedFlow.getStatus());
         Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
+        verify(flowRepository).saveAndFlush(archivedFlow);
     }
 
     // archive된 동안(부분 유니크 인덱스가 ARCHIVED를 제외하므로) 같은 이름의 새 Flow가 만들어졌을 수
@@ -523,6 +524,23 @@ class FlowServiceTest {
         assertThrows(DuplicateFlowNameException.class, () -> flowService.restore(GROUP_ID, USER_ID, 2L));
 
         Assertions.assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
+        verify(flowRepository, never()).saveAndFlush(any(Flow.class));
+    }
+
+    // 이름 충돌 검증과 saveAndFlush 사이에 다른 요청이 같은 이름을 먼저 점유하는 경쟁 상태를
+    // 재현합니다. 사전 검증은 통과했지만 실제 flush에서 유니크 인덱스 위반이 나는 경우입니다.
+    @Test
+    @DisplayName("검증 통과 후 flush 시점에 이름이 충돌하면 DuplicateFlowNameException으로 변환한다")
+    void restoreConvertsFlushTimeConstraintViolationToDuplicateFlowNameExceptionTest() {
+        Flow archivedFlow = new Flow(1L, 1L, "[AI] co2 예방 자동화", null, FlowStatus.ARCHIVED);
+        when(flowRepository.findById(2L)).thenReturn(Optional.of(archivedFlow));
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "[AI] co2 예방 자동화", FlowStatus.ARCHIVED))
+                .thenReturn(false);
+        when(flowRepository.saveAndFlush(archivedFlow))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThrows(DuplicateFlowNameException.class, () -> flowService.restore(GROUP_ID, USER_ID, 2L));
     }
 
     @Test

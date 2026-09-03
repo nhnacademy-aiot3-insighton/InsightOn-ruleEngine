@@ -444,6 +444,16 @@ public class FlowService {
         Flow archivedFlow = getFlow(groupId, archivedFlowId);
         validateRestoreNameAvailable(archivedFlow);
         archivedFlow.restore();
+        // 위 검증과 이 시점 사이에 동시에 들어온 다른 요청이 같은 이름을 먼저 점유했을 수 있습니다.
+        // saveAndFlush로 즉시 반영해 그 경우 DataIntegrityViolationException을 여기서 잡아
+        // DuplicateFlowNameException(409)으로 바꿉니다 — 그렇지 않으면 커밋 시점까지 flush가
+        // 미뤄져 처리되지 않은 예외로 500이 나갑니다.
+        try {
+            flowRepository.saveAndFlush(archivedFlow);
+        } catch (DataIntegrityViolationException exception) {
+            throw new DuplicateFlowNameException(
+                    archivedFlow.getGroupId(), archivedFlow.getLocationId(), archivedFlow.getName());
+        }
         return toResponse(archivedFlow);
     }
 
