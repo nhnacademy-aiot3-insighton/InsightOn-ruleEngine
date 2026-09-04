@@ -50,6 +50,7 @@ class ActuatorControlNodeExecutorTest {
 
         assertEquals(NodeType.ACTUATOR_CONTROL, executor.supports());
         assertEquals(NodeExecutionResult.complete(), result);
+        assertEquals(1L, coreActuatorClient.groupId);
         assertEquals(10L, coreActuatorClient.locationId);
         assertEquals(
                 new ActuatorCommandRequest("VENTILATION_FAN", "power", "ON", "RULE_ENGINE"),
@@ -80,11 +81,13 @@ class ActuatorControlNodeExecutorTest {
 
     private static class RecordingCoreActuatorClient implements CoreActuatorClient {
 
+        private Long groupId;
         private Long locationId;
         private ActuatorCommandRequest request;
 
         @Override
-        public void updateActuatorState(Long locationId, ActuatorCommandRequest request) {
+        public void updateActuatorState(Long groupId, Long locationId, ActuatorCommandRequest request) {
+            this.groupId = groupId;
             this.locationId = locationId;
             this.request = request;
         }

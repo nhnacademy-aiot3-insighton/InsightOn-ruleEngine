@@ -32,12 +32,14 @@ public class ActuatorControlNodeExecutor implements NodeExecutor {
                 node.configuration()
         );
         coreActuatorClient.updateActuatorState(
+                context.flow().groupId(),
                 context.flow().locationId(),
                 ActuatorCommandRequest.from(params)
         );
         log.debug(
-                "액추에이터 명령 전달 완료. flowId={}, locationId={}, actuatorType={}, command={}",
+                "액추에이터 명령 전달 완료. flowId={}, groupId={}, locationId={}, actuatorType={}, command={}",
                 context.flow().flowId(),
+                context.flow().groupId(),
                 context.flow().locationId(),
                 params.actuatorType(),
                 params.command()
