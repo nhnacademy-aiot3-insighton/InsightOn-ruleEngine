@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.EventGateParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -66,11 +66,22 @@ class NodeParamsValidationTest {
     }
 
     @Test
-    @DisplayName("TimerParams intervalSeconds는 양수여야 한다")
-    void validateTimerIntervalSeconds() {
-        assertTrue(validator.validate(new TimerParams(1)).isEmpty());
-        assertFalse(validator.validate(new TimerParams(0)).isEmpty());
-        assertFalse(validator.validate(new TimerParams(-1)).isEmpty());
+    @DisplayName("EventGateParams는 반복 확인과 최소 실행 간격을 각각 또는 함께 설정할 수 있다")
+    void validateEventGateParams() {
+        assertTrue(validator.validate(new EventGateParams(1, null, 60)).isEmpty());
+        assertTrue(validator.validate(new EventGateParams(3, 300, 0)).isEmpty());
+        assertTrue(validator.validate(new EventGateParams(3, 300, 60)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("EventGateParams는 무효하거나 아무 동작도 하지 않는 설정을 거부한다")
+    void rejectInvalidEventGateParams() {
+        assertFalse(validator.validate(new EventGateParams(0, null, 60)).isEmpty());
+        assertFalse(validator.validate(new EventGateParams(1, null, -1)).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> new EventGateParams(2, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new EventGateParams(1, null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new EventGateParams(null, null, 60));
+        assertThrows(IllegalArgumentException.class, () -> new EventGateParams(1, null, null));
     }
 
     @Test

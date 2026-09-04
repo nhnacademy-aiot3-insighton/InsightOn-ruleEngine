@@ -255,7 +255,7 @@ public abstract class FlowTestData {
                 .build();
     }
 
-    //시나리오 6: 구조 검증 실패 순환 플로우 (SENSOR -> THRESHOLD <-> TIMER -> ALERT)
+    //시나리오 6: 구조 검증 실패 순환 플로우 (SENSOR -> THRESHOLD <-> EVENT_GATE -> ALERT)
     public static FlowCreateRequest createCyclicInvalidFlowRequest(Long locationId) {
         List<FlowNodeRequest> nodes = List.of(
                 FlowNodeRequest.builder()
@@ -269,9 +269,11 @@ public abstract class FlowTestData {
                         .configuration(JsonNodeFactory.instance.objectNode())
                         .build(),
                 FlowNodeRequest.builder()
-                        .clientNodeKey("timer")
-                        .nodeType(NodeType.TIMER)
-                        .configuration(JsonNodeFactory.instance.objectNode())
+                        .clientNodeKey("event_gate")
+                        .nodeType(NodeType.EVENT_GATE)
+                        .configuration(JsonNodeFactory.instance.objectNode()
+                                .put("requiredCount", 1)
+                                .put("cooldownSeconds", 60))
                         .build(),
                 FlowNodeRequest.builder()
                         .clientNodeKey("alert")
@@ -289,18 +291,18 @@ public abstract class FlowTestData {
                         .build(),
                 FlowLinkRequest.builder()
                         .sourceClientNodeKey("threshold")
-                        .targetClientNodeKey("timer")
+                        .targetClientNodeKey("event_gate")
                         .sourcePort("true")
                         .targetPort("in")
                         .build(),
                 FlowLinkRequest.builder()
-                        .sourceClientNodeKey("timer")
+                        .sourceClientNodeKey("event_gate")
                         .targetClientNodeKey("threshold")
                         .sourcePort("true")
                         .targetPort("in")
                         .build(),
                 FlowLinkRequest.builder()
-                        .sourceClientNodeKey("timer")
+                        .sourceClientNodeKey("event_gate")
                         .targetClientNodeKey("alert")
                         .sourcePort("false")
                         .targetPort("in")

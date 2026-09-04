@@ -5,23 +5,19 @@ import com.nhnacademy.insightonruleengine.flow.domain.definition.NodeDefinition;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
-import com.nhnacademy.insightonruleengine.runner.execution.state.alert.AlertCountService;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.model.action.EngineAlertActionEvent;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AlertNodeExecutor implements NodeExecutor {
 
     private final NodeParamsParser nodeParamsParser;
-    private final AlertCountService alertCountService;
     private final ActionPublisher actionPublisher;
 
     @Override
@@ -29,15 +25,10 @@ public class AlertNodeExecutor implements NodeExecutor {
         return NodeType.ALERT;
     }
 
-    //ALERT Action 노드를 실행하며 COUNT 및 Cooldown 통과 시 Action 이벤트를 발행합니다.
+    // ALERT Action 노드는 도달할 때마다 Action 이벤트를 발행합니다. 반복 억제는 EVENT_GATE가 담당합니다.
     @Override
     public NodeExecutionResult execute(NodeDefinition node, FlowExecutionContext context) {
         AlertParams params = nodeParamsParser.parse(NodeType.ALERT, node.configuration());
-        if (!alertCountService.shouldPublish(context.flow().flowId(), node.nodeId(), params)) {
-            log.debug("알림 액션이 횟수 조건 또는 대기 시간에 따라 생략됐습니다. flowId={}, nodeId={}",
-                    context.flow().flowId(), node.nodeId());
-            return NodeExecutionResult.complete();
-        }
         Map<String, Object> triggerValue = null;
         if (context.event() != null && context.event().metrics() != null) {
             triggerValue = context.event().metrics();
