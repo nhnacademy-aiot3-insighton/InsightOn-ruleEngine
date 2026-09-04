@@ -42,6 +42,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.jdbc.Sql;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -55,6 +56,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         FlowPathValidator.class,
         FlowStructureValidator.class
 })
+@Sql(scripts = "classpath:sql/flow-name-partial-unique-index.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class FlowServiceIntegrationTest {
 
     @Autowired
@@ -123,6 +125,52 @@ class FlowServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("Flow 수정 시 이름을 유지해도 기존 행을 보관하고 새 버전을 저장한다")
+    void updateCanKeepCurrentName() {
+        Flow currentFlow = flowRepository.saveAndFlush(
+                new Flow(1L, 10L, "온도 경고", null, FlowStatus.ACTIVE)
+        );
+
+        FlowResponse response = flowService.update(
+                1L,
+                100L,
+                currentFlow.getId(),
+                updateRequest("온도 경고", "수정 설명")
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        Flow archivedFlow = flowRepository.findById(currentFlow.getId()).orElseThrow();
+        Flow updatedFlow = flowRepository.findById(response.flowId()).orElseThrow();
+
+        assertEquals(FlowStatus.ARCHIVED, archivedFlow.getStatus());
+        assertEquals(FlowStatus.INACTIVE, updatedFlow.getStatus());
+        assertEquals("온도 경고", updatedFlow.getName());
+        assertNotEquals(archivedFlow.getId(), updatedFlow.getId());
+    }
+
+    @Test
+    @DisplayName("ARCHIVED Flow와 같은 이름으로 새 Flow를 생성할 수 있다")
+    void createCanReuseArchivedName() {
+        flowRepository.saveAndFlush(
+                new Flow(1L, 10L, "온도 경고", null, FlowStatus.ARCHIVED)
+        );
+
+        FlowResponse response = flowService.create(
+                1L,
+                100L,
+                createRequest("온도 경고")
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        Flow createdFlow = flowRepository.findById(response.flowId()).orElseThrow();
+        assertEquals(FlowStatus.INACTIVE, createdFlow.getStatus());
+        assertEquals("온도 경고", createdFlow.getName());
+        assertEquals(2L, flowRepository.count());
+    }
+
+    @Test
     @DisplayName("Action fan-out Flow를 저장하고 활성화 가능한 Definition으로 조립한다")
     void createAndActivateActionFanOutFlow() {
         FlowResponse created = flowService.create(1L, 100L, actionFanOutCreateRequest());
@@ -171,7 +219,7 @@ class FlowServiceIntegrationTest {
                 new Flow(1L, 10L, "온도 경고 v1", null, FlowStatus.ACTIVE)
         );
         flowRepository.saveAndFlush(
-                new Flow(1L, 10L, "온도 경고 v2", null, FlowStatus.ARCHIVED)
+                new Flow(1L, 10L, "온도 경고 v2", null, FlowStatus.INACTIVE)
         );
         Long currentFlowId = currentFlow.getId();
         FlowUpdateRequest duplicateNameRequest = updateRequest("온도 경고 v2", null);
@@ -254,6 +302,16 @@ class FlowServiceIntegrationTest {
                         .sourcePort("out")
                         .targetPort("in")
                         .build()))
+                .build();
+    }
+
+    private FlowCreateRequest createRequest(String name) {
+        FlowUpdateRequest updateRequest = updateRequest(name, null);
+        return FlowCreateRequest.builder()
+                .locationId(10L)
+                .name(name)
+                .nodes(updateRequest.nodes())
+                .links(updateRequest.links())
                 .build();
     }
 
