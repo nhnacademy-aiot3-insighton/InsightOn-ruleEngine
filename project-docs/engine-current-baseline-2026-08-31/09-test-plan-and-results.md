@@ -114,12 +114,13 @@ PostgreSQL, Redis, RabbitMQ Testcontainers를 Docker 환경에서 실행했으�
 ### 5.4 Redis·cache
 
 - route snapshot 직렬화와 route/status 검증
+- v2 route namespace 사용과 legacy route snapshot 미조회
 - Redis miss DB rebuild와 single-flight
 - Redis 장애 local fallback
 - 1분을 넘긴 로컬 fallback snapshot으로 비활성 Flow를 실행하지 않음
 - route별 failure recovery와 10,000 상태 상한
-- Alert Lua count/cooldown
-- Timer NX/TTL
+- EVENT_GATE Lua count window/cooldown
+- EVENT_GATE 전환 SQL의 데이터 초기화·Node/Link/Flow 제약
 
 ### 5.5 Schedule
 
@@ -196,6 +197,7 @@ PostgreSQL, Redis, RabbitMQ Testcontainers를 Docker 환경에서 실행했으�
 - [ ] Core actuator 성공 의미와 실제 장비/시뮬레이터 결과 확인
 - [ ] engine-a 중단 후 heartbeat TTL 만료와 다음 점검을 거쳐 이론상 약 20초 이내(+listener 전환 지연)에 engine-b takeover 확인
 - [ ] Redis 장애 시 Schedule 미실행과 cache fallback 확인
+- [ ] EVENT_GATE 전환 시 Engine 0개, DB 백업·초기화, v1/v2 route key 0건, 동일 image의 두 pod Ready를 순서대로 확인
 - [ ] lifecycle 실패 3회 후 DLQ와 재처리 절차 확인
 - [ ] 로그·trace·metric이 운영 관측 도구에서 보이는지 확인
 - [ ] 출퇴근 시간대 Schedule 집중 부하 결과 검토
