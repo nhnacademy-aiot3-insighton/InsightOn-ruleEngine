@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.EventGateParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.LocationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
@@ -26,7 +26,7 @@ class NodeTypeTest {
                 NodeType.SCHEDULE, NodeType.Category.TRIGGER,
                 NodeType.THRESHOLD, NodeType.Category.FILTER,
                 NodeType.TIME_WINDOW, NodeType.Category.FILTER,
-                NodeType.TIMER, NodeType.Category.FILTER,
+                NodeType.EVENT_GATE, NodeType.Category.FILTER,
                 NodeType.ACTUATOR_CONTROL, NodeType.Category.ACTION,
                 NodeType.ALERT, NodeType.Category.ACTION
         );
@@ -45,7 +45,7 @@ class NodeTypeTest {
                 NodeType.SCHEDULE, ScheduleParams.class,
                 NodeType.THRESHOLD, ThresholdParams.class,
                 NodeType.TIME_WINDOW, TimeWindowParams.class,
-                NodeType.TIMER, TimerParams.class,
+                NodeType.EVENT_GATE, EventGateParams.class,
                 NodeType.ACTUATOR_CONTROL, ActuatorControlParams.class,
                 NodeType.ALERT, AlertParams.class
         );
@@ -64,7 +64,7 @@ class NodeTypeTest {
                 NodeType.SCHEDULE, Set.of("out"),
                 NodeType.THRESHOLD, Set.of("true", "false"),
                 NodeType.TIME_WINDOW, Set.of("true", "false"),
-                NodeType.TIMER, Set.of("true", "false"),
+                NodeType.EVENT_GATE, Set.of("true", "false"),
                 NodeType.ACTUATOR_CONTROL, Set.of(),
                 NodeType.ALERT, Set.of()
         );

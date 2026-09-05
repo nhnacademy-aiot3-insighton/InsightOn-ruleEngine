@@ -52,13 +52,14 @@ class FlowRepositoryTest {
     }
 
     @Test
-    @DisplayName("ARCHIVED 상태와 관계없이 같은 범위의 이름 중복을 확인한다")
-    void findDuplicateNameRegardlessOfStatus() {
+    @DisplayName("ARCHIVED Flow는 살아있는 이름 중복으로 취급하지 않는다")
+    void archivedFlowDoesNotReserveLiveName() {
         flowRepository.saveAndFlush(createFlow(1L, 1L, "테스트", FlowStatus.ARCHIVED));
 
-        boolean exists = flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "테스트");
+        boolean exists = flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "테스트", FlowStatus.ARCHIVED);
 
-        Assertions.assertTrue(exists);
+        Assertions.assertFalse(exists);
     }
 
     // archive된 Flow는 부분 유니크 인덱스에서 이름을 점유하지 않으므로, 같은 이름의 새 Flow를

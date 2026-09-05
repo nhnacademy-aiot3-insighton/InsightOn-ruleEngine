@@ -113,10 +113,11 @@ class FlowServiceTest {
                 .nodes(List.of())
                 .links(List.of())
                 .build();
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
                 1L,
                 2L,
-                "온도 알람")).thenReturn(false);
+                "온도 알람",
+                FlowStatus.ARCHIVED)).thenReturn(false);
         when(flowRepository.save(any(Flow.class))).thenAnswer(flow -> flow.getArgument(0));
 
         FlowResponse flowResponse = flowService.create(GROUP_ID, USER_ID, flowCreateRequest);
@@ -179,10 +180,11 @@ class FlowServiceTest {
                 .nodes(List.of())
                 .links(List.of())
                 .build();
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
                 1L,
                 1L,
-                "온도")).thenReturn(true);
+                "온도",
+                FlowStatus.ARCHIVED)).thenReturn(true);
         Assertions.assertThrows(DuplicateFlowNameException.class, () -> flowService.create(
                 GROUP_ID,
                 USER_ID,
@@ -312,10 +314,11 @@ class FlowServiceTest {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", "기존 설명", FlowStatus.ACTIVE);
         FlowUpdateRequest request = updateRequest("수정 Flow", "수정 설명");
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
                 1L,
                 1L,
-                "수정 Flow")).thenReturn(false);
+                "수정 Flow",
+                FlowStatus.ARCHIVED)).thenReturn(false);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -327,6 +330,26 @@ class FlowServiceTest {
         verify(groupAuthorizationService).requireRole(GROUP_ID, USER_ID, GroupRole.MANAGER);
         verify(nodeRepository, times(2)).save(any(Node.class));
         verify(linkRepository).save(any(Link.class));
+    }
+
+    @Test
+    @DisplayName("Flow 이름을 유지한 수정은 기존 Flow를 먼저 보관하고 새 버전을 생성한다")
+    void updateKeepingNameArchivesBeforeInsertTest() {
+        Flow currentFlow = new Flow(1L, 1L, "기존 Flow", "기존 설명", FlowStatus.ACTIVE);
+        FlowUpdateRequest request = updateRequest("기존 Flow", "수정 설명");
+        when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
+        when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        FlowResponse response = flowService.update(GROUP_ID, USER_ID, 1L, request);
+
+        Assertions.assertEquals(FlowStatus.ARCHIVED, currentFlow.getStatus());
+        Assertions.assertEquals("기존 Flow", response.name());
+        Assertions.assertEquals(FlowStatus.INACTIVE, response.status());
+        verify(flowRepository).saveAndFlush(currentFlow);
+        verify(flowRepository, never()).existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "기존 Flow", FlowStatus.ARCHIVED);
     }
 
     // rejectAiDraftPrefix()가 getFlow() 조회보다 먼저 실행돼 Repository를 아예 건드리지 않습니다.
@@ -375,7 +398,8 @@ class FlowServiceTest {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
         FlowUpdateRequest request = updateRequest("중복 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "중복 Flow"))
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "중복 Flow", FlowStatus.ARCHIVED))
                 .thenReturn(true);
 
         assertThrows(
@@ -494,7 +518,8 @@ class FlowServiceTest {
         Flow currentFlow = new Flow(1L, 1L, "기존 Flow", null, FlowStatus.ACTIVE);
         FlowUpdateRequest request = updateRequest("수정 Flow", null);
         when(flowRepository.findById(1L)).thenReturn(Optional.of(currentFlow));
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 1L, "수정 Flow"))
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 1L, "수정 Flow", FlowStatus.ARCHIVED))
                 .thenReturn(false);
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(nodeRepository.save(any(Node.class))).thenAnswer(invocation -> invocation.getArgument(0));

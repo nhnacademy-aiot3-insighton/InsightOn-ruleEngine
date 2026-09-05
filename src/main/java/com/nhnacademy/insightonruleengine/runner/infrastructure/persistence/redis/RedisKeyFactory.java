@@ -11,15 +11,12 @@ public class RedisKeyFactory {
     private static final String HEARTBEAT_KEY_FORMAT = "heartbeat:%s";
     private static final String COUNT_KEY_FORMAT = "count:%d:%d";
     private static final String COOLDOWN_KEY_FORMAT = "cooldown:%d:%d";
-    private static final String TIMER_KEY_FORMAT = "timer:%d:%d";
     private static final String SCHEDULE_STATE_KEY_FORMAT = "schedule-state:%d";
     private static final String SCHEDULE_STATE_VERSION_KEY = "schedule-state-version";
     private static final String SCHEDULE_EXECUTION_KEY_FORMAT = "schedule-execution:%d:%d";
 
     private static final String FIELD_FLOW_ID = "flowId";
-    private static final String FIELD_ACTION_NODE_ID = "actionNodeId";
-    private static final String FIELD_NODE_ID = "nodeId";
-    private static final String FIELD_LOCATION_ID = "locationId";
+    private static final String FIELD_RUNTIME_STATE_NODE_ID = "runtimeStateNodeId";
     private static final String FIELD_SCHEDULED_AT = "scheduledAt";
 
     //각 엔진이 살아있는지 확인할 때 사용하는 heartbeat key를 만듭니다.
@@ -28,24 +25,18 @@ public class RedisKeyFactory {
         return HEARTBEAT_KEY_FORMAT.formatted(engineId);
     }
 
-    //특정 Flow의 ALERT Action Node에 도달한 횟수를 저장할 Key를 만듭니다.
-    public String count(Long flowId, Long actionNodeId) {
+    // 특정 Flow의 EVENT_GATE Node에 도달한 횟수를 저장할 Key를 만듭니다.
+    public String count(Long flowId, Long runtimeStateNodeId) {
         validateId(flowId, FIELD_FLOW_ID);
-        validateId(actionNodeId, FIELD_ACTION_NODE_ID);
-        return COUNT_KEY_FORMAT.formatted(flowId, actionNodeId);
+        validateId(runtimeStateNodeId, FIELD_RUNTIME_STATE_NODE_ID);
+        return COUNT_KEY_FORMAT.formatted(flowId, runtimeStateNodeId);
     }
 
-    //특정 Flow의 ALERT Action Node가 연속적으로 알람을 보내진 않게 하기 위해 쿨다운 키를 만듭니다.
-    public String cooldown(Long flowId, Long actionNodeId) {
+    // 특정 Flow의 EVENT_GATE Node가 연속 실행되지 않게 하는 쿨다운 Key를 만듭니다.
+    public String cooldown(Long flowId, Long runtimeStateNodeId) {
         validateId(flowId, FIELD_FLOW_ID);
-        validateId(actionNodeId, FIELD_ACTION_NODE_ID);
-        return COOLDOWN_KEY_FORMAT.formatted(flowId, actionNodeId);
-    }
-
-    public String timer(Long nodeId, Long locationId) {
-        validateId(nodeId, FIELD_NODE_ID);
-        validateId(locationId, FIELD_LOCATION_ID);
-        return TIMER_KEY_FORMAT.formatted(nodeId, locationId);
+        validateId(runtimeStateNodeId, FIELD_RUNTIME_STATE_NODE_ID);
+        return COOLDOWN_KEY_FORMAT.formatted(flowId, runtimeStateNodeId);
     }
 
     public String scheduleExecution(Long flowId, java.time.Instant scheduledAt) {

@@ -243,6 +243,105 @@ Core lifecycle DLQ 메시지는 다음을 확인한 뒤 재처리한다.
 
 ## 7. 배포 전 체크
 
+### 7.1 EVENT_GATE 전환 1회 Runbook
+
+`2026-09-03-reset-flows-and-finalize-event-gate.sql`은 모든 Flow 데이터를 영구 삭제한다. 실행 전
+`engine.flows`, `engine.nodes`, `engine.links`를 복구 가능한 형태로 백업하고 복구 절차를 확인한다.
+단순히 사용자가 Flow 화면을 이용하지 않는 상태만으로는 충분하지 않다. 기존 Engine의 telemetry
+consumer와 Schedule 실행까지 모두 멈춰야 한다.
+
+전환 순서는 다음과 같다.
+
+1. Gateway·Front·AI의 Flow 생성·수정·활성화 경로를 차단한다.
+2. 자동 배포·GitOps 조정을 일시 중지하거나 desired manifest를 0개로 바꾼 뒤 Rule Engine StatefulSet을 0개로 축소한다. 7단계가 끝날 때까지 실행 중인 Engine pod가 계속 0개인지 확인한다.
+3. 새 내부 액추에이터 API가 포함된 Core를 배포한다. 실제 장치 PUT 호출 대신 image revision, health와 비파괴 contract test 결과로 endpoint 계약을 확인한다.
+4. PostgreSQL Flow 세 테이블의 백업과 상태별 행 수를 기록하고 ACTIVE Flow가 0건인지 확인한다. 전체 행이 1건 이상이면 영구 삭제 승인과 백업 검증 없이는 진행하지 않는다.
+5. `psql -v ON_ERROR_STOP=1 -f project-docs/engine-current-baseline-2026-08-31/db-migrations/2026-09-03-reset-flows-and-finalize-event-gate.sql`처럼 첫 오류에서 중단되는 방식으로 SQL을 정확히 한 번 실행한다.
+6. Redis production logical DB 324에서 route snapshot v1과 이전 전환 시도에서 생겼을 수 있는 v2를 아래 절차로 삭제한다.
+7. 두 route key pattern이 모두 0건이고 DB의 Flow·Node·Link가 0건인지 확인한다.
+8. EVENT_GATE와 `rule-engine:v2:flow-route:*`를 사용하는 새 Engine image로 StatefulSet을 2개까지 복구한다. DB가 비어 있으므로 자동 시작된 telemetry consumer가 패킷을 받아도 실행할 Flow는 없다.
+9. 두 pod가 모두 동일한 새 image digest로 Ready인지와 telemetry consumer 상태를 확인한다.
+10. 호환되는 Front를 배포하되 사용자와 AI의 Flow 경로는 계속 차단한다.
+11. 제한된 운영자 경로와 테스트 location에서 INACTIVE Flow 생성·활성화·telemetry 실행을 차례로 smoke test한 뒤 테스트 Flow를 비활성화하고 삭제한다.
+12. desired manifest가 동일한 새 Engine image digest와 `replicas: 2`를 가리키는지 확인한다.
+13. 성공한 경우에만 사용자와 AI의 Flow 생성·수정·활성화 경로를 다시 열고 자동 배포·GitOps 조정을 복구한다.
+
+DB 초기화 전후에는 같은 연결에서 다음 조회 결과를 기록한다. 초기화 전 ACTIVE가 0이 아니거나 초기화
+후 어느 테이블이든 0이 아니면 다음 단계로 진행하지 않는다.
+
+```sql
+SELECT status, count(*) FROM engine.flows GROUP BY status ORDER BY status;
+SELECT
+    (SELECT count(*) FROM engine.flows) AS flows,
+    (SELECT count(*) FROM engine.nodes) AS nodes,
+    (SELECT count(*) FROM engine.links) AS links;
+```
+
+Redis password는 명령 인자나 shell history에 쓰지 말고 운영 Secret에서 `REDISCLI_AUTH`로 주입한다.
+`REDIS_HOST`도 운영 Secret 또는 배포 환경에서 주입한다. 전체 DB를 막는 `KEYS`나 다른 서비스
+데이터까지 지우는 `FLUSHDB`를 사용하지 않는다. 아래 두 route 전용 pattern 외의
+`count:*`, `cooldown:*`, `timer:*`, `schedule-*`, `heartbeat:*` key는 이 절차에서 일괄 삭제하지 않는다.
+삭제 전 연결 대상이 Redis primary, non-cluster, production DB 324인지 각각 확인하고 하나라도 다르면
+중단한다. Cluster라면 `redis-cli -c --scan`으로 우회하지 말고 이 전환 작업 자체를 중단한다.
+
+```bash
+set -euo pipefail
+: "${REDIS_HOST:?REDIS_HOST is required}"
+: "${REDISCLI_AUTH:?REDISCLI_AUTH is required}"
+
+redis_port="${REDIS_PORT:-6379}"
+redis_db=324
+redis_base=(redis-cli --host "$REDIS_HOST" --port "$redis_port" --no-auth-warning --raw)
+route_patterns=('rule-engine:flow-route:*' 'rule-engine:v2:flow-route:*')
+
+cluster_enabled=$("${redis_base[@]}" INFO cluster | awk -F: '/^cluster_enabled:/ { gsub(/\r/, "", $2); print $2 }')
+if [[ "$cluster_enabled" != '0' ]]; then
+  printf 'Redis Cluster is not supported: cluster_enabled=%s\n' "$cluster_enabled" >&2
+  exit 1
+fi
+
+redis_cli=("${redis_base[@]}" -n "$redis_db")
+ping_response=$("${redis_cli[@]}" PING)
+redis_role=$("${redis_cli[@]}" ROLE | sed -n '1p' | tr -d '\r')
+
+if [[ "$ping_response" != 'PONG' || "$redis_role" != 'master' ]]; then
+  printf 'Redis DB 324 target check failed: ping=%s role=%s\n' \
+    "$ping_response" "$redis_role" >&2
+  exit 1
+fi
+
+# 삭제 전 pattern별 대상 수 확인
+for route_pattern in "${route_patterns[@]}"; do
+  route_count=$("${redis_cli[@]}" --scan --pattern "$route_pattern" --count 1000 | wc -l)
+  printf '%s=%d\n' "$route_pattern" "$route_count"
+done
+
+# blocking DEL 대신 UNLINK로 route key만 점진적으로 삭제
+for route_pattern in "${route_patterns[@]}"; do
+  "${redis_cli[@]}" --scan --pattern "$route_pattern" --count 1000 |
+  while IFS= read -r route_key; do
+    "${redis_cli[@]}" UNLINK "$route_key" >/dev/null
+  done
+done
+
+# 두 pattern이 모두 0건이어야 다음 단계로 진행
+remaining_route_keys=0
+for route_pattern in "${route_patterns[@]}"; do
+  route_count=$("${redis_cli[@]}" --scan --pattern "$route_pattern" --count 1000 | wc -l)
+  printf '%s=%d\n' "$route_pattern" "$route_count"
+  remaining_route_keys=$((remaining_route_keys + route_count))
+done
+test "$remaining_route_keys" -eq 0
+```
+
+새 Engine은 `rule-engine:v2:flow-route:*`만 읽고 쓰므로 v1 snapshot은 실행 원본으로 사용하지 않는다.
+v2 삭제는 DB 초기화보다 새 Engine을 먼저 띄웠던 부분 배포를 안전하게 재시도하기 위한 조치다. DB
+초기화 이후에는 기존 Flow를 애플리케이션만으로 복구할 수 없으므로 백업 없이 SQL을 실행하지 않는다.
+새 EVENT_GATE Flow가 생성된 뒤에는 구 바이너리로 단순 rollback할 수 없으며, DB 백업 복원 또는
+수정된 새 버전으로 roll-forward해야 한다.
+
+### 7.2 공통 체크
+
 - 최신 image tag가 기준 커밋을 포함하는지 확인
 - `engine` schema와 expected unique/index 존재 확인
 - Redis DB 324 사용 가능 여부 확인

@@ -27,7 +27,11 @@ import org.springframework.stereotype.Component;
 )
 public class RedisFlowDefinitionCache implements FlowDefinitionCache {
 
-    private static final String KEY_PREFIX = "rule-engine:flow-route:";
+    /**
+     * EVENT_GATE 전환 이전 snapshot과 직렬화 계약이 섞이지 않도록 cache namespace를 버전으로 분리한다.
+     * 구 버전인 rule-engine:flow-route:*는 배포 절차에서 별도로 정리하며 이 구현에서는 읽지 않는다.
+     */
+    private static final String KEY_PREFIX = "rule-engine:v2:flow-route:";
     private static final TypeReference<List<FlowDefinition>> FLOW_LIST_TYPE = new TypeReference<>() {
     };
 
