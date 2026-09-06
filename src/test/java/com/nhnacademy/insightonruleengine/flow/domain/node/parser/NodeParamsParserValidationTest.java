@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.EventGateParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
@@ -41,6 +42,21 @@ class NodeParamsParserValidationTest {
         ThresholdParams params = parser.parse(NodeType.THRESHOLD, configuration);
 
         assertEquals("#temperature > 30", params.expression());
+    }
+
+    @Test
+    @DisplayName("EVENT_GATE configuration을 공통 실행 안전장치 Params로 파싱한다")
+    void parseEventGateParams() {
+        ObjectNode configuration = new ObjectMapper().createObjectNode()
+                .put("requiredCount", 3)
+                .put("countWindowSeconds", 300)
+                .put("cooldownSeconds", 600);
+
+        EventGateParams params = parser.parse(NodeType.EVENT_GATE, configuration);
+
+        assertEquals(3, params.requiredCount());
+        assertEquals(300, params.countWindowSeconds());
+        assertEquals(600, params.cooldownSeconds());
     }
 
     @Test

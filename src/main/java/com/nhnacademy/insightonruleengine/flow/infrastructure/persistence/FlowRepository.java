@@ -41,8 +41,6 @@ public interface FlowRepository extends JpaRepository<Flow, Long> {
             @Param("nodeType") NodeType nodeType
     );
 
-    boolean existsByGroupIdAndLocationIdAndName(Long groupId, Long locationId, String name);
-
     // AI draft 생성 시 같은 위치·같은 이름의 "살아있는"(ARCHIVED가 아닌) 기존 Flow를 찾기 위해
     // 조회합니다. (group_id, location_id, name) 유니크 인덱스가 ARCHIVED를 제외하므로, 같은 이름의
     // ARCHIVED Flow가 여러 개 있을 수 있어 상태 무관 조회는 더 이상 결과가 유일함을 보장하지 않습니다.

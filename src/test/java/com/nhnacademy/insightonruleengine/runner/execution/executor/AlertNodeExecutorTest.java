@@ -3,7 +3,6 @@ package com.nhnacademy.insightonruleengine.runner.execution.executor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,7 +15,6 @@ import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertPa
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.Severity;
 import com.nhnacademy.insightonruleengine.flow.domain.node.parser.NodeParamsParser;
 import com.nhnacademy.insightonruleengine.runner.application.action.ActionPublisher;
-import com.nhnacademy.insightonruleengine.runner.execution.state.alert.AlertCountService;
 import com.nhnacademy.insightonruleengine.runner.model.FlowExecutionContext;
 import com.nhnacademy.insightonruleengine.runner.model.NodeExecutionResult;
 import com.nhnacademy.insightonruleengine.runner.model.SensorEvent;
@@ -39,30 +37,13 @@ class AlertNodeExecutorTest {
     private NodeParamsParser nodeParamsParser;
 
     @Mock
-    private AlertCountService alertCountService;
-
-    @Mock
     private ActionPublisher actionPublisher;
 
     private AlertNodeExecutor executor;
 
     @BeforeEach
     void setUp() {
-        executor = new AlertNodeExecutor(nodeParamsParser, alertCountService, actionPublisher);
-    }
-
-    @Test
-    void suppressesAlertUntilCountAndCooldownPolicyAllowsIt() {
-        NodeDefinition node = node();
-        FlowExecutionContext context = context();
-        AlertParams params = params();
-        when(nodeParamsParser.parse(NodeType.ALERT, node.configuration())).thenReturn(params);
-        when(alertCountService.shouldPublish(100L, 200L, params)).thenReturn(false);
-
-        NodeExecutionResult result = executor.execute(node, context);
-
-        assertTrue(result.terminal());
-        verify(actionPublisher, never()).publishAlert(org.mockito.ArgumentMatchers.any());
+        executor = new AlertNodeExecutor(nodeParamsParser, actionPublisher);
     }
 
     @Test
@@ -71,7 +52,6 @@ class AlertNodeExecutorTest {
         FlowExecutionContext context = context();
         AlertParams params = params();
         when(nodeParamsParser.parse(NodeType.ALERT, node.configuration())).thenReturn(params);
-        when(alertCountService.shouldPublish(100L, 200L, params)).thenReturn(true);
 
         NodeExecutionResult result = executor.execute(node, context);
 
@@ -93,7 +73,7 @@ class AlertNodeExecutorTest {
     }
 
     private AlertParams params() {
-        return new AlertParams("고온 경보", Severity.CRITICAL, "온도가 기준을 초과했습니다.", 1, null, 0);
+        return new AlertParams("고온 경보", Severity.CRITICAL, "온도가 기준을 초과했습니다.");
     }
 
     private FlowExecutionContext context() {

@@ -81,8 +81,8 @@ public class FlowService {
                 request.name(),
                 request.description(),
                 FlowStatus.INACTIVE);
-        validate(flow);
-        Flow savedFlow = flowRepository.save(flow);
+        validateNameAvailable(flow);
+        Flow savedFlow = saveFlow(flow);
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
         return toResponse(savedFlow);
@@ -168,15 +168,7 @@ public class FlowService {
                 request.name(),
                 request.description(),
                 FlowStatus.INACTIVE);
-        try {
-            return flowRepository.save(flow);
-        } catch (DataIntegrityViolationException exception) {
-            // 이름 유니크 제약상 이 요청과 완전히 같은 자동화가 이미 존재한다는 뜻입니다. 동시에 들어온
-            // 같은 요청이 먼저 저장을 마친 경우이므로, 재조회를 시도하지 않고 그대로 충돌로 응답합니다.
-            // 이 엔드포인트를 호출하는 쪽은 AI뿐이고 이름을 항상 같은 규칙으로 만들기 때문에, 여기서
-            // 발생하는 409는 "이미 존재함" 외의 다른 의미를 가질 수 없습니다.
-            throw new DuplicateFlowNameException(groupId, request.locationId(), request.name());
-        }
+        return saveFlow(flow);
     }
 
     private enum ContentDiff {
@@ -437,11 +429,24 @@ public class FlowService {
                 request.name(),
                 request.description(),
                 FlowStatus.INACTIVE);
-        validate(updateFlow);
-        Flow savedFlow = flowRepository.save(updateFlow);
+        boolean keepsCurrentName = currentFlow.getName().equals(updateFlow.getName());
+        if (keepsCurrentName) {
+            // 부분 유니크 인덱스는 ARCHIVED만 제외한다. 같은 이름으로 새 버전을 insert하려면 기존 행의
+            // archive를 먼저 DB에 flush해야 Hibernate의 INSERT-before-UPDATE 순서와 충돌하지 않는다.
+            currentFlow.archive();
+            flowRepository.saveAndFlush(currentFlow);
+        } else {
+            validateNameAvailable(updateFlow);
+        }
+
+        Flow savedFlow = saveFlow(updateFlow);
         Map<String, Long> nodeIds = saveNodes(savedFlow.getId(), request.nodes());
         saveLinks(savedFlow.getId(), request.links(), nodeIds);
-        currentFlow.archive();
+        if (!keepsCurrentName) {
+            // 이름이 다르면 유니크 키가 겹치지 않으므로 새 그래프 저장이 모두 끝난 뒤 보관한다.
+            // 중간 저장 실패 시 기존 ACTIVE Flow 객체를 불필요하게 변경하지 않기 위함이다.
+            currentFlow.archive();
+        }
         activeFlowDefinitionProvider.refreshAfterCommit(currentFlow.getGroupId(), currentFlow.getLocationId());
         scheduleFlowScheduler.cancelAfterCommit(currentFlow.getId());
         return toResponse(savedFlow);
@@ -483,13 +488,23 @@ public class FlowService {
         }
     }
 
-    // 같은 그룹과 장소에 같은 이름이 있는지 확인합니다.
-    private void validate(Flow flow) {
-        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndName(
+    // 부분 유니크 인덱스와 동일하게 ARCHIVED가 아닌 Flow만 이름 점유자로 취급합니다.
+    private void validateNameAvailable(Flow flow) {
+        boolean nameExist = flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
                 flow.getGroupId(),
                 flow.getLocationId(),
-                flow.getName());
+                flow.getName(),
+                FlowStatus.ARCHIVED);
         if (nameExist) {
+            throw new DuplicateFlowNameException(flow.getGroupId(), flow.getLocationId(), flow.getName());
+        }
+    }
+
+    // IDENTITY 채번으로 save() 시 INSERT가 즉시 실행되므로 동시 요청의 이름 충돌을 409 도메인 예외로 변환합니다.
+    private Flow saveFlow(Flow flow) {
+        try {
+            return flowRepository.save(flow);
+        } catch (DataIntegrityViolationException exception) {
             throw new DuplicateFlowNameException(flow.getGroupId(), flow.getLocationId(), flow.getName());
         }
     }

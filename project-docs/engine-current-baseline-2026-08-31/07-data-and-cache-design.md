@@ -109,16 +109,17 @@ spring.jpa.open-in-view=false
 
 | 키 형식 | 자료형·값 | 수명 | 작성·소비 |
 |---|---|---|---|
-| `rule-engine:flow-route:{groupId}:{locationId}` | JSON `List<FlowDefinition>` | 기본 30분 | Flow cache provider |
+| `rule-engine:v2:flow-route:{groupId}:{locationId}` | JSON `List<FlowDefinition>` | 기본 30분 | 현행 Flow cache provider |
+| `rule-engine:flow-route:{groupId}:{locationId}` | 구버전 JSON snapshot | 최대 기존 TTL | EVENT_GATE 전환 시 삭제하며 현행 코드에서는 읽지 않음 |
 | `heartbeat:{engineId}` | engineId 문자열 | 기본 15초, 5초 갱신 | heartbeat/failover |
-| `count:{flowId}:{nodeId}` | Alert 누적 횟수 | count timeout, 기본 300초 | Alert Lua |
-| `cooldown:{flowId}:{nodeId}` | `1` | cooldown, 기본 1,800초 | Alert Lua |
-| `timer:{nodeId}:{locationId}` | `1` | intervalSeconds | Timer NX |
+| `count:{flowId}:{nodeId}` | EVENT_GATE 누적 횟수 | count window | EVENT_GATE Lua |
+| `cooldown:{flowId}:{nodeId}` | `1` | EVENT_GATE cooldown | EVENT_GATE Lua |
+| `timer:{nodeId}:{locationId}` | 구버전 `1` | 기존 intervalSeconds까지 | EVENT_GATE 전환 뒤 새로 쓰지 않음 |
 | `schedule-state:{flowId}` | hash: status, version | TTL 없음 | Schedule 활성 상태 |
 | `schedule-state-version` | 증가 Long | TTL 없음 | Schedule 재조정 순서 |
 | `schedule-execution:{flowId}:{epochSecond}` | `1` | 기본 10분 | Schedule NX claim |
 
-Flow route key만 `rule-engine:` namespace를 사용하고 나머지는 짧은 공용 prefix다. 다른 서비스와 같은 logical DB를 공유하지 않는 것이 안전하다.
+Flow route key만 `rule-engine:` namespace와 cache schema version을 사용하고 나머지는 짧은 공용 prefix다. 다른 서비스와 같은 logical DB를 공유하지 않는 것이 안전하다. Cache payload 또는 실행 계약을 호환 불가능하게 바꾸는 배포에서는 version을 올려 과거 snapshot을 읽지 않도록 한다.
 
 ## 5. ACTIVE Flow cache
 

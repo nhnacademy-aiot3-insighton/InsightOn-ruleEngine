@@ -95,7 +95,8 @@ class FlowServiceRuntimeEventTest {
         Flow currentFlow = flow(10L, FlowStatus.ACTIVE);
         when(flowRepository.findById(10L)).thenReturn(Optional.of(currentFlow));
         when(flowRepository.save(any(Flow.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(flowRepository.existsByGroupIdAndLocationIdAndName(1L, 2L, "수정 Flow"))
+        when(flowRepository.existsByGroupIdAndLocationIdAndNameAndStatusNot(
+                1L, 2L, "수정 Flow", FlowStatus.ARCHIVED))
                 .thenReturn(false);
         when(flowStructureValidator.validate(any(), any())).thenReturn(List.of());
         when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
