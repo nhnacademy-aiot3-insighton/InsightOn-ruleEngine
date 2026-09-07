@@ -38,7 +38,6 @@ class TelemetryQueueFailoverMonitorTest {
     @Mock
     private TelemetryListenerContainerManager listenerContainerManager;
 
-    private TelemetryRoutingProperties enabledRoutingProperties;
     private HeartbeatProperties enabledHeartbeatProperties;
     private TelemetryQueueFailoverMonitor monitor;
     private Logger logger;
@@ -48,7 +47,7 @@ class TelemetryQueueFailoverMonitorTest {
 
     @BeforeEach
     void setUp() {
-        enabledRoutingProperties = new TelemetryRoutingProperties(
+        TelemetryRoutingProperties enabledRoutingProperties = new TelemetryRoutingProperties(
                 true,
                 "insighton.core.telemetry.exchange-v2",
                 "telemetry.",
