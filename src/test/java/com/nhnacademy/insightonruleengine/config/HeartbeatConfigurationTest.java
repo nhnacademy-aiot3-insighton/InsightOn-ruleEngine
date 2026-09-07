@@ -74,6 +74,6 @@ class HeartbeatConfigurationTest {
 
     // 테스트가 시간 값만 바꾸면서 같은 Engine 식별 계약을 사용하도록 설정을 생성합니다.
     private HeartbeatProperties properties(Duration refreshInterval, Duration ttl) {
-        return new HeartbeatProperties(true, "engine-a", "engine-b", refreshInterval, ttl);
+        return new HeartbeatProperties(true, "engine-a", "engine-b", refreshInterval, ttl, 5);
     }
 }

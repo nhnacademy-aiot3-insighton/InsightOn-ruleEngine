@@ -200,12 +200,12 @@ Engine에는 publisher confirm, mandatory return, outbox, retry가 없다. Rabbi
 
 ### OI-13 실제 2-Pod failover와 flapping
 
-현행은 5초 heartbeat, 15초 TTL, 첫 UP 확인 시 즉시 handback이다. failover 단위 테스트는 있으나 실제 두 Pod 장애 E2E는 없다. takeover/handback 전환 중 기존 owner와 takeover consumer가 잠시 공존할 가능성도 포함해 실제 staging에서 다음을 검증한다.
+현행은 5초 heartbeat, 15초 TTL, takeover(장애 감지)는 즉시 수행하되 handback(반환)은 연속 5회(25초) UP 확인 후에만 수행한다(`TelemetryQueueFailoverMonitor.checkPeerStatus`). 이를 통해 peer heartbeat가 짧게 흔들리는 경우의 handback flapping은 코드 레벨에서 방지됐다. 다만 failover 단위 테스트는 있으나 실제 두 Pod 장애 E2E는 없다. takeover/handback 전환 중 기존 owner와 takeover consumer가 잠시 공존할 가능성도 포함해 실제 staging에서 다음을 검증한다.
 
 - pod kill 후 takeover 지연
 - queue별 consumer 경합과 backlog
 - Redis 순간 지연 시 오판 방지
-- peer heartbeat가 흔들릴 때 takeover/handback 반복 여부
+- 연속 확인 debounce가 실제 네트워크/Redis 환경에서 flapping을 충분히 억제하는지, 25초 handback 지연이 운영상 허용 가능한지
 - rolling update 동안 안정성. 초기 기획의 “트래픽 무손실 graceful shutdown”은 heartbeat 즉시 삭제·명시적 handoff가 없는 현행 코드로 아직 보장되지 않음
 
 ### OI-14 durable queue stale backlog

@@ -28,7 +28,7 @@ class HeartbeatPropertiesTest {
     @Test
     @DisplayName("heartbeat가 비활성화되면 나머지 설정을 검증하지 않는다")
     void disabledConfigurationTest() {
-        HeartbeatProperties properties = new HeartbeatProperties(false, null, null, null, null);
+        HeartbeatProperties properties = new HeartbeatProperties(false, null, null, null, null, 0);
 
         assertDoesNotThrow(properties::validateConfiguration);
     }
@@ -43,7 +43,8 @@ class HeartbeatPropertiesTest {
                 engineId,
                 peerEngineId,
                 Duration.ofSeconds(5),
-                Duration.ofSeconds(15)
+                Duration.ofSeconds(15),
+                5
         );
 
         IllegalStateException exception = assertThrows(
@@ -67,7 +68,8 @@ class HeartbeatPropertiesTest {
                 "engine-a",
                 "engine-b",
                 refreshInterval,
-                Duration.ofSeconds(15)
+                Duration.ofSeconds(15),
+                5
         );
 
         IllegalStateException exception = assertThrows(
@@ -88,7 +90,8 @@ class HeartbeatPropertiesTest {
                 "engine-a",
                 "engine-b",
                 Duration.ofSeconds(5),
-                ttl
+                ttl,
+                5
         );
 
         IllegalStateException exception = assertThrows(
@@ -97,6 +100,28 @@ class HeartbeatPropertiesTest {
         );
 
         assertEquals("heartbeat TTL은 15초여야 합니다.", exception.getMessage());
+    }
+
+    // flapping 방지를 무력화하는 0 이하 값이 시작 단계에서 거부되는지 보장합니다.
+    @ParameterizedTest
+    @MethodSource("invalidRequiredConsecutiveUpChecks")
+    @DisplayName("복구 확인 연속 횟수는 1 이상이어야 한다")
+    void invalidRequiredConsecutiveUpChecksTest(int requiredConsecutiveUpChecks) {
+        HeartbeatProperties properties = new HeartbeatProperties(
+                true,
+                "engine-a",
+                "engine-b",
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(15),
+                requiredConsecutiveUpChecks
+        );
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                properties::validateConfiguration
+        );
+
+        assertEquals("복구 확인 연속 횟수는 1 이상이어야 합니다.", exception.getMessage());
     }
 
     // 여러 잘못된 엔진 ID 조합을 하나의 계약 테스트에 공급합니다.
@@ -122,6 +147,11 @@ class HeartbeatPropertiesTest {
         return Stream.of(null, Duration.ofSeconds(14), Duration.ofSeconds(16));
     }
 
+    // 0 이하의 연속 확인 횟수를 함께 검증하도록 입력을 모아줍니다.
+    private static Stream<Integer> invalidRequiredConsecutiveUpChecks() {
+        return Stream.of(0, -1);
+    }
+
     // 테스트마다 유효한 기본 설정을 반복하지 않도록 필요한 값만 받아 생성합니다.
     private HeartbeatProperties properties(
             boolean enabled,
@@ -135,7 +165,8 @@ class HeartbeatPropertiesTest {
                 engineId,
                 peerEngineId,
                 Duration.ofSeconds(refreshSeconds),
-                Duration.ofSeconds(ttlSeconds)
+                Duration.ofSeconds(ttlSeconds),
+                5
         );
     }
 }

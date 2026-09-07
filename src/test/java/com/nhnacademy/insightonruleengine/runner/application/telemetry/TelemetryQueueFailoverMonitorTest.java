@@ -38,8 +38,8 @@ class TelemetryQueueFailoverMonitorTest {
     @Mock
     private TelemetryListenerContainerManager listenerContainerManager;
 
-    private TelemetryRoutingProperties enabledRoutingProperties;
     private HeartbeatProperties enabledHeartbeatProperties;
+    private TelemetryQueueFailoverMonitor monitor;
     private Logger logger;
     private Level originalLevel;
     private boolean originalAdditive;
@@ -47,7 +47,7 @@ class TelemetryQueueFailoverMonitorTest {
 
     @BeforeEach
     void setUp() {
-        enabledRoutingProperties = new TelemetryRoutingProperties(
+        TelemetryRoutingProperties enabledRoutingProperties = new TelemetryRoutingProperties(
                 true,
                 "insighton.core.telemetry.exchange-v2",
                 "telemetry.",
@@ -59,7 +59,14 @@ class TelemetryQueueFailoverMonitorTest {
                 "engine-a",
                 "engine-b",
                 Duration.ofSeconds(5),
-                Duration.ofSeconds(15)
+                Duration.ofSeconds(15),
+                5
+        );
+        monitor = new TelemetryQueueFailoverMonitor(
+                engineHeartbeatService,
+                listenerContainerManager,
+                enabledRoutingProperties,
+                enabledHeartbeatProperties
         );
         logger = (Logger) LoggerFactory.getLogger(TelemetryQueueFailoverMonitor.class);
         originalLevel = logger.getLevel();
@@ -82,13 +89,6 @@ class TelemetryQueueFailoverMonitorTest {
     @Test
     @DisplayName("상대 Engine이 DOWN 상태이고 아직 인계 전이면 takeover를 호출합니다.")
     void peerDownTest() {
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
-                engineHeartbeatService,
-                listenerContainerManager,
-                enabledRoutingProperties,
-                enabledHeartbeatProperties
-        );
-
         when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.DOWN);
         when(listenerContainerManager.isTakingOver()).thenReturn(false);
 
@@ -99,34 +99,79 @@ class TelemetryQueueFailoverMonitorTest {
     }
 
     @Test
-    @DisplayName("상대 Engine이 복구(UP)되었고 현재 인계 중이면 handback을 호출합니다.")
-    void peerUpTest() {
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
-                engineHeartbeatService,
-                listenerContainerManager,
-                enabledRoutingProperties,
-                enabledHeartbeatProperties
-        );
-
+    @DisplayName("상대 Engine이 복구(UP)되어도 연속 5회 확인 전까지는 handback을 호출하지 않습니다.")
+    void peerUpDoesNotHandbackBeforeThresholdTest() {
         when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
         when(listenerContainerManager.isTakingOver()).thenReturn(true);
 
-        monitor.checkPeerStatus();
+        for (int i = 0; i < 4; i++) {
+            monitor.checkPeerStatus();
+        }
+
+        verify(listenerContainerManager, never()).handback();
+        verify(listenerContainerManager, never()).takeover();
+    }
+
+    @Test
+    @DisplayName("상대 Engine이 연속 5회 UP으로 확인되면 handback을 호출합니다.")
+    void peerUpHandbacksAfterConsecutiveChecksTest() {
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
+        when(listenerContainerManager.isTakingOver()).thenReturn(true);
+
+        for (int i = 0; i < 5; i++) {
+            monitor.checkPeerStatus();
+        }
 
         verify(listenerContainerManager).handback();
         verify(listenerContainerManager, never()).takeover();
     }
 
     @Test
-    @DisplayName("Redis 연결 장애 시에는 상대 장애로 오판하지 않고 takeover를 호출하지 않습니다.")
-    void redisFailureTest() {
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
-                engineHeartbeatService,
-                listenerContainerManager,
-                enabledRoutingProperties,
-                enabledHeartbeatProperties
+    @DisplayName("연속 확인 도중 DOWN이 한번이라도 섞이면(flapping) 카운트가 초기화됩니다.")
+    void peerFlappingResetsConsecutiveUpChecksTest() {
+        when(listenerContainerManager.isTakingOver()).thenReturn(true);
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(
+                EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP,
+                EngineStatus.DOWN,
+                EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP
         );
 
+        for (int i = 0; i < 9; i++) {
+            monitor.checkPeerStatus();
+        }
+
+        verify(listenerContainerManager, never()).handback();
+
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
+        monitor.checkPeerStatus();
+
+        verify(listenerContainerManager).handback();
+    }
+
+    @Test
+    @DisplayName("연속 확인 도중 하트비트 조회 실패가 섞이면 카운트가 초기화됩니다.")
+    void heartbeatCheckFailureResetsConsecutiveUpChecksTest() {
+        when(listenerContainerManager.isTakingOver()).thenReturn(true);
+        when(engineHeartbeatService.getEngineStatus())
+                .thenReturn(EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP)
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .thenReturn(EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP);
+
+        for (int i = 0; i < 9; i++) {
+            monitor.checkPeerStatus();
+        }
+
+        verify(listenerContainerManager, never()).handback();
+
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
+        monitor.checkPeerStatus();
+
+        verify(listenerContainerManager).handback();
+    }
+
+    @Test
+    @DisplayName("Redis 연결 장애 시에는 상대 장애로 오판하지 않고 takeover를 호출하지 않습니다.")
+    void redisFailureTest() {
         when(engineHeartbeatService.getEngineStatus()).thenThrow(
                 new RedisConnectionFailureException("Redis is unreachable")
         );
@@ -140,12 +185,6 @@ class TelemetryQueueFailoverMonitorTest {
     @Test
     @DisplayName("큐 인계 실패는 하트비트 실패와 구분하고 반복 오류를 억제합니다.")
     void takeoverFailureIsLoggedOnceAndRecoveryIsReported() {
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
-                engineHeartbeatService,
-                listenerContainerManager,
-                enabledRoutingProperties,
-                enabledHeartbeatProperties
-        );
         when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.DOWN);
         when(listenerContainerManager.isTakingOver()).thenReturn(false);
         doThrow(new IllegalStateException("RabbitMQ unavailable"))
@@ -182,12 +221,6 @@ class TelemetryQueueFailoverMonitorTest {
     @Test
     @DisplayName("반복된 하트비트 조회 실패의 마지막 문맥과 억제 횟수를 복구 로그에 남깁니다.")
     void heartbeatRecoveryIncludesSuppressedFailureContext() {
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
-                engineHeartbeatService,
-                listenerContainerManager,
-                enabledRoutingProperties,
-                enabledHeartbeatProperties
-        );
         when(engineHeartbeatService.getEngineStatus())
                 .thenThrow(new RedisConnectionFailureException("Redis unavailable"))
                 .thenThrow(new IllegalStateException("heartbeat read unavailable"))
@@ -221,14 +254,14 @@ class TelemetryQueueFailoverMonitorTest {
                 List.of(0, 2, 4, 6, 8, 10, 12, 14),
                 null
         );
-        TelemetryQueueFailoverMonitor monitor = new TelemetryQueueFailoverMonitor(
+        TelemetryQueueFailoverMonitor disabledMonitor = new TelemetryQueueFailoverMonitor(
                 engineHeartbeatService,
                 listenerContainerManager,
                 disabledRouting,
                 enabledHeartbeatProperties
         );
 
-        monitor.checkPeerStatus();
+        disabledMonitor.checkPeerStatus();
 
         verify(engineHeartbeatService, never()).getEngineStatus();
         verify(listenerContainerManager, never()).takeover();
