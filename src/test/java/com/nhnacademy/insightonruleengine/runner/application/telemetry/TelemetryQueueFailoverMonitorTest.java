@@ -149,6 +149,27 @@ class TelemetryQueueFailoverMonitorTest {
     }
 
     @Test
+    @DisplayName("연속 확인 도중 하트비트 조회 실패가 섞이면 카운트가 초기화됩니다.")
+    void heartbeatCheckFailureResetsConsecutiveUpChecksTest() {
+        when(listenerContainerManager.isTakingOver()).thenReturn(true);
+        when(engineHeartbeatService.getEngineStatus())
+                .thenReturn(EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP)
+                .thenThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .thenReturn(EngineStatus.UP, EngineStatus.UP, EngineStatus.UP, EngineStatus.UP);
+
+        for (int i = 0; i < 9; i++) {
+            monitor.checkPeerStatus();
+        }
+
+        verify(listenerContainerManager, never()).handback();
+
+        when(engineHeartbeatService.getEngineStatus()).thenReturn(EngineStatus.UP);
+        monitor.checkPeerStatus();
+
+        verify(listenerContainerManager).handback();
+    }
+
+    @Test
     @DisplayName("Redis 연결 장애 시에는 상대 장애로 오판하지 않고 takeover를 호출하지 않습니다.")
     void redisFailureTest() {
         when(engineHeartbeatService.getEngineStatus()).thenThrow(

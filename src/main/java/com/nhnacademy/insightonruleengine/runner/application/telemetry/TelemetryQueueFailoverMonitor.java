@@ -39,6 +39,7 @@ public class TelemetryQueueFailoverMonitor {
         }
         EngineStatus engineStatus = getPeerEngineStatus();
         if (engineStatus == null) {
+            consecutiveUpChecks = 0;
             return;
         }
         boolean takingOver = listenerContainerManager.isTakingOver();
