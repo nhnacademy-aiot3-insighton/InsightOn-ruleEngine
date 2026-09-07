@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 // 상대 Engine의 Redis Heartbeat 상태를 주기적으로 감시하여 상대 장애 시 큐 인계를,
 // 상대 복구 시 인계 큐 반환(Handback)을 수행합니다.
 // Redis 접속 장애 시에는 상대 장애로 오판하여 큐 인계를 시작하지 않도록 분리합니다.
+// 인계 시작은 즉시 수행하되, 반환은 heartbeat flapping으로 인한 잦은 인계/반환 반복을
+// 막기 위해 연속 UP 확인(rule-engine.heartbeat.required-consecutive-up-checks) 후에만 수행합니다.
 @Slf4j
 @Component
 @ConditionalOnBean({EngineHeartbeatService.class, TelemetryListenerContainerManager.class})
@@ -28,6 +30,7 @@ public class TelemetryQueueFailoverMonitor {
     private final HeartbeatProperties heartbeatProperties;
     private FailureState heartbeatCheckFailure;
     private FailureState queueTransitionFailure;
+    private int consecutiveUpChecks;
 
     @Scheduled(fixedDelayString = "${rule-engine.heartbeat.failover-check-interval:5000}")
     public void checkPeerStatus() {
@@ -38,9 +41,19 @@ public class TelemetryQueueFailoverMonitor {
         if (engineStatus == null) {
             return;
         }
-        if (engineStatus == EngineStatus.DOWN && !listenerContainerManager.isTakingOver()) {
-            transitionQueue("인계", listenerContainerManager::takeover);
-        } else if (engineStatus == EngineStatus.UP && listenerContainerManager.isTakingOver()) {
+        boolean takingOver = listenerContainerManager.isTakingOver();
+        if (engineStatus == EngineStatus.DOWN) {
+            consecutiveUpChecks = 0;
+            if (!takingOver) {
+                transitionQueue("인계", listenerContainerManager::takeover);
+            }
+            return;
+        }
+        if (!takingOver) {
+            return;
+        }
+        consecutiveUpChecks++;
+        if (consecutiveUpChecks >= heartbeatProperties.requiredConsecutiveUpChecks()) {
             transitionQueue("반환", listenerContainerManager::handback);
         }
     }

@@ -2,6 +2,7 @@ package com.nhnacademy.insightonruleengine.heartbeat;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "rule-engine.heartbeat")
 public record HeartbeatProperties(
@@ -9,7 +10,8 @@ public record HeartbeatProperties(
         String engineId,
         String peerEngineId,
         Duration refreshInterval,
-        Duration ttl
+        Duration ttl,
+        @DefaultValue("5") int requiredConsecutiveUpChecks
 ) {
     private static final Duration REQUIRED_REFRESH_INTERVAL = Duration.ofSeconds(5);
     private static final Duration REQUIRED_TTL = Duration.ofSeconds(15);
@@ -31,6 +33,9 @@ public record HeartbeatProperties(
         }
         if (!REQUIRED_TTL.equals(ttl)) {
             throw new IllegalStateException("heartbeat TTL은 15초여야 합니다.");
+        }
+        if (requiredConsecutiveUpChecks < 1) {
+            throw new IllegalStateException("복구 확인 연속 횟수는 1 이상이어야 합니다.");
         }
     }
 }
