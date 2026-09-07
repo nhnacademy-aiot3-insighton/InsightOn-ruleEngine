@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,7 +26,8 @@ import org.springframework.data.redis.core.ValueOperations;
 @ExtendWith(MockitoExtension.class)
 class RedisFlowDefinitionCacheTest {
 
-    private static final String KEY = "rule-engine:flow-route:1:10";
+    private static final String KEY = "rule-engine:v2:flow-route:1:10";
+    private static final String LEGACY_KEY = "rule-engine:flow-route:1:10";
 
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -48,6 +50,16 @@ class RedisFlowDefinitionCacheTest {
         when(valueOperations.get(KEY)).thenReturn(null);
 
         assertEquals(Optional.empty(), cache.find(1L, 10L));
+    }
+
+    @Test
+    void doesNotReadLegacyRouteSnapshot() {
+        when(valueOperations.get(KEY)).thenReturn(null);
+
+        assertEquals(Optional.empty(), cache.find(1L, 10L));
+
+        verify(valueOperations).get(KEY);
+        verify(valueOperations, never()).get(LEGACY_KEY);
     }
 
     @Test

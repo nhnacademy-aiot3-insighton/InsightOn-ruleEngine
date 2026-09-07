@@ -1,15 +1,13 @@
 package com.nhnacademy.insightonruleengine.flow.application.cleanup;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.nhnacademy.insightonruleengine.flow.domain.Flow;
 import com.nhnacademy.insightonruleengine.flow.domain.Node;
 import com.nhnacademy.insightonruleengine.flow.domain.NodeType;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRepository;
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.EventGateStateRedisRepository;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,7 +24,7 @@ public class FlowCleanupService {
     private final FlowRepository flowRepository;
     private final NodeRepository nodeRepository;
     private final ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
-    private final AlertCountRedisRepository alertCountRedisRepository;
+    private final EventGateStateRedisRepository eventGateStateRedisRepository;
     private final FlowCleanupDBService databaseCleanupService;
     private final ScheduleFlowScheduler scheduleFlowScheduler;
 
@@ -69,7 +67,7 @@ public class FlowCleanupService {
     }
 
     private void cleanupRuntime(List<Flow> flows, List<Node> nodes, Set<RouteKey> additionalRouteKeys) {
-        Map<Long, RuntimeStateNodeIds> runtimeStateNodeIds = collectRuntimeStateNodeIds(nodes);
+        Map<Long, Set<Long>> eventGateNodeIds = collectEventGateNodeIds(nodes);
         Set<RouteKey> routeKeys = new HashSet<>(additionalRouteKeys);
         for (Flow flow : flows) {
             routeKeys.add(new RouteKey(flow.getGroupId(), flow.getLocationId()));
@@ -77,63 +75,25 @@ public class FlowCleanupService {
         routeKeys.forEach(routeKey -> activeFlowDefinitionProvider.evictNow(routeKey.groupId(), routeKey.locationId()));
 
         for (Flow flow : flows) {
-            RuntimeStateNodeIds nodeIds = runtimeStateNodeIds.getOrDefault(
+            eventGateStateRedisRepository.deleteStates(
                     flow.getId(),
-                    RuntimeStateNodeIds.empty()
-            );
-            alertCountRedisRepository.deleteStates(
-                    flow.getId(),
-                    nodeIds.countNodeIds(),
-                    nodeIds.cooldownNodeIds()
+                    eventGateNodeIds.getOrDefault(flow.getId(), Set.of())
             );
         }
     }
 
-    private Map<Long, RuntimeStateNodeIds> collectRuntimeStateNodeIds(List<Node> nodes) {
-        Map<Long, MutableRuntimeStateNodeIds> mutableTargets = new HashMap<>();
+    private Map<Long, Set<Long>> collectEventGateNodeIds(List<Node> nodes) {
+        Map<Long, Set<Long>> mutableTargets = new HashMap<>();
         for (Node node : nodes) {
-            if (node.getNodeType() != NodeType.ALERT) {
-                continue;
-            }
-            JsonNode configuration = node.getConfiguration();
-            int requiredCount = configuration == null
-                    ? AlertParams.DEFAULT_REQUIRED_COUNT
-                    : configuration.path("requiredCount").asInt(AlertParams.DEFAULT_REQUIRED_COUNT);
-            int cooldownSeconds = configuration == null
-                    ? AlertParams.DEFAULT_COOLDOWN_SECONDS
-                    : configuration.path("cooldownSeconds").asInt(AlertParams.DEFAULT_COOLDOWN_SECONDS);
-            MutableRuntimeStateNodeIds target = mutableTargets.computeIfAbsent(
-                    node.getFlowId(),
-                    ignored -> new MutableRuntimeStateNodeIds()
-            );
-            if (requiredCount > 1) {
-                target.countNodeIds.add(node.getId());
-            }
-            if (cooldownSeconds > 0) {
-                target.cooldownNodeIds.add(node.getId());
+            if (node.getNodeType() == NodeType.EVENT_GATE) {
+                mutableTargets.computeIfAbsent(node.getFlowId(), ignored -> new HashSet<>())
+                        .add(node.getId());
             }
         }
 
-        Map<Long, RuntimeStateNodeIds> targets = new HashMap<>();
-        mutableTargets.forEach((flowId, nodeIds) -> targets.put(
-                flowId,
-                new RuntimeStateNodeIds(
-                        Set.copyOf(nodeIds.countNodeIds),
-                        Set.copyOf(nodeIds.cooldownNodeIds)
-                )
-        ));
+        Map<Long, Set<Long>> targets = new HashMap<>();
+        mutableTargets.forEach((flowId, nodeIds) -> targets.put(flowId, Set.copyOf(nodeIds)));
         return Map.copyOf(targets);
-    }
-
-    private static final class MutableRuntimeStateNodeIds {
-        private final Set<Long> countNodeIds = new HashSet<>();
-        private final Set<Long> cooldownNodeIds = new HashSet<>();
-    }
-
-    private record RuntimeStateNodeIds(Set<Long> countNodeIds, Set<Long> cooldownNodeIds) {
-        private static RuntimeStateNodeIds empty() {
-            return new RuntimeStateNodeIds(Set.of(), Set.of());
-        }
     }
 
     private record RouteKey(Long groupId, Long locationId) {

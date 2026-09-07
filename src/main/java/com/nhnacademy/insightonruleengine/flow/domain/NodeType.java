@@ -3,9 +3,9 @@ package com.nhnacademy.insightonruleengine.flow.domain;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.NodeParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.ActuatorControlParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.action.AlertParams;
+import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.EventGateParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.ThresholdParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimeWindowParams;
-import com.nhnacademy.insightonruleengine.flow.domain.node.params.filter.TimerParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.LocationParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.ScheduleParams;
 import com.nhnacademy.insightonruleengine.flow.domain.node.params.trigger.SensorParams;
@@ -21,7 +21,7 @@ public enum NodeType {
 
     THRESHOLD(Category.FILTER, ThresholdParams.class, PortSchema.booleanPorts()),
     TIME_WINDOW(Category.FILTER, TimeWindowParams.class, PortSchema.booleanPorts()),
-    TIMER(Category.FILTER, TimerParams.class, PortSchema.booleanPorts()),
+    EVENT_GATE(Category.FILTER, EventGateParams.class, PortSchema.booleanPorts()),
 
     ACTUATOR_CONTROL(Category.ACTION, ActuatorControlParams.class, PortSchema.terminal()),
     ALERT(Category.ACTION, AlertParams.class, PortSchema.terminal());

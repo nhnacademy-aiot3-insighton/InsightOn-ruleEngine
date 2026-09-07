@@ -17,7 +17,7 @@ import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.FlowRe
 import com.nhnacademy.insightonruleengine.flow.infrastructure.persistence.NodeRepository;
 import com.nhnacademy.insightonruleengine.runner.application.schedule.ScheduleFlowScheduler;
 import com.nhnacademy.insightonruleengine.runner.infrastructure.cache.ActiveFlowDefinitionProvider;
-import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.AlertCountRedisRepository;
+import com.nhnacademy.insightonruleengine.runner.infrastructure.persistence.redis.EventGateStateRedisRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +40,7 @@ class FlowCleanupServiceTest {
     @Mock
     private ActiveFlowDefinitionProvider activeFlowDefinitionProvider;
     @Mock
-    private AlertCountRedisRepository alertCountRedisRepository;
+    private EventGateStateRedisRepository eventGateStateRedisRepository;
     @Mock
     private FlowCleanupDBService databaseCleanupService;
     @Mock
@@ -54,7 +54,7 @@ class FlowCleanupServiceTest {
                 flowRepository,
                 nodeRepository,
                 activeFlowDefinitionProvider,
-                alertCountRedisRepository,
+                eventGateStateRedisRepository,
                 databaseCleanupService,
                 scheduleFlowScheduler
         );
@@ -66,13 +66,11 @@ class FlowCleanupServiceTest {
         Flow first = flow(100L, 10L, FlowStatus.ACTIVE);
         Flow second = flow(200L, 10L, FlowStatus.INACTIVE);
         Flow third = flow(300L, 20L, FlowStatus.ARCHIVED);
-        Node countAndCooldown = alertNode(1001L, 2);
-        Node cooldownOnly = alertNode(1002L, 1);
-        Node defaultCountAndCooldown = defaultAlertNode(1003L);
+        Node eventGate = eventGateNode(1004L);
         Node nonAlert = thresholdNode();
         when(flowRepository.findAllByGroupId(1L)).thenReturn(List.of(third, first, second));
         when(nodeRepository.findByFlowIdIn(List.of(100L, 200L, 300L)))
-                .thenReturn(List.of(countAndCooldown, cooldownOnly, defaultCountAndCooldown, nonAlert));
+                .thenReturn(List.of(eventGate, nonAlert));
         doAnswer(invocation -> {
             verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L, 300L));
             verify(activeFlowDefinitionProvider).evictNow(1L, 10L);
@@ -86,10 +84,9 @@ class FlowCleanupServiceTest {
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 20L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 30L);
-        verify(alertCountRedisRepository, times(2))
-                .deleteStates(100L, Set.of(1001L, 1003L), Set.of(1001L, 1002L, 1003L));
-        verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
-        verify(alertCountRedisRepository, times(2)).deleteStates(300L, Set.of(), Set.of());
+        verify(eventGateStateRedisRepository, times(2)).deleteStates(100L, Set.of(1004L));
+        verify(eventGateStateRedisRepository, times(2)).deleteStates(200L, Set.of());
+        verify(eventGateStateRedisRepository, times(2)).deleteStates(300L, Set.of());
 
         verify(databaseCleanupService).deleteByGroupId(1L);
         verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L, 300L));
@@ -113,8 +110,8 @@ class FlowCleanupServiceTest {
 
         verify(activeFlowDefinitionProvider, times(2)).evictNow(1L, 10L);
         verify(activeFlowDefinitionProvider, times(2)).evictNow(2L, 10L);
-        verify(alertCountRedisRepository, times(2)).deleteStates(100L, Set.of(), Set.of());
-        verify(alertCountRedisRepository, times(2)).deleteStates(200L, Set.of(), Set.of());
+        verify(eventGateStateRedisRepository, times(2)).deleteStates(100L, Set.of());
+        verify(eventGateStateRedisRepository, times(2)).deleteStates(200L, Set.of());
         verify(databaseCleanupService).deleteByLocationId(10L);
         verify(scheduleFlowScheduler).cancelAll(List.of(100L, 200L));
     }
@@ -168,7 +165,7 @@ class FlowCleanupServiceTest {
         cleanupService.cleanupByGroup(1L, List.of(10L));
 
         verify(activeFlowDefinitionProvider, times(3)).evictNow(1L, 10L);
-        verify(alertCountRedisRepository, times(3)).deleteStates(100L, Set.of(), Set.of());
+        verify(eventGateStateRedisRepository, times(3)).deleteStates(100L, Set.of());
         verify(databaseCleanupService, times(2)).deleteByGroupId(1L);
         verify(scheduleFlowScheduler, times(2)).cancelAll(List.of(100L));
     }
@@ -224,20 +221,15 @@ class FlowCleanupServiceTest {
         return flow;
     }
 
-    private Node alertNode(Long nodeId, int requiredCount) {
+    private Node eventGateNode(Long nodeId) {
         Node node = new Node(
                 100L,
-                NodeType.ALERT,
+                NodeType.EVENT_GATE,
                 JsonNodeFactory.instance.objectNode()
-                        .put("requiredCount", requiredCount)
+                        .put("requiredCount", 3)
+                        .put("countWindowSeconds", 300)
                         .put("cooldownSeconds", 30)
         );
-        ReflectionTestUtils.setField(node, "id", nodeId);
-        return node;
-    }
-
-    private Node defaultAlertNode(Long nodeId) {
-        Node node = new Node(100L, NodeType.ALERT, JsonNodeFactory.instance.objectNode());
         ReflectionTestUtils.setField(node, "id", nodeId);
         return node;
     }

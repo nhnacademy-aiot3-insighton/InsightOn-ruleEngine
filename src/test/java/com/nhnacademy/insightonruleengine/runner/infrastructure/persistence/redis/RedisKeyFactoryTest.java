@@ -44,11 +44,4 @@ class RedisKeyFactoryTest {
                 () -> keyFactory.scheduleExecution(1L, null));
     }
 
-    @Test
-    @DisplayName("Timer Key는 Node와 Location 조합을 구분한다")
-    void timerKeyTest() {
-        assertEquals("timer:100:20", keyFactory.timer(100L, 20L));
-        assertThrows(IllegalArgumentException.class, () -> keyFactory.timer(0L, 20L));
-        assertThrows(IllegalArgumentException.class, () -> keyFactory.timer(100L, null));
-    }
 }
