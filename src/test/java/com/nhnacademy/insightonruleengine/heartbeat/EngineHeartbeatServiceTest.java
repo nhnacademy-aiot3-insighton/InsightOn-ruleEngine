@@ -34,7 +34,8 @@ class EngineHeartbeatServiceTest {
                 ENGINE_ID,
                 PEER_ENGINE_ID,
                 Duration.ofSeconds(5),
-                TTL
+                TTL,
+                5
         );
         heartbeatService = new EngineHeartbeatService(heartbeatRepository, properties);
     }
