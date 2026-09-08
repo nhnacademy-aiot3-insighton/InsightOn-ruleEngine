@@ -1,0 +1,11 @@
+on:
+  pull_request:
+    branches: [ main, dev-deploy, dev ]
+    types: [ opened, review_requested ]
+jobs:
+  call-reusable:
+    uses: nhnacademy-aiot3-insighton/InsightOn-infra/.github/workflows/pr-telegram-notify.yml@main
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit

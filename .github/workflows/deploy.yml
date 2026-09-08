@@ -2,9 +2,9 @@ name: rule-engine CI/CD
 
 on:
   push:
-    branches: [main, dev-deploy, dev]
+    branches: [ main, dev-deploy, dev ]
   pull_request:
-    branches: [main, dev-deploy, dev]
+    branches: [ main, dev-deploy, dev ]
 
 jobs:
   call-reusable:
